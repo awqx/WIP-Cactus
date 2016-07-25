@@ -2,41 +2,38 @@ dataset <- readRDS(file = "~/SREP LAB/Rekharsky and Inoue/Cactus/RI.rds")
 source(file = "~/SREP LAB/Rekharsky and Inoue/Cactus/read_cactus.R")
 folder  <- "~/SREP LAB/Rekharsky and Inoue/Cactus/"
 
-alpha.guest <- unique(Dataset$guest[Dataset$host == "1α"])
+#fixed unicode to detect the characters alpha and beta
+#alpha == /u03b1, beta == \u03b2
+#changed values to all lowercase for ease of use
+alpha.guest <- unique(dataset$guest[dataset$host == "1\u03b1"])
 
-beta.guest  <- unique(Dataset$guest[Dataset$host == "1β"])
+beta.guest  <- unique(dataset$guest[dataset$host == "1\u03b2"])
 
-gamma.guest <- unique(Dataset$guest[Dataset$host == "1γ"])
+gamma.guest <- unique(dataset$guest[dataset$host == "1γ"])
 
 download_cactus <- function(guest, host, path, chemical.format) {
-  host.directory <- paste0(path , host)
+  host.directory <- paste0(path, host)
   dir.create(path = host.directory)
   destfile       <- paste0(host.directory, "/", guest, ".SDF")
   # Chemical format must be parsed to match all the outputs from NCI cactus
   Guest.URL      <- unlist(lapply(guest, URLencode, reserved = T))
   URL            <-
     paste0(
-      "https://cactus.nci.nih.gov/chemical/structure/"
-      ,
+      "https://cactus.nci.nih.gov/chemical/structure",
       Guest.URL,
       "/",
       chemical.format
     )
   #Map(download.file, url = URL, destfile = destfile, method = "curl")
   report         <- read_cactus(URL, destfile)
-  files.written  <- list.files(path = destfile, pattern = ".SDF",)
-  lapply(files.written,
-         str_extract,
-         pattern = "\\.SDF",
-         replacement = "")
+  files.written  <- list.files(path = destfile, pattern = ".SDF")
+  lapply(files.written, str_extract, pattern = "\\.SDF", replacement = "")
   return(report)
 }
 
 filter_filesize <- function(path, pattern, size, logical) {
-  filenames <- list.files(path = path, pattern = pattern, )
-  location  <- dir(path = path,
-                   full.names = T,
-                   recursive = T)
+  filenames <- list.files(path = path, pattern = pattern)
+  location  <- dir(path = path, full.names = T, recursive = T)
   data      <- file.info(paste0(path, "/", filenames))[1]
   index     <- eval(call(logical, data, size))
   return(data.frame(
@@ -47,7 +44,7 @@ filter_filesize <- function(path, pattern, size, logical) {
 }
 
 download_cactus(
-  guest = Gamma.Guest,
+  guest = gamma.guest,
   host = "GammaCD",
   path = folder,
   chemical.format = "SDF"
@@ -122,7 +119,7 @@ Empty.Gamma$molecule <- str_replace(
   )
   
   download_cactus(
-    guest = Alpha.Guest,
+    guest = alpha.guest,
     host = "AlphaCD",
     path = folder,
     chemical.format = "SDF"
