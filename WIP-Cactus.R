@@ -4,7 +4,7 @@ folder  <- "~/SREP LAB/Rekharsky and Inoue/Cactus/"
 
 #fixed unicode to detect the characters alpha and beta
 #alpha == /u03b1, beta == \u03b2
-#changed values to all lowercase for ease of use
+#changed values to all lowercase for style and ease of use
 alpha.guest <- unique(dataset$guest[dataset$host == "1\u03b1"])
 
 beta.guest  <- unique(dataset$guest[dataset$host == "1\u03b2"])
@@ -51,11 +51,11 @@ download_cactus(
 )
 
 Empty.Gamma <- filter_filesize(
-    path = "~SREP LAB/Cactus/Gamma.Guest/",
-    pattern = "SDF",
-    size = 100,
-    logical = "<"
-  )
+  path = "~SREP LAB/Cactus/Gamma.Guest/",
+  pattern = "SDF",
+  size = 100,
+  logical = "<"
+)
 
 file.remove(Empty.Gamma$filepath)
 
@@ -69,95 +69,95 @@ Empty.Gamma$molecule <- str_replace(
     )
 )
 #Added a bracket that was messing up all the code after it
-  download_cactus(
-    guest = Empty.Gamma$molecule,
-    host = "BetaCD",
-    path = folder,
-    chemical.format = "SDF"
-  )
-  
-  Empty.Beta <-
-    filter_filesize(
-      path = "~SREP LAB/Cactus/Beta.Guest",
-      pattern = "SDF",
-      size = 700,
-      logical = "<"
-    )
-  
-  file.remove(Empty.Beta$filepath)
-  saveRDS(Empty.Beta, file = "Desktop/Postdoctoral Research/Rekharsky and Inoue/Beta.Guest/empty_beta_sdfiles.RDS")
-  
-  
-  Empty.Beta$molecule <-
-    str_replace(
-      string = Empty.Beta$molecule,
-      pattern = "\\β",
-      replacement = "beta"
-    )
-  Empty.Beta$molecule <-
-    str_replace(
-      string = Empty.Beta$molecule,
-      pattern = "\\α",
-      replacement = "alpha"
-    )
-  Empty.Beta$molecule <-
-    str_replace(
-      string = Empty.Beta$molecule,
-      pattern =  "\\(\\-*\\±*[0-9A-Z]*\\,*
-      [0-9A-Z]*\\)\\-\\(*\\+*\\-*\\)*\\-*|nor(?!t)|
-      \\([a-z]*\\,*\\s*[a-z]*(I[0-9]\\-)*\\)"
-      ,
-      replacement = ""
+download_cactus(
+  guest = Empty.Gamma$molecule,
+  host = "BetaCD",
+  path = folder,
+  chemical.format = "SDF"
 )
-  
-  
-  download_cactus(
-    guest = Empty.Beta$molecule,
-    host = "Beta.Guest",
-    path = folder,
-    chemical.format = "SDF"
-  )
-  
-  download_cactus(
-    guest = alpha.guest,
-    host = "AlphaCD",
-    path = folder,
-    chemical.format = "SDF"
-  )
-  Empty.Alpha <- filter_filesize(
-    path = "Desktop/Postdoctoral Research/Rekharsky and Inoue/AlphaCD",
+
+Empty.Beta <-
+  filter_filesize(
+    path = "~SREP LAB/Cactus/Beta.Guest",
     pattern = "SDF",
-    size = 100,
+    size = 700,
     logical = "<"
   )
-  file.remove(Empty.Alpha$filepath)
-  
-  Empty.Alpha$molecule <-
-    str_replace(
-      string = Empty.Alpha$molecule,
-      pattern =  "\\(\\-*\\±*[0-9A-Z]*\\,*[0-9A-Z]*\\)\\-\\(*\\+*\\-*\\)*\\-*|nor(?!t)|\\([a-z]*\\,*\\s*[a-z]*(I[0-9]\\-)*\\)",
-      replacement = ""
-    )
-  Empty.Alpha$molecule <-
-    str_replace(
-      string = Empty.Alpha$molecule,
-      pattern = "\\β",
-      replacement = "beta"
-    )
-  Empty.Alpha$molecule <-
-    str_replace(
-      string = Empty.Alpha$molecule,
-      pattern = "\\α",
-      replacement = "alpha"
-    )
-  
-  download_cactus(
-    guest = Empty.Alpha$molecule,
-    host = "AlphaCD",
-    path = folder,
-    chemical.format = "SDF"
+
+file.remove(Empty.Beta$filepath)
+saveRDS(Empty.Beta, file = "Desktop/Postdoctoral Research/Rekharsky and Inoue/Beta.Guest/empty_beta_sdfiles.RDS")
+
+
+Empty.Beta$molecule <-
+  str_replace(
+    string = Empty.Beta$molecule,
+    pattern = "\\β",
+    replacement = "beta"
   )
-  
-  SDFlist <-
-    list.files(path = paste0(folder, "Gamma.Guest"), pattern = "SDF"
+Empty.Beta$molecule <-
+  str_replace(
+    string = Empty.Beta$molecule,
+    pattern = "\\α",
+    replacement = "alpha"
+  )
+Empty.Beta$molecule <-
+  str_replace(
+    string = Empty.Beta$molecule,
+    pattern =  "\\(\\-*\\±*[0-9A-Z]*\\,*
+    [0-9A-Z]*\\)\\-\\(*\\+*\\-*\\)*\\-*|nor(?!t)|
+    \\([a-z]*\\,*\\s*[a-z]*(I[0-9]\\-)*\\)"
+    ,
+    replacement = ""
     )
+
+
+download_cactus(
+  guest = Empty.Beta$molecule,
+  host = "Beta.Guest",
+  path = folder,
+  chemical.format = "SDF"
+)
+
+download_cactus(
+  guest = alpha.guest,
+  host = "AlphaCD",
+  path = folder,
+  chemical.format = "SDF"
+)
+Empty.Alpha <- filter_filesize(
+  path = "Desktop/Postdoctoral Research/Rekharsky and Inoue/AlphaCD",
+  pattern = "SDF",
+  size = 100,
+  logical = "<"
+)
+file.remove(Empty.Alpha$filepath)
+
+Empty.Alpha$molecule <-
+  str_replace(
+    string = Empty.Alpha$molecule,
+    pattern =  "\\(\\-*\\±*[0-9A-Z]*\\,*[0-9A-Z]*\\)\\-\\(*\\+*\\-*\\)*\\-*|nor(?!t)|\\([a-z]*\\,*\\s*[a-z]*(I[0-9]\\-)*\\)",
+    replacement = ""
+  )
+Empty.Alpha$molecule <-
+  str_replace(
+    string = Empty.Alpha$molecule,
+    pattern = "\\β",
+    replacement = "beta"
+  )
+Empty.Alpha$molecule <-
+  str_replace(
+    string = Empty.Alpha$molecule,
+    pattern = "\\α",
+    replacement = "alpha"
+  )
+
+download_cactus(
+  guest = Empty.Alpha$molecule,
+  host = "AlphaCD",
+  path = folder,
+  chemical.format = "SDF"
+)
+
+SDFlist <-
+  list.files(path = paste0(folder, "Gamma.Guest"), pattern = "SDF"
+  )
