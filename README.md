@@ -1,8 +1,6 @@
 # WIP-Cactus
 ##Current Issues
-1. Unable to access SDF files from cactus.nci.nih.gov/chemical/structure
-⋅⋅⋅URL caused a warning: https://cactus.nci.nih.gov/chemical/structure/1-adamantaneacetate/SDF
-⋅⋅⋅This is repeated for every single chemical structure
+1. Unable to access SDF files from cactus.nci.nih.gov/chemical/structure. The error given is "URL caused a warning: https://cactus.nci.nih.gov/chemical/structure/[the chemical]/SDF
 2. Need a more universal file path
 
 ##Solved Issues
