@@ -6,5 +6,5 @@
 ##Solved Issues
 1. Tildes in the file path makes it a little easier to use
 2. Fixed detection of Greek characters (like alpha and beta)
-3. Minor reformatting
-4. Fixed unmatches brackets
+3. Reformatting
+4. Matched unmatched brackets
