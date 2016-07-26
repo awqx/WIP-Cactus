@@ -1,10 +1,14 @@
 # WIP-Cactus
 ##Current Issues
-1. Unable to access SDF files from cactus.nci.nih.gov/chemical/structure. The error given is "URL caused a warning: https://cactus.nci.nih.gov/chemical/structure/[the chemical]/SDF
-2. Need a more universal file path
+1. Need a more universal file path
+2. Lack of understanding as to the purpose of several areas
 
 ##Solved Issues
 1. Tildes in the file path makes it a little easier to use
 2. Fixed detection of Greek characters (like alpha and beta)
-3. Reformatting
+3. Reformatting -- breaking lines that are too long, renaming variables, etc.
 4. Matched unmatched brackets
+5. Solved issue with accessing SDF files from cactus.nci.nih.gov/chemical/structure
+
+##Added Code
+1. Compiling multiple SDFs into 1 file
