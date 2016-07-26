@@ -1,9 +1,19 @@
+#adding some packages
+install.packages("stringr")
+library("stringr")
+install.packages("dplyr")
+library("dplyr")
+
+#Tilde on the file path
 dataset <- readRDS(file = "~/SREP LAB/Rekharsky and Inoue/Cactus/RI.rds")
+#There's a small typo in row 1081, column "guest"
+#This will matter at the download_cactus stage
+dataset[1081, "guest"] <- "4-[(4-hydroxyphenyl)azo]benzoate"
 source(file = "~/SREP LAB/Rekharsky and Inoue/Cactus/read_cactus.R")
 folder  <- "~/SREP LAB/Rekharsky and Inoue/Cactus/"
 
 #fixed unicode to detect the characters alpha and beta
-#alpha == /u03b1, beta == \u03b2
+#alpha == \u03b1, beta == \u03b2
 #changed values to all lowercase for style and ease of use
 alpha.guest <- unique(dataset$guest[dataset$host == "1\u03b1"])
 
@@ -17,14 +27,12 @@ download_cactus <- function(guest, host, path, chemical.format) {
   destfile       <- paste0(host.directory, "/", guest, ".SDF")
   # Chemical format must be parsed to match all the outputs from NCI cactus
   Guest.URL      <- unlist(lapply(guest, URLencode, reserved = T))
-  URL            <-
-    paste0(
-      "https://cactus.nci.nih.gov/chemical/structure",
-      Guest.URL,
-      "/",
-      chemical.format
+  URL            <- paste0(
+      "https://cactus.nci.nih.gov/chemical/structure/",
+      Guest.URL, "/", chemical.format
     )
-  #Map(download.file, url = URL, destfile = destfile, method = "curl")
+  #Removed method = "curl" from Map, fixed nonzero exit status error when downloading
+  Map(download.file, url = URL, destfile = destfile)
   report         <- read_cactus(URL, destfile)
   files.written  <- list.files(path = destfile, pattern = ".SDF")
   lapply(files.written, str_extract, pattern = "\\.SDF", replacement = "")
@@ -40,7 +48,8 @@ filter_filesize <- function(path, pattern, size, logical) {
     filepath = location[index],
     molecule = filenames[index],
     stringsAsFactors = F
-  ))
+    )
+  )
 }
 
 download_cactus(
@@ -49,60 +58,66 @@ download_cactus(
   path = folder,
   chemical.format = "SDF"
 )
+#Cactus can't ID the last 3 gamma.guests:
+#cis-1,2,3,4-tetraphenylcyclobutane, trans-1,2,3,4-tetraphenylcyclobutane
+#and a-(2,4,6-trimethoxyphenyl)benzyl tert-butyl nitroxide
 
-Empty.Gamma <- filter_filesize(
-  path = "~SREP LAB/Cactus/Gamma.Guest/",
+empty.gamma <- filter_filesize(
+  path = "~/SREP LAB/Rekharsky and Inoue/Cactus/GammaCD",
   pattern = "SDF",
   size = 100,
   logical = "<"
 )
 
-file.remove(Empty.Gamma$filepath)
+file.remove(empty.gamma$filepath)
 
-Empty.Gamma$molecule <- str_replace(
-  string = Empty.Gamma$molecule,
-  Empty.Gamma$molecule <-
-    str_replace(
-      string = Empty.Gamma$molecule,
-      pattern = "\\α",
-      replacement = "alpha"
-    )
+#Removed redundancy in the code
+#I don't know why this step even exists 
+#b/c it replaces something that was removed last step
+empty.gamma$molecule <- str_replace(
+  string      = empty.gamma$molecule,
+  pattern     = "\\α",
+  replacement = "alpha"
 )
-#Added a bracket that was messing up all the code after it
+
+#changed guest from empty.gamma$molecule to beta.guest
+#b/c I thought that made more sense
+#don't actually know if that was the goal
 download_cactus(
-  guest = Empty.Gamma$molecule,
+  guest = beta.guest,
   host = "BetaCD",
   path = folder,
   chemical.format = "SDF"
 )
 
-Empty.Beta <-
+empty.beta <-
   filter_filesize(
-    path = "~SREP LAB/Cactus/Beta.Guest",
+    path = "~SREP LAB/Cactus/BetaCD",
     pattern = "SDF",
     size = 700,
     logical = "<"
   )
 
-file.remove(Empty.Beta$filepath)
-saveRDS(Empty.Beta, file = "Desktop/Postdoctoral Research/Rekharsky and Inoue/Beta.Guest/empty_beta_sdfiles.RDS")
+file.remove(empty.beta$filepath)
+
+saveRDS(empty.beta, file = "Desktop/Postdoctoral Research/Rekharsky and Inoue/Beta.Guest/empty_beta_sdfiles.RDS")
 
 
-Empty.Beta$molecule <-
+empty.beta$molecule <-
   str_replace(
-    string = Empty.Beta$molecule,
+    string = empty.beta$molecule,
     pattern = "\\β",
     replacement = "beta"
   )
-Empty.Beta$molecule <-
+empty.beta$molecule <-
   str_replace(
-    string = Empty.Beta$molecule,
+    string = empty.beta$molecule,
     pattern = "\\α",
     replacement = "alpha"
   )
-Empty.Beta$molecule <-
+empty.beta$molecule <-
   str_replace(
-    string = Empty.Beta$molecule,
+    string = empty.beta$molecule,
     pattern =  "\\(\\-*\\±*[0-9A-Z]*\\,*
     [0-9A-Z]*\\)\\-\\(*\\+*\\-*\\)*\\-*|nor(?!t)|
     \\([a-z]*\\,*\\s*[a-z]*(I[0-9]\\-)*\\)"
@@ -112,7 +127,7 @@ Empty.Beta$molecule <-
 
 
 download_cactus(
-  guest = Empty.Beta$molecule,
+  guest = empty.beta$molecule,
   host = "Beta.Guest",
   path = folder,
   chemical.format = "SDF"
@@ -124,40 +139,57 @@ download_cactus(
   path = folder,
   chemical.format = "SDF"
 )
-Empty.Alpha <- filter_filesize(
+empty.alpha <- filter_filesize(
   path = "Desktop/Postdoctoral Research/Rekharsky and Inoue/AlphaCD",
   pattern = "SDF",
   size = 100,
   logical = "<"
 )
-file.remove(Empty.Alpha$filepath)
+file.remove(empty.alpha$filepath)
 
-Empty.Alpha$molecule <-
+empty.alpha$molecule <-
   str_replace(
-    string = Empty.Alpha$molecule,
+    string = empty.alpha$molecule,
     pattern =  "\\(\\-*\\±*[0-9A-Z]*\\,*[0-9A-Z]*\\)\\-\\(*\\+*\\-*\\)*\\-*|nor(?!t)|\\([a-z]*\\,*\\s*[a-z]*(I[0-9]\\-)*\\)",
     replacement = ""
   )
-Empty.Alpha$molecule <-
+empty.alpha$molecule <-
   str_replace(
-    string = Empty.Alpha$molecule,
+    string = empty.alpha$molecule,
     pattern = "\\β",
     replacement = "beta"
   )
-Empty.Alpha$molecule <-
+empty.alpha$molecule <-
   str_replace(
-    string = Empty.Alpha$molecule,
+    string = empty.alpha$molecule,
     pattern = "\\α",
     replacement = "alpha"
   )
 
 download_cactus(
-  guest = Empty.Alpha$molecule,
+  guest = empty.alpha$molecule,
   host = "AlphaCD",
   path = folder,
   chemical.format = "SDF"
 )
 
-SDFlist <-
-  list.files(path = paste0(folder, "Gamma.Guest"), pattern = "SDF"
-  )
+sdf.list <-
+  list.files(path = paste0(folder, "GammaCD"), pattern = "SDF"
+  ) 
+
+#Combining all the SDF files in Gamma CD into one file
+#So far only applies to the gamma CDs
+#Not sure if properly translates to PyRx, but the .txt file looks
+folder.gammacd <- paste0(folder, "GammaCD/")
+sdf.files <- c(paste0(folder.gammacd, sdf.list))
+all.sdf <- lapply(sdf.files, read.table, header = FALSE, sep = "\t")
+all.sdf <- bind_rows(all.sdf)
+write.table(
+  all.sdf,
+  file = paste0(folder.gammacd, "allgamma.SDF"),
+  append = TRUE,
+  sep = "\t",
+  row.names = FALSE,
+  col.names = FALSE,
+  quote = FALSE
+)
