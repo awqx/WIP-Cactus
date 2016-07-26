@@ -1,7 +1,7 @@
 # WIP-Cactus
 ##Current Issues
-1. Need a more universal file path
-2. Lack of understanding as to the purpose of several areas
+1. Function download_cactus fails when encountering an error -- this is a large issue when dealing with hundred of variables
+2. Universal file path needed
 
 ##Solved Issues
 1. Tildes in the file path makes it a little easier to use
