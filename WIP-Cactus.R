@@ -19,7 +19,6 @@ dataset[c(142, 143, 727, 728), "guest"] <-
   "[(1R,2S)-1-hydroxy-1-phenylpropan-2-yl]-methylazanium"
 dataset[c(144, 145, 729, 730), "guest"] <-
   "[(1S,2R)-1-hydroxy-1-phenylpropan-2-yl]-methylazanium"
-alpha.guest <- unique(dataset$guest[dataset$host == "1\u03b1"])
 
 source(file = "~/SREP LAB/Rekharsky and Inoue/Cactus/read_cactus.R")
 folder  <- "~/SREP LAB/Rekharsky and Inoue/Cactus/"
@@ -34,6 +33,9 @@ gamma.guest <- unique(dataset$guest[dataset$host == "1γ"])
 
 # Cactus is a chemical identifier resolver and can be used
 # to find and download SD files used by PyRx
+# Solution to function inspired by hfty's answer to
+# http://stackoverflow.com/questions/33423725/
+# using-trycatch-to-populate-a-data-frame-inside-a-loop-nicely
 
 download.cactus.results <- function(guest, path, chemical.format) {
   report <- tryCatch({
@@ -47,12 +49,6 @@ download.cactus.results <- function(guest, path, chemical.format) {
       chemical.format
     )
     Map(download.file, url = URL, destfile = destfile)
-    report         <- read_cactus(URL, destfile)
-    files.written  <- list.files(path = destfile, pattern = ".SDF")
-    lapply(files.written,
-           str_extract,
-           pattern = "\\.SDF",
-           replacement = "")
     data.frame(
       guest = guest,
       downloaded = "yes",
@@ -61,22 +57,14 @@ download.cactus.results <- function(guest, path, chemical.format) {
     )
   },
   warning = function(warn) {
-    message("probably something irrelevant,
-            like the directory already existing")
+    message("Warning: either URL error or already existing directory.")
+    destfile       <- paste0(path, "/", guest, ".SDF")
     Guest.URL      <- unlist(lapply(guest, URLencode, reserved = T))
     URL            <- paste0(
       "https://cactus.nci.nih.gov/chemical/structure/",
-      Guest.URL,
-      "/",
-      chemical.format
+      Guest.URL, "/", chemical.format
     )
     Map(download.file, url = URL, destfile = destfile)
-    report         <- read_cactus(URL, destfile)
-    files.written  <- list.files(path = destfile, pattern = ".SDF")
-    lapply(files.written,
-           str_extract,
-           pattern = "\\.SDF",
-           replacement = "")
     data.frame(
       guest = guest,
       downloaded = "yes",
@@ -85,13 +73,14 @@ download.cactus.results <- function(guest, path, chemical.format) {
     )
   },
   error = function(err) {
-    report         <- read_cactus(URL, destfile)
+    message("An error occurred")
     data.frame(
       guest = guest,
       downloaded = "no",
       warning = "yes",
       error = "yes"
     )
+    
   },
   finally = {
     message("Chemical name processed")
@@ -127,6 +116,7 @@ create.host.dir <- function(path, host) {
 #--------------------------------------
 
 gamma.dest <- create.host.dir(folder, "GammaCD")
+
 results.gamma <-
   do.call(
     rbind,
@@ -154,18 +144,24 @@ empty.gamma$molecule <- str_replace(string      = empty.gamma$molecule,
                                     pattern     = "\\α",
                                     replacement = "alpha")
 
-download_cactus(
-  guest = empty.gamma$molecule,
-  host = "GammaCD",
-  path = folder,
-  chemical.format = "SDF"
-)
+# Still don't know what to do with these
+results.empty.gamma <-
+  do.call(
+    rbind,
+    lapply(
+      empty.gamma$molecule,
+      download.cactus.results,
+      path = gamma.dest,
+      chemical.format = "SDF"
+    )
+  )
 
+gamma.comb <- rbind(results.empty.gamma, results.gamma)
 
 #--------------------------------------
 #         Downloading Beta
 #--------------------------------------
-
+# Expect this step to take a while, depending on speed of internet and computer
 beta.dest <- create.host.dir(folder, "BetaCD")
 
 results.beta <-
@@ -183,15 +179,15 @@ empty.beta <-
   filter_filesize(
     path = beta.dest,
     pattern = "SDF",
-    size = 700,
+    size = 100,
     logical = "<"
   )
 
 file.remove(empty.beta$filepath)
 
-saveRDS(empty.beta, file = "Desktop/Postdoctoral Research/Rekharsky and Inoue/Beta.Guest/empty_beta_sdfiles.RDS")
+saveRDS(empty.beta, file = paste0(beta.dest, "/empty_beta_sdfiles.RDS"))
 
-
+# Trying to modify failed downloads to work properly
 empty.beta$molecule <-
   str_replace(string = empty.beta$molecule,
               pattern = "\\β",
@@ -205,24 +201,31 @@ empty.beta$molecule <-
 empty.beta$molecule <-
   str_replace(
     string = empty.beta$molecule,
-    pattern =  "\\(\\-*\\±*[0-9A-Z]*\\,*
+    pattern =  "\\(\\-*±*[0-9A-Z]*,*
     [0-9A-Z]*\\)\\-\\(*\\+*\\-*\\)*\\-*|nor(?!t)|
     \\([a-z]*\\,*\\s*[a-z]*(I[0-9]\\-)*\\)"
     ,
     replacement = ""
     )
 
+beta.dest.2 <- create.host.dir(paste0(beta.dest), "/2nd.Try")
 
-download_cactus(
-  guest = empty.beta$molecule,
-  host = "Beta.Guest",
-  path = folder,
-  chemical.format = "SDF"
+results.beta.2 <- do.call(
+  rbind,
+  lapply(
+    empty.beta$molecule,
+    download.cactus.results,
+    path = beta.dest.2,
+    chemical.format = "SDF"
+  )
 )
+# Nothing changed. Maybe remove this step?
 
 #--------------------------------------
 #          Download Alpha
 #--------------------------------------
+# Sometimes the code generates a table of just errors, even
+# if the moleules download correctly
 alpha.dest <- create.host.dir(folder, "AlphaCD")
 
 results.alpha <-
@@ -237,12 +240,17 @@ results.alpha <-
   )
 
 empty.alpha <- filter_filesize(
-  path = "Desktop/Postdoctoral Research/Rekharsky and Inoue/AlphaCD",
+  path = alpha.dest,
   pattern = "SDF",
   size = 100,
   logical = "<"
 )
+
 file.remove(empty.alpha$filepath)
+
+empty.alpha.backup <- empty.alpha
+
+saveRDS(empty.alpha, file = paste0(alpha.dest, "/empty_alpha_sdfiles.RDS"))
 
 empty.alpha$molecule <-
   str_replace(string = empty.alpha$molecule,
@@ -266,18 +274,30 @@ download_cactus(
   chemical.format = "SDF"
 )
 
+alpha.dest.2 <- create.host.dir(paste0(alpha.dest), "/2nd.Try")
+
+results.alpha.2 <- do.call(
+  rbind,
+  lapply(
+    empty.alpha$molecule,
+    download.cactus.results,
+    path = alpha.dest.2,
+    chemical.format = "SDF"
+  )
+)
+
 # Combining all the SDF files in Gamma CD into one file.
 # So far only applies to the gamma CDs.
 # Not sure if properly translates to PyRx
-sdf.list <-
+gamma.list <-
   list.files(path = gamma.dest, pattern = "SDF")
 
 folder.gammacd <- paste0(folder, "GammaCD/")
 sdf.files <- c(paste0(folder.gammacd, sdf.list))
-all.sdf <- lapply(sdf.files, read.table, header = FALSE, sep = "\t")
-all.sdf <- bind_rows(all.sdf)
+all.gamma <- lapply(sdf.files, read.table, header = FALSE, sep = "\t")
+all.gamma <- bind_rows(all.sdf)
 write.table(
-  all.sdf,
+  all.gamma,
   file = paste0(folder.gammacd, "allgamma.SDF"),
   append = TRUE,
   sep = "\t",
