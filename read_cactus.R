@@ -7,9 +7,9 @@ read_cactus <- function(URL, destfile) {
         # 'tryCatch()' will return the last evaluated expression 
         # in case the "try" part was completed successfully
         
-        message("This is the 'try' part")
+        message("Trying URL")
         #readLines(con = URL,warn = FALSE) # 1st approach
-         Map(download.file, url = URL, destfile = destfile, method = "curl") #2nd approach
+         Map(download.file, url = URL, destfile = destfile) #2nd approach
         # The return value of `Map()` is the actual value 
         # that will be returned in case there is no condition 
         # (e.g. warning or error). 
@@ -19,14 +19,14 @@ read_cactus <- function(URL, destfile) {
 },
 error=function(cond) {
         message(paste("URL does not seem to exist:", URL))
-        message("Here's the original error message:")
+        message("Original error message:")
         message(cond)
         # Choose a return value in case of error
         return(NA)
 },
 warning=function(cond) {
         message(paste("URL caused a warning:", URL))
-        message("Here's the original warning message:")
+        message("Original Warning message:")
         message(cond)
         # Choose a return value in case of warning
         return(NULL)
