@@ -128,6 +128,13 @@ results.gamma <-
     )
   )
 
+results.all <- create.host.dir(folder, "Download Results")
+
+saveRDS(results.gamma, file = paste0(results.all, "/results.gamma.RDS"))
+
+success.gamma <- results.gamma[results.gamma$downloaded == "yes", ]
+
+fail.gamma <- results.gamma[results.gamma$downloaded == "no", ]
 
 empty.gamma <- filter_filesize(
   path = gamma.dest,
@@ -135,6 +142,8 @@ empty.gamma <- filter_filesize(
   size = 100,
   logical = "<"
 )
+
+saveRDS(empty.gamma, file = paste0(results.all, "/empty_gamma_sdfiles.RDS"))
 
 file.remove(empty.gamma$filepath)
 
@@ -185,6 +194,8 @@ empty.beta <-
 
 file.remove(empty.beta$filepath)
 
+saveRDS(results.beta, file = paste0(gamma.dest, "/results.beta.RDS"))
+
 saveRDS(empty.beta, file = paste0(beta.dest, "/empty_beta_sdfiles.RDS"))
 
 # Trying to modify failed downloads to work properly
@@ -220,7 +231,6 @@ results.beta.2 <- do.call(
   )
 )
 # Nothing changed. Maybe remove this step?
-
 #--------------------------------------
 #          Download Alpha
 #--------------------------------------
@@ -239,6 +249,10 @@ results.alpha <-
     )
   )
 
+success.alpha <- results.alpha[results.alpha$downloaded == "yes", ]
+
+fail.alpha <- results.alpha[results.alpha$downloaded == "no", ]
+
 empty.alpha <- filter_filesize(
   path = alpha.dest,
   pattern = "SDF",
@@ -248,7 +262,7 @@ empty.alpha <- filter_filesize(
 
 file.remove(empty.alpha$filepath)
 
-empty.alpha.backup <- empty.alpha
+saveRDS(results.alpha, file = paste0(alpha.dest, "/results.alpha.RDS"))
 
 saveRDS(empty.alpha, file = paste0(alpha.dest, "/empty_alpha_sdfiles.RDS"))
 
@@ -286,22 +300,76 @@ results.alpha.2 <- do.call(
   )
 )
 
-# Combining all the SDF files in Gamma CD into one file.
-# So far only applies to the gamma CDs.
-# Not sure if properly translates to PyRx
+# Combining all the SDF files into one file
+# For Gamma
+all.sdf <- create.host.dir(folder, "All.SDF")
 gamma.list <-
   list.files(path = gamma.dest, pattern = "SDF")
 
-folder.gammacd <- paste0(folder, "GammaCD/")
-sdf.files <- c(paste0(folder.gammacd, sdf.list))
-all.gamma <- lapply(sdf.files, read.table, header = FALSE, sep = "\t")
-all.gamma <- bind_rows(all.sdf)
+gamma.files <- c(paste0(gamma.dest, "/", gamma.list))
+all.gamma <- lapply(gamma.files, read.table, header = FALSE, sep = "\t")
+all.gamma <- bind_rows(all.gamma)
 write.table(
   all.gamma,
-  file = paste0(folder.gammacd, "allgamma.SDF"),
+  file = paste0(all.sdf, "/allgamma.SDF"),
   append = TRUE,
   sep = "\t",
   row.names = FALSE,
   col.names = FALSE,
   quote = FALSE
 )
+
+# Extracting name because the SDFs don't ID by name
+formula.gamma <- str_extract(all.gamma$V1, "C[[:digit:]]+[[:alnum:]]+")
+formula.gamma <- formula.gamma[!is.na(formula.gamma)]
+
+gamma.names <- str_replace(gamma.list, ".SDF", "")
+
+gamma.names.table <- data.frame(formula.gamma, gamma.names)
+
+# For Beta
+beta.list <-
+  list.files(path = beta.dest, pattern = ".SDF")
+
+beta.files <- c(paste0(beta.dest, "/", beta.list))
+
+all.beta <- lapply(beta.files, read.table, header = FALSE, sep = "\t")
+all.beta <- bind_rows(all.beta)
+write.table(
+  all.beta,
+  file = paste0(all.sdf, "/allbeta.SDF"),
+  append = TRUE,
+  sep = "\t",
+  row.names = FALSE,
+  col.names = FALSE,
+  quote = FALSE
+)
+
+formula.beta <- str_extract(all.beta$V1, "C[[:digit:]]+[[:alnum:]]+|CF3O3S|ClO4|F6P")
+formula.beta <- formula.beta[!is.na(formula.beta)]
+beta.names <- str_replace(beta.list, ".SDF", "")
+beta.names.table <- data.frame(formula.beta, beta.names)
+
+
+
+# For Alpha
+alpha.list <-
+  list.files(path = alpha.dest, pattern = ".SDF")
+
+alpha.files <- c(paste0(alpha.dest, "/", alpha.list))
+all.alpha <- lapply(alpha.files, read.table, header = FALSE, sep = "\t")
+all.alpha <- bind_rows(all.alpha)
+write.table(
+  all.alpha,
+  file = paste0(all.sdf, "/allalpha.SDF"),
+  append = TRUE,
+  sep = "\t",
+  row.names = FALSE,
+  col.names = FALSE,
+  quote = FALSE
+)
+formula.alpha <- str_extract(all.alpha$V1, "C[[:digit:]]+[[:alnum:]]+|F6P|^[I]+$|ClO4|ClHO4|FO3P|CNS|CH2O2|CF3O3S")
+formula.alpha <- formula.alpha[!is.na(formula.alpha)]
+alpha.names <- str_replace(alpha.list, ".SDF", "")
+
+alpha.names.table <- data.frame(formula.alpha, alpha.names)
