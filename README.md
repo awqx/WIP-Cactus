@@ -1,6 +1,6 @@
 # WIP-Cactus
 ##Current Issues
-1. Adding additional results from multiple download attempts to the same table. (It'll make sense when looking at the code.)
+1. General clean up
 
 ##Solved Issues
 1. Tildes in the file path makes it a little easier to use
@@ -13,3 +13,5 @@
 ##Added Code
 1. Compiling multiple SDFs into 1 file
 2. download.cactus.results (see above)
+3. Compiling results of download into one table
+
