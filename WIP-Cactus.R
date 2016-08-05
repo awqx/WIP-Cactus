@@ -311,7 +311,7 @@ all.gamma <- lapply(gamma.files, read.table, header = FALSE, sep = "\t")
 all.gamma <- bind_rows(all.gamma)
 write.table(
   all.gamma,
-  file = paste0(all.sdf, "/allgamma.SDF"),
+  file = paste0(all.gamma, "/allgamma.SDF"),
   append = TRUE,
   sep = "\t",
   row.names = FALSE,
@@ -373,3 +373,23 @@ formula.alpha <- formula.alpha[!is.na(formula.alpha)]
 alpha.names <- str_replace(alpha.list, ".SDF", "")
 
 alpha.names.table <- data.frame(formula.alpha, alpha.names)
+
+# Creating a small sample
+sample.dir <- create.host.dir(folder, "Sample")
+
+gamma.sample.list <- sample(gamma.list, 3, replace = FALSE)
+gamma.sample.files <- c(paste0(gamma.dest, "/", gamma.sample.list))
+sample.gamma <- lapply(gamma.sample.files, read.table, header = FALSE, sep = "\t")
+sample.gamma <- bind_rows(sample.gamma)
+write.table(
+  sample.gamma,
+  file = paste0(sample.dir, "/uff.SDF"),
+  append = TRUE,
+  sep = "\t",
+  row.names = FALSE,
+  col.names = FALSE,
+  quote = FALSE
+)
+
+gamma.sample.2 <- set.seed(3); sample(gamma.list, 2)
+
