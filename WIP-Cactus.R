@@ -128,6 +128,7 @@ results.gamma <-
     )
   )
 
+
 results.all <- create.host.dir(folder, "Download Results")
 
 saveRDS(results.gamma, file = paste0(results.all, "/results.gamma.RDS"))
@@ -375,15 +376,18 @@ alpha.names <- str_replace(alpha.list, ".SDF", "")
 alpha.names.table <- data.frame(formula.alpha, alpha.names)
 
 # Creating a small sample
-sample.dir <- create.host.dir(folder, "Sample")
+sample.aff.dir <- create.host.dir(folder, "Affinity/Sample")
 
-gamma.sample.list <- sample(gamma.list, 3, replace = FALSE)
-gamma.sample.files <- c(paste0(gamma.dest, "/", gamma.sample.list))
-sample.gamma <- lapply(gamma.sample.files, read.table, header = FALSE, sep = "\t")
-sample.gamma <- bind_rows(sample.gamma)
+common.chem.names <- Reduce(intersect, list(alpha.names, beta.names, gamma.names))
+set.seed(4)
+sample.chem.list <- sample(common.chem.names, 3)
+# Sample should include cinnarizine, (E)-stilbene, and 4-nitrophenol
+sample.files <- c(paste0(gamma.dest, "/", sample.chem.list, ".SDF"))
+sample.chem <- lapply(sample.files, read.table, header = FALSE, sep = "\t")
+sample.chem <- bind_rows(sample.chem)
 write.table(
-  sample.gamma,
-  file = paste0(sample.dir, "/uff.SDF"),
+  sample.chem,
+  file = paste0(sample.aff.dir, "/sample.SDF"),
   append = TRUE,
   sep = "\t",
   row.names = FALSE,
@@ -391,5 +395,4 @@ write.table(
   quote = FALSE
 )
 
-gamma.sample.2 <- set.seed(3); sample(gamma.list, 2)
 
