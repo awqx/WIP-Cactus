@@ -110,6 +110,27 @@ create.host.dir <- function(path, host) {
   dir.create(path = host.directory)
   return(host.directory)
 }
+# Read SDF files and assign a chemical name
+fix.sdf <- function(guest, path){
+  report <- tryCatch({
+    file <- paste0(path, "/", guest, ".SDF")
+    raw.sdf <- read.table(file = file, header = F, sep = "\t", stringsAsFactors = F)
+    raw.sdf[1, ] <- paste0(raw.sdf[1,], " ", guest)
+    return(raw.sdf)
+  }, 
+  warning = function(warn){
+    message("A warning occurred:")
+    message(last.warning)
+    file <- paste0(path, "/", guest, ".SDF")
+    raw.sdf <- read.table(file = file, header = F, sep = "\t", stringsAsFactors = F)
+    raw.sdf[1, ] <- paste0(raw.sdf[1,], " ", guest)
+    return(raw.sdf)
+  }, 
+  error = function(err){
+    message("An error occurred")
+  })
+  return(report)
+}
 
 #--------------------------------------
 #          Download Gamma
@@ -192,10 +213,10 @@ empty.beta <-
     size = 100,
     logical = "<"
   )
-
+success.beta <- results.beta[results.beta$downloaded == "yes", ]
 file.remove(empty.beta$filepath)
 
-saveRDS(results.beta, file = paste0(gamma.dest, "/results.beta.RDS"))
+saveRDS(results.beta, file = paste0(beta.dest, "/results.beta.RDS"))
 
 saveRDS(empty.beta, file = paste0(beta.dest, "/empty_beta_sdfiles.RDS"))
 
@@ -304,15 +325,12 @@ results.alpha.2 <- do.call(
 # Combining all the SDF files into one file
 # For Gamma
 all.sdf <- create.host.dir(folder, "All.SDF")
-gamma.list <-
-  list.files(path = gamma.dest, pattern = "SDF")
 
-gamma.files <- c(paste0(gamma.dest, "/", gamma.list))
-all.gamma <- lapply(gamma.files, read.table, header = FALSE, sep = "\t")
-all.gamma <- bind_rows(all.gamma)
+gamma.success <- as.character(success.gamma$guest)
+all.gamma <- do.call(bind_rows, lapply(gamma.success, fix.sdf, path = gamma.dest))
 write.table(
   all.gamma,
-  file = paste0(all.gamma, "/allgamma.SDF"),
+  file = paste0(all.sdf, "/allgamma.SDF"),
   append = TRUE,
   sep = "\t",
   row.names = FALSE,
@@ -320,22 +338,12 @@ write.table(
   quote = FALSE
 )
 
-# Extracting name because the SDFs don't ID by name
-formula.gamma <- str_extract(all.gamma$V1, "C[[:digit:]]+[[:alnum:]]+")
-formula.gamma <- formula.gamma[!is.na(formula.gamma)]
-
-gamma.names <- str_replace(gamma.list, ".SDF", "")
-
-gamma.names.table <- data.frame(formula.gamma, gamma.names)
-
 # For Beta
-beta.list <-
-  list.files(path = beta.dest, pattern = ".SDF")
-
-beta.files <- c(paste0(beta.dest, "/", beta.list))
-
-all.beta <- lapply(beta.files, read.table, header = FALSE, sep = "\t")
-all.beta <- bind_rows(all.beta)
+beta.success <- as.character(success.beta$guest)
+e.dansyl <- fix.sdf("e-dansyl-l-lysine", beta.dest)
+d.valero <- fix.sdf("d-valerolactam", beta.dest)
+all.beta <- do.call(bind_rows, lapply(beta.success, fix.sdf, path = beta.dest))
+all.beta <- rbind(e.dansyl, d.valero, all.beta)
 write.table(
   all.beta,
   file = paste0(all.sdf, "/allbeta.SDF"),
@@ -345,21 +353,13 @@ write.table(
   col.names = FALSE,
   quote = FALSE
 )
-
-formula.beta <- str_extract(all.beta$V1, "C[[:digit:]]+[[:alnum:]]+|CF3O3S|ClO4|F6P")
-formula.beta <- formula.beta[!is.na(formula.beta)]
-beta.names <- str_replace(beta.list, ".SDF", "")
-beta.names.table <- data.frame(formula.beta, beta.names)
-
-
-
 # For Alpha
-alpha.list <-
-  list.files(path = alpha.dest, pattern = ".SDF")
-
-alpha.files <- c(paste0(alpha.dest, "/", alpha.list))
-all.alpha <- lapply(alpha.files, read.table, header = FALSE, sep = "\t")
-all.alpha <- bind_rows(all.alpha)
+alpha.success <- as.character(success.alpha$guest)
+a.methyl1 <- fix.sdf("(+)-a-methylbenzylamine", alpha.dest)
+a.methyl2 <- fix.sdf("(-)-a-methylbenzylamine", alpha.dest)
+d.valero.a <- fix.sdf("d-valerolactam", alpha.dest)
+all.alpha <- do.call(bind_rows, lapply(alpha.success, fix.sdf, path = alpha.dest))
+all.alpha <- rbind(a.methyl1, a.methyl2, d.valero.a, all.alpha)
 write.table(
   all.alpha,
   file = paste0(all.sdf, "/allalpha.SDF"),
@@ -369,11 +369,6 @@ write.table(
   col.names = FALSE,
   quote = FALSE
 )
-formula.alpha <- str_extract(all.alpha$V1, "C[[:digit:]]+[[:alnum:]]+|F6P|^[I]+$|ClO4|ClHO4|FO3P|CNS|CH2O2|CF3O3S")
-formula.alpha <- formula.alpha[!is.na(formula.alpha)]
-alpha.names <- str_replace(alpha.list, ".SDF", "")
-
-alpha.names.table <- data.frame(formula.alpha, alpha.names)
 
 # Creating a small sample
 sample.aff.dir <- create.host.dir(folder, "Affinity/Sample")
@@ -394,5 +389,3 @@ write.table(
   col.names = FALSE,
   quote = FALSE
 )
-
-
