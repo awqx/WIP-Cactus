@@ -1,12 +1,38 @@
 install.packages("stringr")
-library("stringr")
 install.packages("dplyr")
-library("dplyr")
 install.packages("Amelia")
+install.packages("caret")
+install.packages("AppliedPredictiveModeling")
+install.packages("lars")
+install.packages("pls")
+install.packages("elasticnet")
+install.packages("broom")
+library(stringr)
+library(dplyr)
 library(Amelia)
+library(MASS)
+library(caret)
+library(AppliedPredictiveModeling)
+library(lars)
+library(pls)
+library(elasticnet)
+library(broom)
+library(stats)
 
+# I'm not even sure you need all these packages but can't hurt, right?
+
+# Note to self: add code that creates directories
+
+# ========================================================================
+#                  Rekharsky and Inoue Dataset
+#                     Initial Downloading
+# ========================================================================
+source(file = "~/SREP LAB/Rekharsky and Inoue/Cactus/read_cactus.R")
+folder  <- "~/SREP LAB/Rekharsky and Inoue/Cactus"
 dataset <-
-  readRDS(file = "~/SREP LAB/Rekharsky and Inoue/Cactus/RI.rds")
+  readRDS(file = "~/SREP LAB/Rekharsky and Inoue/Cactus/RI.rds") 
+# Note to self: find original WIP and URL where table can be downloaded
+
 # Fixing chemical names that affect URL at download-cactus stage
 # Typos
 dataset[48, "guest"] <- "biebrich scarlet"
@@ -22,19 +48,22 @@ dataset[c(142, 143, 727, 728), "guest"] <-
 dataset[c(144, 145, 729, 730), "guest"] <-
   "[(1S,2R)-1-hydroxy-1-phenylpropan-2-yl]-methylazanium"
 
-source(file = "~/SREP LAB/Rekharsky and Inoue/Cactus/read_cactus.R")
-folder  <- "~/SREP LAB/Rekharsky and Inoue/Cactus/"
-
-# Unicode detects the characters alpha and beta
+data.clean <- dataset[dataset$T.K == 298|dataset$T.K == 303,]
+data.clean <- data.clean[!str_detect(data.clean$ref, "b|c|g|i|j|m"),]
+# Unicode detects the characters alpha and beta, which won't show otherwise
+# This varies from computer to computer
+# Note to self -- create error handling for this
 # Alpha == \u03b1, beta == \u03b2
-alpha.guest <- unique(dataset$guest[dataset$host == "1\u03b1"])
+alpha.guest.clean <- unique(data.clean$guest[data.clean$host == "1\u03b1"])
+beta.guest.clean  <- unique(data.clean$guest[data.clean$host == "1\u03b2"])
+gamma.guest.clean <- unique(data.clean$guest[data.clean$host == "1γ"]) # Gamma works w/o unicode
 
-beta.guest  <- unique(dataset$guest[dataset$host == "1\u03b2"])
-
-gamma.guest <- unique(dataset$guest[dataset$host == "1γ"])
-
+# ========================================================================
+#                          Cactus Downloading
+# ========================================================================
 # Cactus is a chemical identifier resolver and can be used
 # to find and download SD files used by PyRx
+# But there's sometimes hiccups in downloading, so I used a tryCatch function
 # Solution to function inspired by hfty's answer to
 # http://stackoverflow.com/questions/33423725/
 # using-trycatch-to-populate-a-data-frame-inside-a-loop-nicely
@@ -91,7 +120,7 @@ download.cactus.results <- function(guest, path, chemical.format) {
 }
 
 # Find files that are too small to be SDF
-filter_filesize <- function(path, pattern, size, logical) {
+filter.filesize <- function(path, pattern, size, logical) {
   filenames <- list.files(path = path, pattern = pattern)
   location  <- dir(path = path,
                    full.names = T,
@@ -104,7 +133,6 @@ filter_filesize <- function(path, pattern, size, logical) {
     stringsAsFactors = F
   ))
 }
-
 # Create a directory to store files
 
 create.host.dir <- function(path, host) {
@@ -112,7 +140,7 @@ create.host.dir <- function(path, host) {
   dir.create(path = host.directory)
   return(host.directory)
 }
-# Read SDF files and assign a chemical name
+# Read SDF files and assign a chemical name -- this makes things easier later
 fix.sdf <- function(guest, path){
   report <- tryCatch({
     file <- paste0(path, "/", guest, ".SDF")
@@ -415,3 +443,48 @@ guest.success.df <- data.frame(guest.success)
 guest.success.df$all.guests <- guest.success
 thing3 <- full_join(thing3, guest.success.df)
 missmap(thing3, rank.order = F, col =  c("seagreen1", "slateblue"), main = "Data Loss per Step")
+
+
+#===============================================================================
+#                       Predictive Modeling -- Linear Model
+#===============================================================================
+# Results from PaDEL Chem Descriptor Lab
+# For Alpha
+# Organizing a data table on experimental solubility
+binding.aff.clean <- unlist(Map(convert.kj.kcal, data.clean$DelG))
+data.clean$binding.affinity <- binding.aff.clean
+alpha.exp.aff <- data.clean[data.clean$host == "1\u03b1",c("guest", "binding.affinity")]
+names(alpha.exp.aff)[names(alpha.exp.aff) == "guest"] <- "Name"
+# Importing the results
+alpha.results.folder <- paste0(folder, "PaDEL Results/")
+alpha.chem <- read.csv(paste0(alpha.results.folder, "alpha.mmff94.csv"), header = T, stringsAsFactors = F)
+alpha.chem <- full_join(alpha.exp.aff, alpha.chem)
+alpha.chem.clean <- alpha.chem[!is.na(alpha.chem$Name),]
+alpha.chem.clean <- alpha.chem.clean[!is.na(alpha.chem.clean$binding.affinity), ]
+alpha.chem.clean <- alpha.chem.clean[!is.na(alpha.chem.clean$nAcid), ]
+# random sample of clean data for training
+set.seed(1)
+alpha.sample.size <- nrow(alpha.chem.clean) * 3 / 4
+alpha.train.names <- sample(alpha.chem.clean$Name, alpha.sample.size, replace = F)
+alpha.train <- alpha.chem.clean[alpha.chem.clean$Name %in% alpha.train.names, ]
+alpha.train$Name <- NULL
+alpha.test <- alpha.chem.clean[!alpha.chem.clean$Name %in% alpha.train.names, ]
+alpha.test$Name <- NULL
+lm.alpha.pred <- lm(binding.affinity ~ ., data = alpha.train)
+summary(lm.alpha.pred) 
+tidy(lm.alpha.pred) 
+alpha.pred <- predict.lm(lm.alpha.pred, alpha.test, level = 0.95)
+alpha.results <- alpha.chem.clean[!alpha.chem.clean$Name %in% alpha.train.names, ]
+alpha.results <- alpha.results[ , colnames(alpha.results) == "Name" | colnames(alpha.results) == "binding.affinity"]
+alpha.eval <- data.frame(alpha.results, pred = alpha.pred)
+alpha.eval <- alpha.eval[!is.na(alpha.eval$pred), ]
+defaultSummary(alpha.eval)
+plot(alpha.eval, main = "Solubility Values", ylab = "Predicted Values", 
+     xlab = "True Observed Valuese")
+lines(c(-10, 1), c(-10, 1), col = "red")
+summary(alpha.eval)
+boxcox(lm., family="yjPower", plotit = T)
+
+alpha.int <- sapply(alpha.train, is.integer)
+alpha.train.int <- alpha.train[ , alpha.int]
+alpha.dup <- sapply(alpha.train, duplicated)

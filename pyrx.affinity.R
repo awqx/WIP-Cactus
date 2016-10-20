@@ -93,6 +93,15 @@ atom.num <- gamma.aff$formula %>%
 gamma.aff$atom.num <- atom.num
 gamma.aff.all <- left_join(gamma.aff, runs.df)
 # Plotting 
+graph.path <-create.host.dir(folder, "Graphs")
+gamma.graphs <- create.host.dir(graph.path, "/Gamma/")
+plot0gamma <- ggplot(gamma.aff.all, aes(x = Binding.Affinity)) +
+  geom_histogram(binwidth = 0.2, center = -4.1) +
+  theme_bw() +
+  xlab("Binding Affinity, kcal/mol") +
+  ylab("Number of Instances")
+ggsave(paste0(gamma.graphs, "0.png"), plot = plot0gamma)
+
 plot1gamma <- ggplot(gamma.aff.all, aes(x = Binding.Affinity, fill = vina)) +
   geom_histogram(
     data = subset(gamma.aff.all, vina == "default"),
@@ -108,7 +117,10 @@ plot1gamma <- ggplot(gamma.aff.all, aes(x = Binding.Affinity, fill = vina)) +
   ) +
   facet_grid(ligand.alg ~ ligand.ff) +
   scale_fill_manual(values=c("green", "blue")) +
-  theme_bw()
+  theme_bw() +
+  xlab("Binding Affinity, kcal/mol") +
+  ylab("Number of Instances")
+ggsave(paste0(gamma.graphs, "1.png"), plot = plot1gamma)
 
 plot2gamma<- ggplot(gamma.aff.all, aes(x = Binding.Affinity, fill = ligand.ff)) +
   geom_histogram(
@@ -131,7 +143,11 @@ plot2gamma<- ggplot(gamma.aff.all, aes(x = Binding.Affinity, fill = ligand.ff)) 
   ) + 
   facet_grid(ligand.alg ~ vina) +
   scale_fill_manual(values=c("green", "blue", "magenta")) +
-  theme_bw()
+  theme_bw() +
+  xlab("Binding Affinity, kcal/mol") +
+  ylab("Number of Instances")
+
+ggsave(paste0(gamma.graphs, "2.png"), plot = plot2gamma)
 
 plot3gamma <- ggplot(gamma.aff.all, aes(x = Binding.Affinity, fill = ligand.alg)) +
   geom_histogram(
@@ -148,25 +164,40 @@ plot3gamma <- ggplot(gamma.aff.all, aes(x = Binding.Affinity, fill = ligand.alg)
   ) + 
   facet_grid(ligand.ff ~ vina) +
   scale_fill_manual(values=c("green", "blue")) +
-  theme_bw()
+  theme_bw() +
+  xlab("Binding Affinity, kcal/mol") +
+  ylab("Number of Instances")
+ggsave(paste0(gamma.graphs, "3.png"), plot = plot3gamma)
 
-plot4gamma <- ggplot(gamma.aff.all, aes(x = atom.num, y = Binding.Affinity, color = ligand.alg)) +
+plot4gamma <- ggplot(gamma.aff.all, aes(x = as.numeric(atom.num), y = Binding.Affinity, color = ligand.alg)) +
   geom_point(alpha = 0.1) +
   facet_grid(ligand.ff~vina) +
-  scale_color_manual(values=c("green", "blue")) +
+  scale_color_manual(values=c("seagreen1", "steelblue1")) +
+  geom_smooth(method = lm) +
+  xlab("Number of Atoms") +
+  ylab("Binding Affinity, kcal/mol") +
   theme_bw()
+ggsave(paste0(gamma.graphs, "4.png"), plot = plot4gamma)
 
-plot5gamma <- ggplot(gamma.aff.all, aes(x = atom.num, y = Binding.Affinity, color = vina)) +
+plot5gamma <- ggplot(gamma.aff.all, aes(x = as.numeric(atom.num), y = Binding.Affinity, color = vina)) +
   geom_point(alpha = 0.1) +
   facet_grid(ligand.ff~ligand.alg) +
-  scale_color_manual(values=c("green", "blue")) +
+  scale_color_manual(values=c("seagreen1", "steelblue1")) +
+  geom_smooth(method = lm) +
+  xlab("Number of Atoms") +
+  ylab("Binding Affinity, kcal/mol") +
   theme_bw()
+ggsave(paste0(gamma.graphs, "5.png"), plot = plot5gamma)
 
-plot6gamma <- ggplot(gamma.aff.all, aes(x = atom.num, y = Binding.Affinity, color = ligand.ff)) +
+plot6gamma <- ggplot(gamma.aff.all, aes(x = as.numeric(atom.num), y = Binding.Affinity, color = ligand.ff)) +
   geom_point(alpha = 0.1) +
   facet_grid(vina~ligand.alg) +
-  scale_color_manual(values=c("green", "blue", "magenta")) +
+  scale_color_manual(values=c("seagreen1", "steelblue1", "orchid")) +
+  geom_smooth(method = lm) +
+  xlab("Number of Atoms") +
+  ylab("Binding Affinity, kcal/mol") +
   theme_bw()
+ggsave(paste0(gamma.graphs, "6.png"), plot = plot6gamma)
 
 min.aff.gamma <- gamma.aff.all %>%
   group_by(formula, ligand.ff, ligand.alg, vina, runs, atom.num) %>%
@@ -297,8 +328,8 @@ alpha.guest.clean <- unique(dataset.clean$guest[dataset.clean$host == "1\u03b1"]
 beta.guest.clean  <- unique(dataset.clean$guest[dataset.clean$host == "1\u03b2"])
 gamma.guest.clean <- unique(dataset.clean$guest[dataset.clean$host == "1γ"])
 hosts <- c("1\u03b1", "1\u03b2", "1γ")
-all.guests <- unique(c(alpha.guest.clean, beta.guest.clean, gamma.guest.clean))
-ds.cleaner <- dataset.clean[dataset.clean$guest %in% all.guests, ]
+all.guests.clean <- unique(c(alpha.guest.clean, beta.guest.clean, gamma.guest.clean))
+ds.cleaner <- dataset.clean[dataset.clean$guest %in% all.guests.clean, ]
 ds.cleaner <- ds.cleaner[ds.cleaner$host %in% hosts, ]
 convert.kj.kcal <- function(kJ){
   kcal <- kJ/4.184
@@ -317,49 +348,69 @@ gamma.ds$guest <- NULL
 predict.gamma <- left_join(gamma.part, gamma.ds, by = "formula")
 perc.yield <- (predict.gamma$Binding.Affinity / predict.gamma$binding.affinity) * 100
 predict.gamma$perc.yield <- perc.yield
-plot1affinity <- ggplot(predict.gamma, aes(x = Binding.Affinity, y = binding.affinity)) +
+gamma.graphs.affinity <- create.host.dir(gamma.graphs, "Affinity/")
+plot1affinity <- ggplot(predict.gamma, aes(y = Binding.Affinity, x = binding.affinity)) +
   geom_point() +
-  geom_abline(slope = 1, intercept = 0, color = "red", size = 1) +
-  geom_smooth(method = lm, se = F) +
-  ylab("Expected Affinity") +
-  xlab("Predicted (Vina) Affinity")
+  geom_abline(slope = 1, intercept = 0, color = "gold", size = 1) +
+  geom_smooth(method = lm, se = T, color = "seagreen1") +
+  xlab("Rekharsky and Inoue Experimental Affinity") +
+  ylab("Predicted (Vina) Affinity")
+ggsave(paste0(gamma.graphs.affinity, "1.png"), plot1affinity)
 
-plot2affinity <- ggplot(predict.gamma, aes(x = Binding.Affinity, y = binding.affinity, color = vina)) +
+plot2affinity <- ggplot(predict.gamma, aes(y = Binding.Affinity, x = binding.affinity, color = vina)) +
   geom_point(alpha = 0.2) +
-  geom_abline(slope = 1, intercept = 0, color = "green", size = 1) +
-  geom_smooth(method = lm, se = F) +
-  ylab("Expected Affinity") +
-  xlab("Predicted (Vina) Affinity")
+  geom_abline(slope = 1, intercept = 0, color = "gold", size = 1) +
+  geom_smooth(method = lm, se = T) +
+  xlab("Rekharsky and Inoue Experimental Affinity") +
+  ylab("Predicted (Vina) Affinity") +
+  scale_color_manual(values=c("seagreen1", "slateblue2"))
+ggsave(paste0(gamma.graphs.affinity, "2.png"), plot2affinity)
 
-plot3affinity <- ggplot(predict.gamma, aes(x = Binding.Affinity, y = binding.affinity, color = ligand.ff)) +
+plot3affinity <- ggplot(predict.gamma, aes(y = Binding.Affinity, x = binding.affinity, color = ligand.ff)) +
   geom_point(alpha = 0.2) +
-  geom_abline(slope = 1, intercept = 0, color = "green", size = 1) +
-  geom_smooth(method = lm) +
-  ylab("Expected Affinity") +
-  xlab("Predicted (Vina) Affinity")
+  geom_abline(slope = 1, intercept = 0, color = "gold", size = 1) +
+  geom_smooth(method = lm, se = T) +
+  xlab("Rekharsky and Inoue Experimental Affinity") +
+  ylab("Predicted (Vina) Affinity") +
+  scale_color_manual(values=c("seagreen1", "slateblue2", "orchid"))
+ggsave(paste0(gamma.graphs.affinity, "3.png"), plot3affinity)
+
+plot3.5affinity <- ggplot(predict.gamma, aes(y = Binding.Affinity, x = binding.affinity, color = ligand.alg)) +
+  geom_point(alpha = 0.2) +
+  geom_abline(slope = 1, intercept = 0, color = "gold", size = 1) +
+  geom_smooth(method = lm, se = T) +
+  xlab("Rekharsky and Inoue Experimental Affinity") +
+  ylab("Predicted (Vina) Affinity") +
+  scale_color_manual(values=c("seagreen1", "slateblue2"))
+ggsave(paste0(gamma.graphs.affinity, "3.5.png"), plot3.5affinity)
 
 plot4affinity <- ggplot(predict.gamma, aes(x = atom.num, y = perc.yield, color = ligand.ff)) +
   geom_point(alpha = 0.2) +
-  geom_abline(slope = 1, intercept = 0, color = "green", size = 1) +
+  geom_abline(slope = 0, intercept = 100, color = "gold", size = 1) +
   geom_smooth(method = lm) +
   xlab("Atom Number") +
-  ylab("% Yield")
+  ylab("% Yield") +
+  scale_color_manual(values=c("seagreen1", "slateblue2", "orchid"))
+ggsave(paste0(gamma.graphs.affinity, "4.png"), plot4affinity)
 
 ggplot(predict.gamma, aes(y = Binding.Affinity, x = binding.affinity, color = ligand.ff)) +
   geom_point(alpha = 0.4) +
-  geom_abline(slope = 1, intercept = 0, color = "green", size = 1) +
+  geom_abline(slope = 0, intercept = 100, color = "gold", size = 1) +
   facet_grid(ligand.alg~vina) +
-  geom_smooth(method = lm, se = F) +
+  geom_smooth(method = lm, se = T) +
   xlab("Expected Affinity") +
-  ylab("Predicted (Vina) Affinity")
+  ylab("Predicted (Vina) Affinity") +
+  scale_color_manual(values=c("seagreen1", "slateblue2", "orchid"))
 
-ggplot(predict.gamma, aes(x = MW, y = perc.yield, color = ligand.alg, shape = ligand.alg)) +
+plot6affinity <- ggplot(predict.gamma, aes(x = MW, y = perc.yield, color = ligand.alg)) +
   geom_point(alpha = 0.4) +
-  geom_abline(slope = 0, intercept = 100, color = "magenta", size = 1) +
+  geom_abline(slope = 0, intercept = 100, color = "gold", size = 1) +
   facet_grid(ligand.ff~vina) +
-  geom_smooth(method = lm, se = F) +
+  geom_smooth(method = lm) +
   xlab("Molecular Weight") +
-  ylab("Percent Yield")
+  ylab("Percent Yield") +
+  scale_color_manual(values=c("seagreen1", "slateblue2"))
+ggsave(paste0(gamma.graphs.affinity, "6.png"), plot6affinity)
 
 # look at all these chemical identifiers
 gamma.chem <- read.csv(paste0(chem.path, "/GammaID.mmff94.csv"))
@@ -367,3 +418,19 @@ gamma.chem.mm2 <- read.csv(paste0(chem.path, "/GammaID.mm2.csv"))
 gamma.mol.wt <- gamma.chem[ , c("Name", "MW")]
 names(gamma.mol.wt)[names(gamma.mol.wt) == "Name"] <- "formula"
 predict.gamma <- left_join(predict.gamma, gamma.mol.wt)
+predict.gamma.mw <- predict.gamma[!is.na(predict.gamma$MW), ]
+plot10gamma <- ggplot(predict.gamma.mw, aes(x = MW, y = Binding.Affinity, color = ligand.ff)) +
+  geom_point(alpha = 0.1) +
+  scale_color_manual(values=c("seagreen1", "steelblue1", "orchid")) +
+  geom_smooth(method = lm) +
+  facet_grid(ligand.alg~vina) +
+  xlab("Molecular Weight") +
+  ylab("Binding Affinity, kcal/mol") +
+  theme_bw()
+ggsave(paste0(gamma.graphs, "10.png"), plot = plot10gamma)
+
+
+# ======================================================================
+#                  Organizing solubility data
+# ======================================================================
+alpha.bindaff <- ds.cleaner[ds.cleaner$host == "1\u03b1", c("guest", "host")]
