@@ -1,3 +1,4 @@
+# I'm not even sure you need all these packages but can't hurt, right?
 install.packages("stringr")
 install.packages("dplyr")
 install.packages("Amelia")
@@ -22,10 +23,6 @@ library(broom)
 library(stats)
 library(irlba)
 
-# I'm not even sure you need all these packages but can't hurt, right?
-
-# Note to self: add code that creates directories
-
 # ========================================================================
 #                  Rekharsky and Inoue Dataset
 #                     Initial Downloading
@@ -36,9 +33,8 @@ source(file = "~/Cactus/cactus.functions.R")
 folder  <- "~/Cactus/"
 dataset <-
   readRDS(file = "~/Cactus/RI.rds") 
-# Note to self: find original WIP and URL where table can be downloaded
-# Edited note: apparently I can't find a way to download it successfully, so "dataset" has 
-# be read from a pre-prepared rds file
+# Edited note: apparently I can't find the URL to download the dataset successfully, 
+# so "dataset" has to be read from a pre-prepared rds file
 
 # Fixing chemical names that affect URL at download-cactus stage
 # Typos
@@ -192,8 +188,6 @@ beta.results.2 <- do.call(
 #--------------------------------------
 #          Download Alpha
 #--------------------------------------
-# Sometimes the code generates a table of just errors, even
-# if the moleules download correctly
 alpha.dest <- create.host.dir(folder, "AlphaCD")
 
 results.alpha <-
