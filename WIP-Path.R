@@ -356,7 +356,8 @@ data.clean$binding.affinity <- binding.aff.clean
 alpha.exp.aff <- data.clean[data.clean$host == "1\u03b1",c("guest", "binding.affinity")]
 names(alpha.exp.aff)[names(alpha.exp.aff) == "guest"] <- "Name"
 # Importing the results
-alpha.results.folder <- paste0(folder, "PaDEL Results/")
+padel.results <- create.host.dir(folder, "PaDEL Results")
+alpha.results.folder <- create.host.dir(padel.results, "/Alpha/")
 alpha.chem <- read.csv(paste0(alpha.results.folder, "alpha.mmff94.csv"), header = T, stringsAsFactors = F)
 alpha.chem <- full_join(alpha.exp.aff, alpha.chem)
 alpha.chem.clean <- alpha.chem[!is.na(alpha.chem$Name),]
