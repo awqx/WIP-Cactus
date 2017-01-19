@@ -413,5 +413,9 @@ ggplot(dataset, aes(x = dataset$DelG)) +
 
 # irlba
 alpha.chem.noname.matrix <- data.matrix(alpha.chem.noname)
-irlba(alpha.chem.noname.matrix, nv = 5, maxit = 1000, work = nv + 7, reorth = TRUE,
-      tol = 1e-05, v = NULL, right_only = FALSE, verbose = FALSE, scale)
+irlba(alpha.chem.noname.matrix, nv = 5)$binding.affinity
+
+alpha.eval.lm <- lm(alpha.results ~ pred, data = alpha.eval)
+summary(alpha.eval.lm)
+predict.gamma.lm <- lm(Binding.Affinity ~ binding.affinity, data = predict.gamma)
+summary(predict.gamma.lm)

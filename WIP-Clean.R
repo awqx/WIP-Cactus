@@ -747,7 +747,7 @@ results.gamma.comb <-
       chemical.format = "SDF"
     )
   )
-
+# l-trp
 results.alpha.comb <-
   do.call(
     rbind,
@@ -759,13 +759,53 @@ results.alpha.comb <-
     )
   )
 
-results.gamma.comb <-
+results.beta.comb <-
   do.call(
     rbind,
     lapply(
-      comb.gamma.guest,
+      comb.beta.guest,
       download.cactus.results,
-      path = gamma.comb.dest,
+      path = beta.comb.dest,
       chemical.format = "SDF"
     )
   )
+# Which files don't process through PaDEL
+# proadifen
+# resorcinol
+# adiphenine
+# cis-diammine(1,1-cyclobutanedicarboxylato)platinum(II)
+# perchlorate
+# iodide
+# perchloric acid
+
+
+
+# Removing molecules that didn't download from the tables
+
+# beta.cactus.fail <- results.beta.comb[results.beta.comb$downloaded == "no", results.beta.comb$guest] 
+
+
+padel.filepath <- "~/Cactus/PaDEL Results/"
+alpha.file <- paste0(padel.filepath, "alpha.csv")
+beta.file <- paste0(padel.filepath, "beta.csv")
+gamma.file <- paste0(padel.filepath, "gamma.csv")
+
+alpha.padel <- read.csv(alpha.file)
+beta.padel <- read.csv(beta.file)
+gamma.padel <- read.csv(gamma.file)
+
+names(alpha.padel)[names(alpha.padel) == "Name"] <- "guest"
+names(beta.padel)[names(beta.padel) == "Name"] <- "guest"
+names(gamma.padel)[names(gamma.padel) == "Name"] <- "guest"
+
+alpha.all <- inner_join(comb.table.alpha, alpha.padel)
+beta.all <- inner_join(comb.table.beta, beta.padel)
+gamma.all <- inner_join(comb.table.gamma, gamma.padel)
+
+all.clean <- rbind(alpha.all, beta.all, gamma.all)
+all.clean <- str_replace_all(all.clean$host, "1\u03b1", "alpha CD")
+all.clean <- str_replace(all.clean$host, "1γ", "gamma CD")
+write.csv(all.clean, file = "cyclodextrin.csv")
+
+alpha.guest.clean <- unique(data.clean$guest[data.clean$host == "1\u03b1"])
+beta.guest.clean  <- unique(data.clean$guest[data.clean$host == "1\u03b2"])

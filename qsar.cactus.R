@@ -15,6 +15,8 @@ library(stringr)
 library(Amelia)
 library(broom)
 
+library(irlba)
+
 data(solubility)
 ls(pattern = "^solT")
 training <- solTrainXtrans # box-cox transformed
@@ -80,3 +82,57 @@ gamma.pred <- predict(lm.gammapred, gamma94Test, level = 0.95)
 #gamma.clean <- min.aff.gamma$formula %>%
 #str_replace(pattern = "^[[:alnum:]]+_", "") %>%
 #  str_replace(pattern = "_ghemical_[[:graph:]]+", "")
+
+# prcomp_irlba(alpha.chem.noname.matrix.small, 5)
+
+# rstep.alpha <- stepwise(alpha.y~., data = alpha.chem.noname) 
+
+
+# ===========
+# IRLBA Attempt
+library(irlba)
+alpha.chem.noname.matrix <- matrix(as.numeric(unlist(alpha.chem.noname)),nrow=nrow(alpha.chem.noname))
+alpha.chem.noname.matrix.small <- alpha.chem.noname.matrix[ , c(1:400)]
+alpha.irlba <- irlba(alpha.chem.noname.matrix.small, 8, verbose = TRUE)
+alpha.p1 <- prcomp_irlba(alpha.chem.noname.matrix.small, n = 5)
+alpha.eigen <- partial_eigen(alpha.chem.noname.matrix.small, n = 5)
+
+alpha.small.noaff <- alpha.chem.noname.matrix.small[ , -1]
+alpha.irlba.noaff <- irlba(alpha.small.noaff, 8, verbose = TRUE)
+alpha.p1.noaff <- prcomp_irlba(alpha.small.noaff, n = 5)
+
+alpha.log <- log(alpha.small.noaff[ , 1:200])
+
+alpha.matrix.250 <- alpha.chem.noname.matrix[ , 1:250]
+alpha.irlba.250 <- irlba(alpha.matrix.250, 8, verbose = T)
+alpha.pc.250 <- prcomp_irlba(alpha.matrix.250, n = 5)
+summary(alpha.pc.250)
+
+alpha.matrix.300 <- alpha.chem.noname.matrix[ , 1:300]
+alpha.irlba.300 <- irlba(alpha.matrix.300, 8, verbose = T)
+alpha.pc.300 <- prcomp_irlba(alpha.matrix.300, n = 5)
+summary(alpha.pc.300)
+
+alpha.matrix.400 <- alpha.chem.noname.matrix[ , 1:400]
+alpha.irlba.400 <- irlba(alpha.matrix.400, 8, verbose = T)
+alpha.pc.400 <- prcomp_irlba(alpha.matrix.400, n = 5)
+summary(alpha.pc.400)
+
+alpha.matrix.500 <- alpha.chem.noname.matrix[ , 1:500]
+alpha.irlba.500 <- irlba(alpha.matrix.500, 8, verbose = T)
+alpha.pc.500 <- prcomp_irlba(alpha.matrix.500, n = 5)
+summary(alpha.pc.500)
+
+alpha.matrix.450 <- alpha.chem.noname.matrix[ , 1:450]
+alpha.irlba.450 <- irlba(alpha.matrix.450, 8, verbose = T)
+alpha.pc.450 <- prcomp_irlba(alpha.matrix.450, n = 5)
+summary(alpha.pc.450)
+
+alpha.matrix.475 <- alpha.chem.noname.matrix[ , 1:475]
+alpha.irlba.475 <- irlba(alpha.matrix.475, 8, verbose = T)
+alpha.pc.475 <- prcomp_irlba(alpha.matrix.475, n = 5)
+summary(alpha.pc.475)
+
+alpha.stats.pc <- prcomp(alpha.chem.noname.matrix.small[ ,-c(12)], center = T, scale. = T)
+autoplot(alpha.stats.pc, alpha.chem.noname.matrix.small)
+
