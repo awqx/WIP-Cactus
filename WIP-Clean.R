@@ -486,7 +486,7 @@ alpha.eval <- alpha.eval[!is.na(alpha.eval$pred), ]
 alpha.eval.noperc <- alpha.eval
 alpha.eval.noperc$percent <- NULL
 defaultSummary(alpha.eval)
-plot(alpha.eval.noperc, main = "Solubility Values", ylab = "Predicted Values", xlab = "True Observed Values")
+plot(alpha.eval.noperc, main = "Prediction via Linear Model", ylab = "Predicted Values", xlab = "True Observed Values")
 lines(c(-10, 1), c(-10, 1), col = "red")
 summary(alpha.eval)
 boxcox(lm., family="yjPower", plotit = T)
@@ -517,3 +517,31 @@ ggplot(dataset, aes(x = dataset$DelG)) +
 alpha.chem.noname.matrix <- data.matrix(alpha.chem.noname)
 irlba(alpha.chem.noname.matrix, nv = 5, maxit = 1000, work = nv + 7, reorth = TRUE,
       tol = 1e-05, v = NULL, right_only = FALSE, verbose = FALSE, scale)
+
+
+#==========
+# Sort
+data.with.aff <- dataset
+binding.aff.all <- unlist(Map(convert.kj.kcal, dataset$DelG))
+data.with.aff$binding.affinity <- binding.aff.all
+View(data.with.aff)
+alpha.greatest.aff <- data.with.aff[data.with.aff$host == "1\u03b1", ] %>% 
+  arrange (binding.affinity) %>%
+  head(10)
+beta.greatest.aff <- data.with.aff[data.with.aff$host == "1\u03b2", ] %>% 
+  arrange (binding.affinity) %>%
+  head(10)
+gamma.greatest.aff <- data.with.aff[data.with.aff$host == "1γ", ] %>% 
+  arrange (binding.affinity) %>%
+  head(10)
+
+
+#
+# find molecules with most solvents
+guest.solvents <- data.with.aff %>% 
+  group_by(host, guest) %>%
+  mutate(number.repeated = n_distinct(log.K)) %>%
+  filter(row_number() > 1)
+  # filter(row_number() > 1)
+  
+
