@@ -1,23 +1,23 @@
 install.packages("stringr")
 install.packages("dplyr")
 install.packages("Amelia")
-install.packages("caret")
-install.packages("AppliedPredictiveModeling")
-install.packages("lars")
-install.packages("pls")
-install.packages("elasticnet")
+# install.packages("caret")
+# install.packages("AppliedPredictiveModeling")
+# install.packages("lars")
+# install.packages("pls")
+# install.packages("elasticnet")
 install.packages("broom")
 install.packages("irlba")
 library(stringr)
 library(dplyr)
 library(ggplot2)
 library(Amelia)
-library(MASS)
-library(caret)
-library(AppliedPredictiveModeling)
-library(lars)
-library(pls)
-library(elasticnet)
+# library(MASS)
+# library(caret)
+# library(AppliedPredictiveModeling)
+# library(lars)
+# library(pls)
+# library(elasticnet)
 library(broom)
 library(stats)
 library(irlba)
@@ -449,6 +449,7 @@ missmap(thing3, rank.order = F, col =  c("seagreen1", "slateblue"), main = "Data
 
 
 #===============================================================================
+
 #                       Predictive Modeling -- Linear Model
 #===============================================================================
 # Results from PaDEL Chem Descriptor Lab
@@ -493,6 +494,7 @@ boxcox(lm., family="yjPower", plotit = T)
 
 alpha.int <- sapply(alpha.train, is.integer)
 alpha.train.int <- alpha.train[ , alpha.int]
+
 alpha.dup.col <- sapply(alpha.train.int, n_distinct) == 1
 alpha.dup <- alpha.train.int[ , alpha.dup.col]
 alpha.dup.table <- data.frame(sapply(alpha.train.int, n_distinct))
@@ -543,5 +545,324 @@ guest.solvents <- data.with.aff %>%
   mutate(number.repeated = n_distinct(log.K)) %>%
   filter(row_number() > 1)
   # filter(row_number() > 1)
-  
+
+#==================================================================
+#                    Combined Table
+#===============================================================
+# Creates a table with all the info from RI, cactus, and PaDel
+
+# View(data.clean)
+comb.table <- data.clean[str_detect(data.clean$host, "^1\u03b1|^1\u03b2|^1γ"),]
+comb.table <- comb.table[comb.table$pH <= 8 & comb.table$pH >= 5, ]
+comb.table <- comb.table[str_detect(comb.table$solvent, "^H2O$|^D2O$"),]
+comb.table <- comb.table[is.na(comb.table$solvent.specs), ]
+names(comb.table)[names(comb.table) == "binding.affinity"] <- "bind.aff, kcal/mol"
+
+# -------- Testing the duplicates
+
+# Splitting the table into A, B, C
+comb.table.gamma <-
+  comb.table[str_detect(comb.table$host, "1\u03b1"), ]
+comb.table.beta  <-
+  comb.table[str_detect(comb.table$host, "1\u03b2"), ]
+comb.table.gamma <- 
+  comb.table[str_detect(comb.table$host, "1γ"), ]
+
+# Finding duplicates
+dup.alpha <-
+  comb.table.alpha[duplicated(comb.table.alpha$guest) |
+                     duplicated(comb.table.alpha$guest, fromLast = T), ]
+dup.beta  <-
+  comb.table.beta[duplicated(comb.table.beta$guest) |
+                    duplicated(comb.table.beta$guest, fromLast = T), ]
+dup.gamma <-
+  comb.table.gamma[duplicated(comb.table.gamma$guest) |
+                     duplicated(comb.table.gamma$guest, fromLast = T), ]
+
+# Graphing to see trends better
+ggplot(dup.alpha, aes(x = dup.alpha$guest, y = dup.alpha$DelG)) +
+  geom_point(stat = "identity",
+             alpha = 0.4,
+             color = "red") +
+  scale_y_continuous(limits = c(-30, 0)) +
+  geom_boxplot()
+
+ggplot(dup.beta, aes(x = dup.beta$guest, y = dup.beta$DelG)) +
+  geom_point(stat = "identity",
+             alpha = 0.4,
+             color = "blue") +
+  scale_y_continuous(limits = c(-30, 0)) +
+  geom_boxplot(alpha = 0.2)
+ggplot(dup.gamma, aes(x = dup.gamma$guest, y = dup.gamma$DelG)) +
+  geom_point(stat = "identity",
+             alpha = 0.4,
+             color = "green") +
+  scale_y_continuous(limits = c(-30, 0)) +
+  geom_boxplot()
+
+
+# dply --> duplicate --> group_by(guest) --> apply max, allpy min --> take difference --> calc measure of centrality and dispersion
+# build a function, which one of the group _by is > greater than the average
+# boxplot on rage vcxbgf
+
+# Finding Deviation
+alpha.summary <- dup.alpha %>%
+  group_by(guest) %>% summarize(
+    minDelG = min(DelG),
+    maxDelG = max(DelG),
+    range = maxDelG - minDelG,
+    meanDelG = mean(DelG)
+  )
+
+beta.summary <- dup.beta %>%
+  group_by(guest) %>% summarize(
+    minDelG = min(DelG),
+    maxDelG = max(DelG),
+    range = maxDelG - minDelG, 
+    meanDelG = mean(DelG)
+  )
+
+gamma.summary <- dup.gamma %>%
+  group_by(guest) %>% summarize(
+    minDelG = min(DelG),
+    maxDelG = max(DelG),
+    range = maxDelG - minDelG,
+    meanDelG = mean(DelG)
+  )
+
+# analyze.duplicates <- function(duplicate, group, col) {
+#   summary <- duplicate %>%
+#     group_by_(group) %>% summarize_(
+#       min = min(col), 
+#       max = max(col), 
+#       mean  = mean(col),
+#       median = median(col)
+#     )
+#   return (summary)
+# }
+
+# alpha.summary <- analyze.duplicates(dup.alpha, "guest", "DelG")
+# alpha.summary
+
+alpha.summary.condensed <- alpha.summary %>% summarize(
+  min.range = min(range), 
+  max.range = max(range), 
+  mean.range = mean(range), 
+  stand.dev = sd(range), 
+  cutoff = mean.range + 3 * stand.dev
+)
+
+beta.summary.condensed <- beta.summary %>% summarize(
+  min.range = min(range), 
+  max.range = max(range), 
+  mean.range = mean(range), 
+  stand.dev = sd(range), 
+  cutoff = mean.range + 3 * stand.dev
+)
+
+gamma.summary.condensed <- gamma.summary %>% summarize(
+  min.range = min(range), 
+  max.range = max(range), 
+  mean.range = mean(range), 
+  stand.dev = sd(range), 
+  cutoff = mean.range + 3 * stand.dev
+)
+
+ggplot(alpha.summary, aes(x = guest, y = range)) + 
+  geom_point(stat = "identity",
+             alpha = 0.4,
+             color = "red")
+
+ggplot(beta.summary, aes(x = guest, y = range)) + 
+  geom_point(stat = "identity",
+             alpha = 0.4,
+             color = "blue")
+
+ggplot(gamma.summary, aes(x = guest, y = range)) + 
+  geom_point(stat = "identity",
+             alpha = 0.4,
+             color = "green")
+
+
+alpha.beta.summary <- rbind(alpha.summary, beta.summary)
+alpha.beta.summary$host <- c(rep("alpha", 25), rep("beta", 13))
+cutoff <- c(alpha.summary.condensed$cutoff, beta.summary.condensed$cutoff)
+range.cutoff <- data.frame(c("alpha", "beta"), cutoff)
+
+ggplot(alpha.beta.summary, aes(x = guest, y = range)) + 
+  geom_point(stat = "identity") +
+  facet_grid(.~host) + 
+  theme(axis.text.x=element_text(angle=90, hjust=1)) + 
+  geom_hline(data = range.cutoff, aes(yintercept = cutoff))
+
+
+
+# deciding to cut off the outlier
+# create a redundant table...jsut in case
+dup.alpha.pre <- dup.alpha
+dup.alpha <- dup.alpha[-65, ]
+
+# Reducing duplicates to averages
+# everything numeric becomes a mean
+# characters are collapsed with commas as the division
+# NaNs occur when two NAs are averaged
+dup.test <- dup.alpha
+dup.alpha.clean <- dup.alpha %>%
+  group_by(guest) %>%
+  summarize(
+    solvent = paste0(solvent, collapse = ", "), 
+    solvent.specs = paste0(solvent.specs, collapse = ", "),
+    Solvent.composition = paste0(Solvent.composition, collapse = ", "), 
+    pH = mean(pH), 
+    T.K = mean(T.K), 
+    log.K = mean(log.K, na.rm = T), 
+    log.K.Uncertainty = mean(log.K.Uncertainty, na.rm = T), 
+    DelG = mean(DelG), 
+    DelG.Uncertainty = mean(DelG.Uncertainty, na.rm = T), 
+    DelH = mean(DelH, na.rm = T), 
+    DelH.Uncertainty = mean(DelH.Uncertainty, na.rm = T), 
+    TDelS = mean(TDelS), 
+    TDelS.Uncertainty = mean(TDelS.Uncertainty, na.rm = T), 
+    methoda = paste0(methoda, collapse = ", "),
+    ref = paste0(ref, collapse = ", "),
+    `bind.aff, kcal/mol` = mean(`bind.aff, kcal/mol`)
+  )
+
+dup.beta.clean <- dup.beta %>%
+  group_by(guest) %>%
+  summarize(
+    solvent = paste0(solvent, collapse = ", "), 
+    solvent.specs = paste0(solvent.specs, collapse = ", "),
+    Solvent.composition = paste0(Solvent.composition, collapse = ", "), 
+    pH = mean(pH), 
+    T.K = mean(T.K), 
+    log.K = mean(log.K, na.rm = T), 
+    log.K.Uncertainty = mean(log.K.Uncertainty, na.rm = T), 
+    DelG = mean(DelG), 
+    DelG.Uncertainty = mean(DelG.Uncertainty, na.rm = T), 
+    DelH = mean(DelH, na.rm = T), 
+    DelH.Uncertainty = mean(DelH.Uncertainty, na.rm = T), 
+    TDelS = mean(TDelS), 
+    TDelS.Uncertainty = mean(TDelS.Uncertainty, na.rm = T), 
+    methoda = paste0(methoda, collapse = ", "),
+    ref = paste0(ref, collapse = ", "),
+    `bind.aff, kcal/mol` = mean(`bind.aff, kcal/mol`)
+  )
+
+dup.gamma.clean <- dup.gamma %>%
+  group_by(guest) %>%
+  summarize(
+    solvent = paste0(solvent, collapse = ", "), 
+    solvent.specs = paste0(solvent.specs, collapse = ", "),
+    Solvent.composition = paste0(Solvent.composition, collapse = ", "), 
+    pH = mean(pH), 
+    T.K = mean(T.K), 
+    log.K = mean(log.K, na.rm = T), 
+    log.K.Uncertainty = mean(log.K.Uncertainty, na.rm = T), 
+    DelG = mean(DelG), 
+    DelG.Uncertainty = mean(DelG.Uncertainty, na.rm = T), 
+    DelH = mean(DelH, na.rm = T), 
+    DelH.Uncertainty = mean(DelH.Uncertainty, na.rm = T), 
+    TDelS = mean(TDelS), 
+    TDelS.Uncertainty = mean(TDelS.Uncertainty, na.rm = T), 
+    methoda = paste0(methoda, collapse = ", "),
+    ref = paste0(ref, collapse = ", "),
+    `bind.aff, kcal/mol` = mean(`bind.aff, kcal/mol`)
+  )
+
+# remove duplicates, add cleaned duplicates
+cta.test <- comb.table.alpha[-c(which (comb.table.alpha$guest %in% dup.alpha$guest)), ]
+dup.alpha.clean <- cbind(host = "1\u03b1", dup.alpha.clean)
+comb.table.alpha <- rbind(cta.test, dup.alpha.clean)
+
+ctb.temp <- comb.table.beta[-c(which (comb.table.beta$guest %in% dup.beta$guest)), ]
+dup.beta.clean <- cbind(host = "1\u03b2", dup.beta.clean)
+comb.table.beta <- rbind(ctb.temp, dup.beta.clean)
+
+ctg.temp <- comb.table.gamma[-c(which (comb.table.gamma$guest %in% dup.gamma$guest)), ]
+dup.gamma.clean <- cbind(host = "1\u03b2", dup.gamma.clean)
+comb.table.gamma <- rbind(ctg.temp, dup.gamma.clean)
+
+# re-downloading cactus files for convenience
+comb.alpha.guest <- comb.table.alpha$guest
+comb.beta.guest <- comb.table.beta$guest
+comb.gamma.guest <- comb.table.gamma$guest
+
+alpha.comb.dest <- create.host.dir(folder, "AlphaClean")
+beta.comb.dest <- create.host.dir(folder, "BetaClean")
+gamma.comb.dest <- create.host.dir(folder, "GammaClean")
+
+# results: 2 failures: cis-1,2,3,4-tetraphenylcyclobutane and trans-1,2,3,4-tetraphenylcyclobutane
+results.gamma.comb <-
+  do.call(
+    rbind,
+    lapply(
+      comb.gamma.guest,
+      download.cactus.results,
+      path = gamma.comb.dest,
+      chemical.format = "SDF"
+    )
+  )
+# l-trp
+results.alpha.comb <-
+  do.call(
+    rbind,
+    lapply(
+      comb.alpha.guest,
+      download.cactus.results,
+      path = alpha.comb.dest,
+      chemical.format = "SDF"
+    )
+  )
+
+results.beta.comb <-
+  do.call(
+    rbind,
+    lapply(
+      comb.beta.guest,
+      download.cactus.results,
+      path = beta.comb.dest,
+      chemical.format = "SDF"
+    )
+  )
+# Which files don't process through PaDEL
+# proadifen
+# resorcinol
+# adiphenine
+# cis-diammine(1,1-cyclobutanedicarboxylato)platinum(II)
+# perchlorate
+# iodide
+# perchloric acid
+
+
+
+# Removing molecules that didn't download from the tables
+
+# beta.cactus.fail <- results.beta.comb[results.beta.comb$downloaded == "no", results.beta.comb$guest] 
+
+
+padel.filepath <- "~/Cactus/PaDEL Results/"
+alpha.file <- paste0(padel.filepath, "alpha.csv")
+beta.file <- paste0(padel.filepath, "beta.csv")
+gamma.file <- paste0(padel.filepath, "gamma.csv")
+
+alpha.padel <- read.csv(alpha.file)
+beta.padel <- read.csv(beta.file)
+gamma.padel <- read.csv(gamma.file)
+
+names(alpha.padel)[names(alpha.padel) == "Name"] <- "guest"
+names(beta.padel)[names(beta.padel) == "Name"] <- "guest"
+names(gamma.padel)[names(gamma.padel) == "Name"] <- "guest"
+
+alpha.all <- inner_join(comb.table.alpha, alpha.padel)
+beta.all <- inner_join(comb.table.beta, beta.padel)
+gamma.all <- inner_join(comb.table.gamma, gamma.padel)
+
+all.clean <- rbind(alpha.all, beta.all, gamma.all)
+all.clean <- str_replace_all(all.clean$host, "1\u03b1", "alpha CD")
+all.clean <- str_replace(all.clean$host, "1γ", "gamma CD")
+write.csv(all.clean, file = "cyclodextrin.csv")
+
+alpha.guest.clean <- unique(data.clean$guest[data.clean$host == "1\u03b1"])
+beta.guest.clean  <- unique(data.clean$guest[data.clean$host == "1\u03b2"])
 
