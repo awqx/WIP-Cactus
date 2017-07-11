@@ -163,7 +163,7 @@ plot3gamma <- ggplot(gamma.aff.all, aes(x = Binding.Affinity, fill = ligand.alg)
     center = -4.1
   ) + 
   facet_grid(ligand.ff ~ vina) +
-  scale_fill_manual(values=c("green", "blue")) +
+  scale_fill_manual(values=c("blue", "red")) +
   theme_bw() +
   xlab("Binding Affinity, kcal/mol") +
   ylab("Number of Instances")

@@ -7,8 +7,10 @@ install.packages("Amelia")
 # install.packages("pls")
 # install.packages("elasticnet")
 install.packages("broom")
+install.packages("irlba")
 library(stringr)
 library(dplyr)
+library(ggplot2)
 library(Amelia)
 # library(MASS)
 # library(caret)
@@ -18,6 +20,7 @@ library(Amelia)
 # library(elasticnet)
 library(broom)
 library(stats)
+library(irlba)
 
 # I'm not even sure you need all these packages but can't hurt, right?
 
@@ -463,6 +466,8 @@ alpha.chem <- full_join(alpha.exp.aff, alpha.chem)
 alpha.chem.clean <- alpha.chem[!is.na(alpha.chem$Name),]
 alpha.chem.clean <- alpha.chem.clean[!is.na(alpha.chem.clean$binding.affinity), ]
 alpha.chem.clean <- alpha.chem.clean[!is.na(alpha.chem.clean$nAcid), ]
+alpha.chem.noname <- alpha.chem.clean
+alpha.chem.noname$Name <- NULL 
 # random sample of clean data for training
 set.seed(1)
 alpha.sample.size <- nrow(alpha.chem.clean) * 3 / 4
@@ -477,18 +482,69 @@ tidy(lm.alpha.pred)
 alpha.pred <- predict.lm(lm.alpha.pred, alpha.test, level = 0.95)
 alpha.results <- alpha.chem.clean[!alpha.chem.clean$Name %in% alpha.train.names, ]
 alpha.results <- alpha.results[ , colnames(alpha.results) == "Name" | colnames(alpha.results) == "binding.affinity"]
-alpha.eval <- data.frame(alpha.results, pred = alpha.pred)
+alpha.eval <- data.frame(alpha.results, pred = alpSha.pred)
 alpha.eval <- alpha.eval[!is.na(alpha.eval$pred), ]
+alpha.eval.noperc <- alpha.eval
+alpha.eval.noperc$percent <- NULL
 defaultSummary(alpha.eval)
-plot(alpha.eval, main = "Solubility Values", ylab = "Predicted Values", 
-     xlab = "True Observed Valuese")
+plot(alpha.eval.noperc, main = "Prediction via Linear Model", ylab = "Predicted Values", xlab = "True Observed Values")
 lines(c(-10, 1), c(-10, 1), col = "red")
 summary(alpha.eval)
 boxcox(lm., family="yjPower", plotit = T)
 
 alpha.int <- sapply(alpha.train, is.integer)
 alpha.train.int <- alpha.train[ , alpha.int]
-alpha.dup <- sapply(alpha.train, duplicated)
+
+alpha.dup.col <- sapply(alpha.train.int, n_distinct) == 1
+alpha.dup <- alpha.train.int[ , alpha.dup.col]
+alpha.dup.table <- data.frame(sapply(alpha.train.int, n_distinct))
+alpha.dup.table <- summarise_each(alpha.train.int, n_distinct)
+ggplot(alpha.dup.table, aes())
+gather(alpha.dup.table) %>% 
+  arrange(., value) %>% 
+  ggplot(., aes(reorder(key, value), y = value)) + 
+    geom_bar(stat="identity")
+
+# Percent Yields
+alpha.eval$percent <- alpha.eval$pred / alpha.eval$alpha.results
+ggplot(alpha.eval, aes(x = row.names(alpha.eval), y = alpha.eval$percent)) +
+  geom_point() +
+  scale_y_log10()
+
+ggplot(dataset, aes(x = dataset$DelG)) +
+  geom_histogram() +
+  xlab("DelG")
+
+# irlba
+alpha.chem.noname.matrix <- data.matrix(alpha.chem.noname)
+irlba(alpha.chem.noname.matrix, nv = 5, maxit = 1000, work = nv + 7, reorth = TRUE,
+      tol = 1e-05, v = NULL, right_only = FALSE, verbose = FALSE, scale)
+
+
+#==========
+# Sort
+data.with.aff <- dataset
+binding.aff.all <- unlist(Map(convert.kj.kcal, dataset$DelG))
+data.with.aff$binding.affinity <- binding.aff.all
+View(data.with.aff)
+alpha.greatest.aff <- data.with.aff[data.with.aff$host == "1\u03b1", ] %>% 
+  arrange (binding.affinity) %>%
+  head(10)
+beta.greatest.aff <- data.with.aff[data.with.aff$host == "1\u03b2", ] %>% 
+  arrange (binding.affinity) %>%
+  head(10)
+gamma.greatest.aff <- data.with.aff[data.with.aff$host == "1γ", ] %>% 
+  arrange (binding.affinity) %>%
+  head(10)
+
+
+#
+# find molecules with most solvents
+guest.solvents <- data.with.aff %>% 
+  group_by(host, guest) %>%
+  mutate(number.repeated = n_distinct(log.K)) %>%
+  filter(row_number() > 1)
+  # filter(row_number() > 1)
 
 #==================================================================
 #                    Combined Table
@@ -809,3 +865,4 @@ write.csv(all.clean, file = "cyclodextrin.csv")
 
 alpha.guest.clean <- unique(data.clean$guest[data.clean$host == "1\u03b1"])
 beta.guest.clean  <- unique(data.clean$guest[data.clean$host == "1\u03b2"])
+
