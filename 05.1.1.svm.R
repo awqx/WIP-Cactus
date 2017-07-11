@@ -1,0 +1,372 @@
+# Libraries and Packages --------------------------------------------------
+
+library(caret)
+library(e1071)
+library(kernlab)
+library(Matrix)
+library(stats)
+library(stringr)
+library(tidyverse)
+
+# Loading Data ------------------------------------------------------------
+
+df <- readRDS("./DelG.df.RDS")
+set.seed(2)
+trn.ind <- sample(x = 1:nrow(df), 
+                  size = round(0.7 * nrow(df)))
+df.trn <- df[trn.ind, ]
+df.trn.x <- df.trn[ , -1]
+df.trn.y <- df.trn[ , 1]
+df.tst <- df[-trn.ind, ]
+df.tst.x <- df.tst[ , -1]
+df.tst.y <- df.tst[ , 1]
+df.ga <- cbind(df[ , 1], df[ , colnames(df) %in% ga.final])
+colnames(df.ga)[1] <- "DelG"
+df.ga.trn <- df[trn.ind, ]
+df.ga.trn.x <- df.ga.trn[ , -1]
+df.ga.trn.y <- df.ga.trn[ , 1]
+df.ga.tst <- df[-trn.ind, ]
+df.ga.tst.x <- df.ga.tst[ , -1]
+df.ga.tst.y <- df.tst[ , 1]
+
+set.seed(1)
+sprse <- readRDS("./DelG.sparse.RDS")
+trn.ind <- sample(x = 1:nrow(sprse), 
+                  size = round(0.7 * nrow(sprse)))
+sprse.trn <- sprse[trn.ind, ]
+sprse.trn.x <- sprse.trn[ , -1:-2]
+sprse.trn.y <- sprse.trn[ , 2]
+sprse.tst <- sprse[-trn.ind, ]
+sprse.tst.x <- sprse.tst[ , -1:-2]
+sprse.tst.y <- sprse.tst[ , 2]
+
+sprse.ga <- sparse.model.matrix(~., df.ga)
+sprse.ga.trn <- sprse.ga[trn.ind, ]
+sprse.ga.trn.x <- sprse.ga.trn[ , -1:-2]
+sprse.ga.trn.y <- sprse.ga.trn[ , 2]
+sprse.ga.tst <- sprse.ga[-trn.ind, ]
+sprse.ga.tst.x <- sprse.ga.tst[ , -1:-2]
+sprse.ga.tst.y <- sprse.ga.tst[ , 2]
+
+# Polynomial Kernel -------------------------------------------------------
+#     All Data ----------------------------------------------------
+
+svm.all <- svm(x = sprse.trn.x, 
+               y = sprse.trn.y, 
+               coef0 = 2, 
+               cost = 512, 
+               epsilon = 0.5, 
+               kernel = "polynomial", 
+               gamma = 0.5, 
+               degree = 2)
+
+svm.all.tst <- predict(svm.all, sprse.tst.x) %>%
+  cbind(sprse.tst.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = sprse.tst.y)
+svm.all.trn <- predict(svm.all, sprse.trn.x) %>%
+  cbind(sprse.trn.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = sprse.trn.y)
+
+defaultSummary(svm.all.tst)[2] # 0.407
+
+#     Alpha -------------------------------------------------------
+df.a <- filter(df, alpha > 0)
+set.seed(24)
+trn.ind <- sample(x = 1:nrow(df.a), 
+                  size = round(0.7 * nrow(df.a)))
+df.a.trn <- df.a[trn.ind, ]
+df.a.tst <- df.a[-trn.ind, ]
+
+sprse.a <- sparse.model.matrix(~., df.a)
+trn.ind <- sample(x = 1:nrow(sprse.a), 
+                  size = round(0.7 * nrow(sprse.a)))
+sprse.a.trn <- sprse.a[trn.ind, ]
+sprse.a.tst <- sprse.a[-trn.ind, ]
+
+svm.a <- svm(x = sprse.a.trn[ , -1:-2],
+             y = sprse.a.trn[ , 2], 
+             kernel = "polynomial", 
+             degree = 2,
+             cost = 512, 
+             gamma = 0.5, 
+             epsilon = 0.5, 
+             coef0 = 2)
+svm.a.tst <- predict(svm.a, sprse.a.tst[ , -1:-2]) %>%
+  cbind(sprse.a.tst[ , 2]) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+defaultSummary(svm.a.tst)[2]
+
+#     Beta --------------------------------------------------------
+df.b <- filter(df, beta > 0)
+# 20 # 34 (outlier) # 54
+set.seed(100)
+trn.ind <- sample(x = 1:nrow(df.b), 
+                  size = round(0.7 * nrow(df.b)))
+df.b.trn <- df.b[trn.ind, ]
+df.b.tst <- df.b[-trn.ind, ]
+
+sprse.b <- sparse.model.matrix(~., df.b)
+trn.ind <- sample(x = 1:nrow(sprse.b), 
+                  size = round(0.7 * nrow(sprse.b)))
+sprse.b.trn <- sprse.b[trn.ind, ]
+sprse.b.tst <- sprse.b[-trn.ind, ]
+
+svm.b <- svm(x = sprse.b.trn[ , -1:-2],
+             y = sprse.b.trn[ , 2], 
+             kernel = "polynomial", 
+             degree = 2,
+             cost = 512, 
+             gamma = 0.5, 
+             epsilon = 0.5, 
+             coef0 = 1)
+svm.b.tst <- predict(svm.b, sprse.b.tst[ , -1:-2]) %>%
+  cbind(sprse.b.tst[ , 2]) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+defaultSummary(svm.b.tst)[2]
+
+#     Gamma -------------------------------------------------------
+
+df.c <- filter(df, gamma > 0)
+set.seed(8)
+trn.ind <- sample(x = 1:nrow(df.c), size = round(0.7 * nrow(df.c)))
+df.c.trn <- df.c[trn.ind, ]
+df.c.tst <- df.c[-trn.ind, ]
+
+sprse.c <- sparse.model.matrix(~., df.c)
+trn.ind <- sample(x = 1:nrow(sprse.c), size = round(0.7 * nrow(sprse.c)))
+sprse.c.trn <- sprse.c[trn.ind, ]
+sprse.c.tst <- sprse.c[-trn.ind, ]
+
+svm.c <- svm(x = sprse.c.trn[ , -1:-2],
+             y = sprse.c.trn[ , 2], 
+             kernel = "polynomial", 
+             degree = 2,
+             cost = 512, 
+             gamma = 0.5, 
+             epsilon = 0.5, 
+             coef0 = 2)
+svm.c.tst <- predict(svm.c, sprse.c.tst[ , -1:-2]) %>%
+  cbind(sprse.c.tst[ , 2]) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+defaultSummary(svm.c.tst)[2]
+
+
+#     Compiled CDs --------------------------------------------------------
+
+temp.a <- svm.a.tst %>% 
+  mutate(cd.type = rep("alpha", length(svm.a.tst$pred)))
+temp.b <- svm.b.tst %>% 
+  mutate(cd.type = rep("beta", length(svm.b.tst$pred)))
+temp.c <- svm.c.tst %>% 
+  mutate(cd.type = rep("gamma", length(svm.c.tst$pred)))
+svm.abc.tst <- rbind(temp.a, temp.b, temp.c, 
+                     make.row.names = F) %>%
+  mutate(residual = pred - obs)
+defaultSummary(svm.abc.tst)
+
+#####
+# Radial Basis Kernel -----------------------------------------------------
+#     All ------------------------------------------------------------
+rbf.all <- svm(x = sprse.trn.x, 
+               y = sprse.trn.y,
+               cost = 8, 
+               epsilon = 0.5, 
+               kernel = "radial", 
+               gamma = 0.0005)
+
+rbf.all.tst <- predict(rbf.all, sprse.tst.x) %>%
+  cbind(sprse.tst.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = sprse.tst.y)
+rbf.all.trn <- predict(rbf.all, sprse.trn.x) %>%
+  cbind(sprse.trn.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = sprse.trn.y)
+
+defaultSummary(rbf.all.tst)[2]
+
+#     Alpha ---------------------------------------------------------
+
+rbf.a <- svm(x = sprse.a.trn[ , -1:-2],
+             y = sprse.a.trn[ , 2], 
+             kernel = "radial", 
+             cost = 8, 
+             gamma = 0.0005, 
+             epsilon = 0.5)
+rbf.a.tst <- predict(rbf.a, sprse.a.tst[ , -1:-2]) %>%
+  cbind(sprse.a.tst[ , 2]) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+defaultSummary(rbf.a.tst)[2]
+
+#     Beta -----------------------------------------------------------
+
+rbf.b <- svm(x = sprse.b.trn[ , -1:-2],
+             y = sprse.b.trn[ , 2], 
+             kernel = "radial", 
+             cost = 8, 
+             gamma = 0.0005, 
+             epsilon = 0.5)
+rbf.b.tst <- predict(rbf.b, sprse.b.tst[ , -1:-2]) %>%
+  cbind(sprse.b.tst[ , 2]) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+defaultSummary(rbf.b.tst)[2]
+
+#     Gamma ----------------------------------------------------------
+
+rbf.c <- svm(x = sprse.c.trn[ , -1:-2],
+             y = sprse.c.trn[ , 2], 
+             kernel = "radial", 
+             cost = 8, 
+             gamma = 0.0005, 
+             epsilon = 0.5)
+rbf.c.tst <- predict(rbf.c, sprse.c.tst[ , -1:-2]) %>%
+  cbind(sprse.c.tst[ , 2]) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+defaultSummary(rbf.c.tst)[2]
+
+#     Compiled CDs --------------------------------------------------------
+temp.a <- rbf.a.tst %>% 
+  mutate(cd.type = rep("alpha", length(rbf.a.tst$pred)))
+temp.b <- rbf.b.tst %>% 
+  mutate(cd.type = rep("beta", length(rbf.b.tst$pred)))
+temp.c <- rbf.c.tst %>% 
+  mutate(cd.type = rep("gamma", length(rbf.c.tst$pred)))
+rbf.abc.tst <- rbind(temp.a, temp.b, temp.c, 
+                     make.row.names = F)
+defaultSummary(rbf.abc.tst)
+
+# Plots -------------------------------------------------------------------
+# Notes: Outlier is 3-methylbenzoic acid
+#     Polynomial ----------------------------------------------------------
+#         Test Set --------------------------------------------------------
+# SVM with all data points
+ggplot(svm.all.tst, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "Polynomial SVM - All Data Points") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 poly all data points.png")
+
+# Alpha-CD
+ggplot(svm.a.tst, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "Polynomial SVM - Alpha CD") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 poly alpha cd.png")
+
+# Beta-CD
+ggplot(svm.b.tst, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "Polynomial SVM - Beta CD") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 poly beta cd.png")
+
+# Gamma-CD
+ggplot(svm.c.tst, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "Polynomial SVM - Gamma CD") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 poly gamma cd.png")
+
+# All-CDs
+ggplot(svm.abc.tst, aes(x = obs, y = pred, 
+                        group = cd.type, 
+                        color = cd.type)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "Polynomail SVM - Compiled CD Types", 
+       color = "Cyclodextrin Type") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 poly compiled cds.png")
+
+#    Residuals
+ggplot(svm.abc.tst, aes(x = obs, y = residual)) + 
+  geom_point() + 
+  geom_hline(yintercept = 0) + 
+  labs(x = "Experimental DelG, kJ/mol", y = "Residual, kJ/mol", 
+       title = "Polynomail SVM - Residuals of Compiled CD Types") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 poly compiled cds resid.png")
+
+#         Training Set ----------------------------------------------------
+# Very clearly overfitted
+ggplot(svm.all.trn, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "Polynomial SVM - All Data Points, Training") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-07 poly all data points trn.png")
+
+#     RBF -----------------------------------------------------------------
+ggplot(rbf.all.tst, aes(x = obs, y = pred)) + 
+  geom_point(shape = 10, size = 2) + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", title = "Radial SVM - All Data Points") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 rbf all data points.png")
+
+ggplot(rbf.a.tst, aes(x = obs, y = pred)) + 
+  geom_point(shape = 10, size = 2) + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "Radial SVM - Alpha CD") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 rbf alpha cd.png")
+
+ggplot(rbf.b.tst, aes(x = obs, y = pred)) + 
+  geom_point(shape = 10, size = 2) + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", title = "Radial SVM - Beta CD") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 rbf beta cd.png")
+
+ggplot(rbf.c.tst, aes(x = obs, y = pred)) + 
+  geom_point(shape = 10, size = 2) + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", title = "Radial SVM - Gamma CD") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 rbf gamma cd.png")
+
+ggplot(rbf.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
+  geom_point(shape = 10, size = 2) + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "Radial SVM - Compiled CDs", 
+       color = "Cyclodextrin Type") + 
+  coord_fixed() + 
+  theme_bw()
+ggsave("./graphs/svm/2017-07-06 rbf compiled cd.png")
