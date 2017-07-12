@@ -3,7 +3,6 @@ library(data.table)
 library(RCurl) # Read webpages with special access requirements
 library(XML)   # Import XML files
 
-
 # Download from ACS -------------------------------------------------------
 
 # Solution by spacedman from stackoverflow
