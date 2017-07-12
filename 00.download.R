@@ -5,19 +5,23 @@ library(XML)   # Import XML files
 
 # Download from ACS -------------------------------------------------------
 
-# Solution by spacedman from stackoverflow
-# http://stackoverflow.com/questions/3616406/
+# Solution by spacedman from stackoverflow:
+# http://stackoverflow.com/questions/3616406/ 
 # object-moved-error-in-using-the-rcurl-geturl-function-in-order-to-access-an-as
+
+# Warning: the following code will not work if access is not granted
+# Alternate code may be created later
 
 # ~~~~ Rekharsly and Inoue Data ~~~~
 
 # Change the working directory location at your discretion
 setwd("~/SREP LAB/qsar")
-url           <- "http://pubs.acs.org/doi/full/10.1021/cr970015o"
+url <- "http://pubs.acs.org/doi/full/10.1021/cr970015o"
 # The success of this step depends on access to the file
 # A paywall will cause this to crash. 
-file          <-
-  getURL(url, .opts = curlOptions(followlocation = TRUE, cookiefile = "nosuchfile"))
+file <- getURL(url,
+               .opts = curlOptions(followlocation = TRUE, 
+                                   cookiefile = "nosuchfile"))
 ri.table.list <-
   readHTMLTable(
     file,
@@ -25,18 +29,18 @@ ri.table.list <-
     as.data.frame = T,
     stringAsFactors = F
   )
-# date.accessed  <- date()
-dwnld.dir <- "./downloaded/"
-# if the previous URL does not work, try "~/downloaded/"
-dir.create(dwnld.dir)
-save(ri.table.list, file = paste0(dwnld.dir, "ri.table.list.RData"))
-saveRDS(ri.table.list, file = paste0(dwnld.dir, "ri.table.list.RDS"))
+
+dir.create("./dwnld")
+save(ri.table.list, file = "./dwnld/ri.table.list.RData")
+saveRDS(ri.table.list, file = "./dwnld/ri.table.list.RDS")
 
 # ~~~~ Suzuki Data ~~~~
 
 url   <- "http://pubs.acs.org/doi/full/10.1021/ci010295f"
 file  <-
-  getURL(url, .opts = curlOptions(followlocation = TRUE, cookiefile = "nosuchfile"))
+  getURL(url, 
+         .opts = curlOptions(followlocation = TRUE, 
+                             cookiefile = "nosuchfile"))
 suzuki.list <-
   readHTMLTable(
     file,
@@ -44,4 +48,6 @@ suzuki.list <-
     as.data.frame = T,
     stringAsFactors = F
   )
-saveRDS(suzuki.list, paste0(dwnld.dir, "suzuki.list.RDS"))
+
+save(suzuki.list, file = "./dwnld/suzuki.list.RData")
+saveRDS(suzuki.list, "./dwnld/suzuki.list.RDS")

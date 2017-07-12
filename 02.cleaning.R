@@ -1,11 +1,13 @@
 library(tidyverse)
 library(stringr)
+
+# Rekharsky and Inoue -----------------------------------------------------
+
 # The following reading will vary based on user preference
 ri.bound <- readRDS("./bound/ri.bound.df.RDS")
-
 # Rename columns 
 #     Note: for some reason, this doesn't work on Windows
-#     Also, I'm pretty sure this is supposed to go at the end of the code
+#     Keeping this, in case it's important for RStudio on iOS
 
 # ri.bound <- ri.bound %>%
 #   rename(DelG = `ÎGÂ°/ kJâmol-1`, 
@@ -19,34 +21,24 @@ ri.bound <- readRDS("./bound/ri.bound.df.RDS")
 # Splitting columns containing a variable value and its uncertainty
 # Occasionally the naming of the columns will get messed up
 # In this case, you would need colnames(ri.bound)[3], [5], [6], [7], and [11]
+colnames(ri.bound) <- c("host", "guest", "solvent", 
+                        "T.K", "log.K", 
+                        "DelG", "DelH", "TDelS", 
+                        "methoda", "ref", "DelCp")
 
-# ri.clean <- ri.bound %>% 
-#   separate(solvent, c("solvent","solvent.specs"),
-#            sep = "(?=\\s*\\()", extra = "merge", fill = "right") %>% 
-#   separate(log.K, c("log.K", "log.K.Uncertainty"), 
-#            sep = "\\s\\Â±\\s", extra = "merge", fill = "right") %>% 
-#   separate(DelG, c("DelG", "DelG.Uncertainty"),
-#            sep = "\\s\\Â±\\s",extra = "merge", fill = "right") %>%
-#   separate(DelH, c("DelH", "DelH.Uncertainty"),
-#            sep = "\\s\\Â±\\s", extra = "merge", fill = "right") %>%
-#   separate(TDelS, c("TDelS", "TDelS.Uncertainty"), 
-#            sep = "\\s\\Â±\\s",extra = "merge", fill = "right")  %>%
-#   separate(DelCp, c("DelCp", "DelCp.Uncertainty"), 
-#           sep = "\\s\\Â±\\s",extra = "merge", fill = "right")
-# My version of the table
-ri.clean <- ri.bound %>% 
+ri.clean <- ri.bound %>%
   separate(solvent, c("solvent","solvent.specs"),
-           sep = "(?=\\s*\\()", extra = "merge", fill = "right") %>% 
-  separate(log.U.2009.K, c("log.K", "log.K.Uncertainty"), 
-           sep = "\\s\\Â±\\s", extra = "merge", fill = "right")   %>% 
-  separate(X.U.0394.G...kJ.U.2009.mol.1, c("DelG", "DelG.Uncertainty"),
-           sep = "\\s\\Â±\\s",extra = "merge", fill = "right")    %>%
-  separate(X.U.0394.H...kJ.U.2009.mol.1, c("DelH", "DelH.Uncertainty"),
-           sep = "\\s\\Â±\\s", extra = "merge", fill = "right")   %>%
-  separate(T.U.0394.S...kJ.U.2009.mol.1, c("TDelS", "TDelS.Uncertainty"), 
-           sep = "\\s\\Â±\\s",extra = "merge", fill = "right")    %>%
-  separate(X.U.0394.Cp...J.U.2009.mol.1.U.2009.K.1, c("DelCp", "DelCp.Uncertainty"), 
-           sep = "\\s\\Â±\\s",extra = "merge", fill = "right")
+           sep = "(?=\\s*\\()", extra = "merge", fill = "right") %>%
+  separate(log.K, c("log.K", "log.K.Uncertainty"),
+           sep = "\\s\\±\\s", extra = "merge", fill = "right") %>% 
+  separate(DelG, c("DelG", "DelG.Uncertainty"),
+           sep = "\\s\\±\\s",extra = "merge", fill = "right") %>% 
+  separate(DelH, c("DelH", "DelH.Uncertainty"),
+           sep = "\\s\\±\\s", extra = "merge", fill = "right") %>%
+  separate(TDelS, c("TDelS", "TDelS.Uncertainty"),
+           sep = "\\s\\±\\s",extra = "merge", fill = "right")  %>%
+  separate(DelCp, c("DelCp", "DelCp.Uncertainty"),
+          sep = "\\s\\±\\s",extra = "merge", fill = "right")
 
 # Cleaning strings that contain inconsistent patterns such as more than one space
 # separation and unconventional separation symbols. Converting alpha, beta and
@@ -66,11 +58,11 @@ ri.clean <- ri.clean %>%
                             replacement = "alpha" )) %>%
   mutate(host = str_replace(host, pattern = "\\Î²|\\B\\s+H\\+|\u03b2", 
                             replacement = "beta")) %>%
-  mutate(host = str_replace(host, pattern = "\\Î³", 
+  mutate(host = str_replace(host, pattern = "\\Î³|\u03b3", 
                             replacement = "gamma"))
 
 
-# pH Imputation -----------------------------------------------------------
+#     pH Imputation -----------------------------------------------------------
 
 # Remove pH string and parenthesis to convert the pH Column to numerical. Assume 
 # that columns with no value have a pH of 7.0. pH values with a range of 
@@ -79,10 +71,11 @@ ri.clean <- ri.clean %>%
 # the molarity of the acid given in the solvent composition will be set
 # at the theoretical value of the solution
 
+# Creating regex for molarity detection
 pattern.molarity <- gsub("\n", replacement = "", x = "(([0-9]*\\.*[0-9]*\\s+[M]
                          \\s+[A-Za-z]*[A-Za-z0-9]*\\s*[a-z]*)(\\;*\\,*\\+*\\s+[0-9]+\\.*[0-9]*\\s+[M]
                          \\s+[A-Za-z]*[A-Za-z0-9]*[a-z]*)*)")
-
+# Regex for pH
 pH.numeric <-  "[0-9]+\\.*[0-9]*"
 
 ri.clean <- ri.clean %>% 
@@ -97,12 +90,12 @@ ri.clean <- ri.clean %>%
          solvent.molarity = str_extract(solvent.specs, 
                                         pattern = pattern.molarity)) %>%
   mutate(pH = ifelse(!is.na(pH.range), NA, pH)) %>%
-  mutate(pH = str_extract(pH, pattern = pH.numeric)%>% as.numeric())%>%
+  mutate(pH = str_extract(pH, pattern = pH.numeric) %>% as.numeric()) %>%
   separate(., pH.range, c("pH1", "pH2"), sep = "-") %>%
   mutate(pH1 = str_extract(pH1, pattern = pH.numeric) %>% as.numeric(),
          pH2 = as.numeric(pH2)) %>%
   mutate(pH = ifelse(!is.na(pH1), (pH1+pH2)/2, pH)) %>%
-  mutate(pH = ifelse(is.na(pH), 7.0, pH))%>%
+  mutate(pH = ifelse(is.na(pH), 7.0, pH)) %>%
   select(-pH1, -pH2) 
 
 # Setting pH to acidic value when the solution contained an acid
@@ -116,9 +109,10 @@ hcl.acid <- grep(pattern = "M+\\s+\\bHCl\\b",
 ri.clean$pH[sulfuric.acid] <- 1
 ri.clean$pH[hcl.acid]  <-  1.21
 
-# ------------------------------------------------------------------------------
-#                          Reconsider this Section
-# ------------------------------------------------------------------------------
+
+#     Questionable Section ------------------------------------------------
+
+
 # It would be nice to explain what each of these cleanup step is actually doing
 # to the guest column and why is needed. I did a quick search in google 
 # and was able to find many   of the structures without modifying the original 
@@ -162,40 +156,44 @@ mutate(guest = str_replace(
 #   bind_cols(ri.clean) %>%
 #   
 # 
-# #fixed file path -AX
-# clean_dir       <- "./Output Data/"
-# saveRDS(ri_engineered, file = paste0(clean_dir, "02-ri_engineered.RDS"))
-# save(ri_engineered, file = paste0(clean_dir, "ri_engineered.RData"))
 
-# Useful Data -------------------------------------------------------------
+#     Useful Data ---------------------------------------------------------
 
+# These annotations include data that is questionable or unreliable
 ri.clean <- ri.clean[!str_detect(ri.clean$ref, "b|c|g|i|j|m"),]
-single.complex <- str_detect(ri.clean$host, "1[[:alpha:]]")
-ri.clean <- ri.clean[single.complex, ]
+# Filtering for 1:1 complexes
+ri.clean <- ri.clean[str_detect(ri.clean$host, "^1[[:alpha:]]"), ]
 
 # Discriminating based on pH and T
 ri.squeaky.clean <- ri.clean[ri.clean$pH > 6.9, ]
 ri.squeaky.clean <- ri.squeaky.clean[ri.squeaky.clean$pH < 7.1, ]
 ri.squeaky.clean <- ri.squeaky.clean[ri.squeaky.clean$T.K == 298,]
 
+#     Formatting  ---------------------------------------------------------
 
-# ------------------------------------------------------------------------------
-#                             Formatting Table           
 # Reorganizing Table  into the following colunn families vector types
 # Host <chr> | Guest <chr> | Solvent Specs <chr>| pH + Thermodynamic Values (dbl)
 # | Method+References <chr>
 ri.clean <- ri.clean %>%
+  mutate(DelG = str_replace(ri.clean$DelG, "(−|\u2212)", "-") %>% as.numeric()) %>%
+  mutate(DelH = str_replace(ri.clean$DelH, "(−|\u2212)", "-") %>% as.numeric()) %>%
+  mutate(TDelS = str_replace(ri.clean$TDelS, "(−|\u2212)", "-") %>% as.numeric()) %>%
+  mutate(DelCp = str_replace(ri.clean$DelCp, "(−|\u2212)", "-") %>% as.numeric()) %>%
   select(1:4, 20:21, pH, 5:13, DelCp, DelCp.Uncertainty, methoda, ref, ref.notes) %>%
   mutate_at(vars(7:18), as.numeric) 
 
 ri.squeaky.clean <- ri.squeaky.clean %>%
+  mutate(DelG = str_replace(ri.squeaky.clean$DelG, "(−|\u2212)", "-") %>% as.numeric()) %>%
+  mutate(DelH = str_replace(ri.squeaky.clean$DelH, "(−|\u2212)", "-") %>% as.numeric()) %>%
+  mutate(TDelS = str_replace(ri.squeaky.clean$TDelS, "(−|\u2212)", "-") %>% as.numeric()) %>%
+  mutate(DelCp = str_replace(ri.squeaky.clean$DelCp, "(−|\u2212)", "-") %>% as.numeric()) %>%
   select(1:4, 20:21, pH, 5:13, DelCp, DelCp.Uncertainty, methoda, ref, ref.notes) %>%
   mutate_at(vars(7:18), as.numeric) 
 
 # Nice to know:
-# Total = 1227
+# Total = 1225
 # Alpha = 615
-# Beta = 549
+# Beta = 547
 # Gamma = 63
 # 564 unique
 
@@ -206,10 +204,60 @@ ri.squeaky.clean <- ri.squeaky.clean %>%
 # Gamma = 48
 # 329 unique
 
-# -----------------------------------------------------------------------------
-#                     Save output of script 
+#     Save Output ---------------------------------------------------------
+save(suz.clean, file = "./bound/02.ri.clean.RData")
+saveRDS(ri.clean, file = "./bound/02.ri.clean.RDS")
 
-saveRDS(ri.clean, file = paste0(bound.dir, "02.ri.clean.RDS"))
-save(ri.clean, file = paste0(bound.dir, "02.ri.clean.RData"))
-saveRDS(ri.squeaky.clean, file = paste0(bound.dir, "02.ri.squeaky.clean.RDS"))
-save(ri.squeaky.clean, file = paste0(bound.dir, "02.ri.squeaky.clean.RData"))
+saveRDS(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RDS")
+save(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RData")
+
+#####
+# Suzuki ------------------------------------------------------------------
+
+suz.bound <- readRDS("./bound/suz.bound.df.RDS")
+suz.clean <- suz.bound[-1, c(2, 4, 8)] # Selection of obsd data only
+colnames(suz.clean) <- c("guest", "DelG.a", "DelG.b") # Easy renaming
+
+# Sorting out characters that were read weirdly 
+suz.clean <- suz.clean %>%
+  mutate(DelG.a = str_replace(DelG.a, "â\u0088\u0092", "-")) %>%
+  mutate(DelG.a = str_replace(DelG.a, "(â|Â)", "")) %>%
+  mutate(DelG.b = str_replace(DelG.b, "â\u0088\u0092", "-")) %>%
+  mutate(DelG.b = str_replace(DelG.b, "(â|Â)", "")) %>%
+  mutate(guest = str_replace(guest, "â\u0080\u0089", "-")) 
+
+# Detection of rows that ended up as column names
+h.ind <- suz.clean$guest %>% str_detect("guest")
+suz.clean <- suz.clean[!h.ind, ] 
+
+# Converting the DelG columns to numeric
+suz.clean[ , 2:3] <- sapply(suz.clean[, 2:3], as.numeric) 
+
+# Separating the DelGs, creating a long df
+suz.clean.dg.alpha <- suz.clean %>% 
+  filter(!is.na(DelG.a)) %>% 
+  select(guest, DelG.a) %>% 
+  rename(DelG = DelG.a) %>% 
+  mutate(host = "alpha") %>%
+  mutate(data.source = "suzuki")
+suz.clean.dg.beta <- suz.clean %>%  
+  select(guest, DelG.b) %>%
+  rename(DelG = DelG.b) %>% 
+  mutate(host = "beta") %>%
+  mutate(data.source = "suzuki")
+
+suz.clean <- rbind(suz.clean.dg.alpha, suz.clean.dg.beta)
+
+#     Save Output ---------------------------------------------------------
+save(suz.clean, file = "./bound/02.suz.clean.RData")
+saveRDS(suz.clean, file = "./bound/02.suz.clean.RDS")
+
+
+#####
+# Combining Datasets ------------------------------------------------------
+
+ri <- ri.clean %>%
+  mutate(host = str_replace(ri.clean$host, "1", "")) %>%
+  select(host, guest, DelG)
+comb.dg <- full_join(ri, suz.clean, by = "guest")
+saveRDS(comb.dg, "./bound/combined ri and suzuki.RDS")

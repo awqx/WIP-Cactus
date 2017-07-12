@@ -1,10 +1,11 @@
 library(tidyverse)
 library(data.table)
 
-# Version 1 ---------------------------------------------------------------
+# Version 1 (RI) ---------------------------------------------------------------
+# NOTICE: Use Version 1 for files downloaded with 00.download.R
 
 # Load the table from file created in 00.download.R
-ri.table.list <- readRDS("./downloaded/ri.table.list.RDS")
+ri.table.list <- readRDS("./dwnld/ri.table.list.RDS")
 
 # Find entries with 10 columns - missing DelCp column
 index10 <- ri.table.list %>% 
@@ -34,11 +35,26 @@ save(ri.bound.df, file = "./bound/ri.bound.df.RData")
 saveRDS(ri.bound.df, "./bound/ri.bound.df.RDS")
 
 
-# Version 2 (Newest) ------------------------------------------------------
-# I'm going to be honest: I have no ideas what this code is doing
-# This may be a result of downloading the thing as an HTML file rather than
-# reading it with RCurl or XML
-library(tidyverse)
+# Version 1 (Suzuki) ------------------------------------------------------
+suzuki.list <- readRDS("./dwnld/suzuki.list.RDS")
+
+index11 <- suzuki.list %>% 
+  lapply(names) %>% 
+  lapply(length) == 11 %>% 
+  as.vector()
+
+suz.bound    <- rbindlist(suzuki.list[index11]) %>%
+  lapply(as.character) %>%
+  as.data.frame(stringsAsFactors = F)
+suz.bound  <- suz.bound[, c(1:8, 10, 11, 9)]
+
+save(suz.bound, file = "./bound/suz.bound.df.RData")
+saveRDS(suz.bound, "./bound/suz.bound.df.RDS")
+
+# Version 2 (HTML Download) ---------------------------------------------------
+
+# NOTICE: Use this code in the event of downloading the HTML code manually, 
+# rather than with the 00.download.R code
 
 directory <- paste0("./downloaded/ri.table.list.rds")
 ri.table.list <- readRDS(directory)
