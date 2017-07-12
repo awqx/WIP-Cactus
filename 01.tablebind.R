@@ -1,40 +1,43 @@
-install.packages("dplyr")
-install.packages("data.table")
-library(dplyr)
+library(tidyverse)
 library(data.table)
 
 # Version 1 ---------------------------------------------------------------
 
-# Load the table from a file, in the event of clearing of .RData
-dwnld.dir <- "./downloaded/"
-ri.table.list <- readRDS(file = paste0(dwnld.dir, "ri.table.list.RDS"))
+# Load the table from file created in 00.download.R
+ri.table.list <- readRDS("./downloaded/ri.table.list.RDS")
 
-index10 <- ri.table.list %>% lapply(names) %>% lapply(length) == 10 %>% as.vector()
-index11 <- ri.table.list %>% lapply(names) %>% lapply(length) == 11 %>% as.vector()
+# Find entries with 10 columns - missing DelCp column
+index10 <- ri.table.list %>% 
+  lapply(names) %>% 
+  lapply(length) == 10 %>% 
+  as.vector()
+# Index11 have all the data
+index11 <- ri.table.list %>% 
+  lapply(names) %>% 
+  lapply(length) == 11 %>% 
+  as.vector()
 
 ri.delcp    <- rbindlist(ri.table.list[index11]) %>%
   lapply(as.character) %>%
   as.data.frame(stringsAsFactors = F)
-
 ri.delcp  <- ri.delcp[, c(1:8, 10, 11, 9)]
 
 ri.delcp.none  <- rbindlist(ri.table.list[index10]) %>%
   lapply(as.character) %>%
   as.data.frame(stringsAsFactors = F)
-
 ri.delcp.none[, 11] <- NA
 
 ri.bound.df <- rbindlist(list(ri.delcp, ri.delcp.none))
 
-bound.dir <- paste0("./bound/")
-dir.create(bound.dir)
-
-save(ri.bound.df, file = paste0(bound.dir, "ri.bound.df.RData"))
-saveRDS(ri.bound.df, file = paste0(bound.dir, "ri.bound.df.RDS"))
+dir.create("./bound/")
+save(ri.bound.df, file = "./bound/ri.bound.df.RData")
+saveRDS(ri.bound.df, "./bound/ri.bound.df.RDS")
 
 
 # Version 2 (Newest) ------------------------------------------------------
-
+# I'm going to be honest: I have no ideas what this code is doing
+# This may be a result of downloading the thing as an HTML file rather than
+# reading it with RCurl or XML
 library(tidyverse)
 
 directory <- paste0("./downloaded/ri.table.list.rds")

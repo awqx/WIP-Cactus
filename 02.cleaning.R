@@ -1,20 +1,19 @@
 library(tidyverse)
 library(stringr)
 # The following reading will vary based on user preference
-ri.bound <- readRDS(file = paste0(bound.dir, "ri.bound.df.RDS"))
-
+ri.bound <- readRDS("./bound/ri.bound.df.RDS")
 
 # Rename columns 
 #     Note: for some reason, this doesn't work on Windows
 #     Also, I'm pretty sure this is supposed to go at the end of the code
 
-ri.bound <- ri.bound %>%
-  rename(DelG = `ÎGÂ°/ kJâmol-1`, 
-         DelH =`ÎHÂ°/ kJâmol-1`,
-         TDelS = `TÎSÂ°/ kJâmol-1`,
-         DelCp = `ÎCpÂ°/ Jâmol-1âK-1`,
-         log.K = `logâK`,
-         method = `methoda`)
+# ri.bound <- ri.bound %>%
+#   rename(DelG = `ÎGÂ°/ kJâmol-1`, 
+#          DelH =`ÎHÂ°/ kJâmol-1`,
+#          TDelS = `TÎSÂ°/ kJâmol-1`,
+#          DelCp = `ÎCpÂ°/ Jâmol-1âK-1`,
+#          log.K = `logâK`,
+#          method = `methoda`)
 
 
 # Splitting columns containing a variable value and its uncertainty
@@ -54,23 +53,25 @@ ri.clean <- ri.bound %>%
 # gamma symbols to words for easier subset of tables 
 
 ri.clean <- ri.clean %>%
-  lapply(str_replace_all, pattern = "\\â", replacement = "-") %>%
-  lapply(str_replace_all, pattern = "\\â+", replacement = " ") %>%
-  lapply(str_replace_all, pattern = "\\s+", replacement = " ") %>%
-  lapply(str_replace_all, pattern = "Â·", replacement = " ") %>% 
+  lapply(str_replace_all, pattern = "\\â", 
+         replacement = "-") %>%
+  lapply(str_replace_all, pattern = "\\â+", 
+         replacement = " ") %>%
+  lapply(str_replace_all, pattern = "\\s+", 
+         replacement = " ") %>%
+  lapply(str_replace_all, pattern = "Â·", 
+         replacement = " ") %>% 
   as_tibble() %>%
-  mutate(host = str_replace(host, pattern =  "\\Î±|\u03b1",replacement = "alpha" )) %>%
-  mutate(host = str_replace(host, pattern = "\\Î²|\\B\\s+H\\+|\u03b2", replacement = "beta")) %>%
-  mutate(host = str_replace(host, pattern = "\\Î³", replacement = "gamma"))
+  mutate(host = str_replace(host, pattern =  "\\Î±|\u03b1",
+                            replacement = "alpha" )) %>%
+  mutate(host = str_replace(host, pattern = "\\Î²|\\B\\s+H\\+|\u03b2", 
+                            replacement = "beta")) %>%
+  mutate(host = str_replace(host, pattern = "\\Î³", 
+                            replacement = "gamma"))
 
 
+# pH Imputation -----------------------------------------------------------
 
-
-
-
-#=============================================================================== 
-#                             pH Imputation                                    =
-#===============================================================================
 # Remove pH string and parenthesis to convert the pH Column to numerical. Assume 
 # that columns with no value have a pH of 7.0. pH values with a range of 
 # phValue1-phValue2 will be assigned an average pH value ((phValue1+phValue2)/2)
@@ -103,8 +104,6 @@ ri.clean <- ri.clean %>%
   mutate(pH = ifelse(!is.na(pH1), (pH1+pH2)/2, pH)) %>%
   mutate(pH = ifelse(is.na(pH), 7.0, pH))%>%
   select(-pH1, -pH2) 
-
-
 
 # Setting pH to acidic value when the solution contained an acid
 
