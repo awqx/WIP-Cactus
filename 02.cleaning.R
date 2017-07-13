@@ -1,3 +1,4 @@
+library(data.table)
 library(tidyverse)
 library(stringr)
 
@@ -205,7 +206,6 @@ ri.squeaky.clean <- ri.squeaky.clean %>%
 # 329 unique
 
 #     Save Output ---------------------------------------------------------
-save(suz.clean, file = "./bound/02.ri.clean.RData")
 saveRDS(ri.clean, file = "./bound/02.ri.clean.RDS")
 
 saveRDS(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RDS")
@@ -252,12 +252,37 @@ suz.clean <- rbind(suz.clean.dg.alpha, suz.clean.dg.beta)
 save(suz.clean, file = "./bound/02.suz.clean.RData")
 saveRDS(suz.clean, file = "./bound/02.suz.clean.RDS")
 
-
 #####
 # Combining Datasets ------------------------------------------------------
 
-ri <- ri.clean %>%
-  mutate(host = str_replace(ri.clean$host, "1", "")) %>%
-  select(host, guest, DelG)
-comb.dg <- full_join(ri, suz.clean, by = "guest")
+ri <- ri.squeaky.clean %>%
+  mutate(host = str_replace(ri.squeaky.clean$host, "1", "")) %>%
+  select(host, guest, DelG) %>%
+  mutate(data.source = "rekharsky.inoue")
+
+# Splitting based on CD type
+ri.a <- filter(ri, host == "alpha")
+ri.b <- filter(ri, host == "beta")
+
+suz.a <- filter(suz.clean, host == "alpha")
+suz.b <- filter(suz.clean, host == "beta")
+
+# Collapsing separate data points 
+#     Adapted from GSee at stackoverflow.com/questions/12884695
+#     As well as Sven Hohenstein at stackoverflow.com/questions/20854615
+comb.a <- rbind(ri.a, suz.a) %>%
+  data.table(., key = "guest")
+comb.a <- comb.a[, list(host = host, DelG = mean(DelG),
+                        data.source = paste(unlist(data.source),
+                                            collapse = ", ")),
+                 by = guest] 
+
+comb.b <- rbind(ri.b, suz.b) %>%
+  data.table(., key = "guest")
+comb.b <- comb.b[ , list(host = host, DelG = mean(DelG), 
+                         data.source = paste(unlist(data.source),
+                                             collapse = ", ")), 
+                  by = guest] 
+
+comb.dg <- rbind(comb.a, comb.b)
 saveRDS(comb.dg, "./bound/combined ri and suzuki.RDS")
