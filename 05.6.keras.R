@@ -1,9 +1,10 @@
 library(caret)
-library(ggplot2)
 library(keras)
 install_tensorflow()
 
-df <- readRDS("./DelG.df.RDS")
+# Data Organization -------------------------------------------------------
+
+df <- readRDS("./rpt.RDS")
 mat <- as.matrix(df)
 
 set.seed(12)
