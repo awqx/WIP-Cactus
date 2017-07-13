@@ -5,130 +5,49 @@ library(stringr)
 library(XML)
 library(RCurl)
 
-# Consider using webchem a library for chemical queries
+# Consider using WebChem?
 
 # Functions ---------------------------------------------------------------
 
-# Cactus is a chemical identifier resolver and can be used
-# to find and download SD files used by PyRx
-# But there's sometimes hiccups in downloading, so I used a tryCatch function
-# Solution to function inspired by hfty's answer to
-# http://stackoverflow.com/questions/33423725/
-# using-trycatch-to-populate-a-data-frame-inside-a-loop-nicely
-download.cactus.results <- function(guest, path, chemical.format) {
-  report <- tryCatch({
-    destfile       <- paste0(path, "/", guest, ".SDF")
-    # Chemical format must be parsed to match all the outputs from NCI cactus
-    Guest.URL      <- unlist(lapply(guest, URLencode, reserved = T))
-    URL            <- paste0(
-      "https://cactus.nci.nih.gov/chemical/structure/",
-      Guest.URL,
-      "/",
-      chemical.format
-    )
-    Map(download.file, url = URL, destfile = destfile)
-    data.frame(
-      guest = guest,
-      downloaded = "yes",
-      warning = "no",
-      error = "no"
-    )
-  },
-  warning = function(warn) {
-    message("Warning: either URL error or already existing directory.")
-    destfile       <- paste0(path, "/", guest, ".SDF")
-    Guest.URL      <- unlist(lapply(guest, URLencode, reserved = T))
-    URL            <- paste0(
-      "https://cactus.nci.nih.gov/chemical/structure/",
-      Guest.URL, "/", chemical.format
-    )
-    Map(download.file, url = URL, destfile = destfile)
-    data.frame(
-      guest = guest,
-      downloaded = "yes",
-      warning = "yes",
-      error = "no"
-    )
-  },
-  error = function(err) {
-    message("An error occurred")
-    data.frame(
-      guest = guest,
-      downloaded = "no",
-      warning = "yes",
-      error = "yes"
-    )
-    
-  },
-  finally = {
-    message("Chemical name processed")
-  })
-  return(report)
-}
-# Find files that are too small to be SDF
-filter.filesize <- function(path, pattern, size, logical) {
-  filenames <- list.files(path = path, pattern = pattern)
-  location  <- dir(path = path,
-                   full.names = T,
-                   recursive = T)
-  data      <- file.info(paste0(path, "/", filenames))[1]
-  index     <- eval(call(logical, data, size))
-  return(data.frame(
-    filepath = location[index],
-    molecule = filenames[index],
-    stringsAsFactors = F
-  ))
-}
-# Create a directory to store files
+# write.sdf <- function(name, loc) {
+#   path <- paste0(loc, "/", name, ".SDF")
+#   write.table(file = path)
+# }
 
-create.host.dir <- function(path, host) {
-  host.directory <- paste0(path, host)
-  dir.create(path = host.directory)
-  return(host.directory)
-}
-# Read SDF files and assign a chemical name -- this makes things easier later
-fix.sdf <- function(guest, path){
-  report <- tryCatch({
-    file <- paste0(path, "/", guest, ".SDF")
-    raw.sdf <- read.table(file = file, header = F, sep = "\t", stringsAsFactors = F)
-    raw.sdf[1, ] <- paste0(raw.sdf[1,], " ", guest)
-    return(raw.sdf)
-  }, 
-  warning = function(warn){
-    message("A warning occurred: ")
-    message(last.warning)
-    file <- paste0(path, "/", guest, ".SDF")
-    raw.sdf <- read.table(file = file, header = F, sep = "\t", stringsAsFactors = F)
-    raw.sdf[1, ] <- paste0(raw.sdf[1,], " ", guest)
-    return(raw.sdf)
-  }, 
-  error = function(err){
-    message("An error occurred: ")
-    message(last.warning)
-  })
-  return(report)
-}
 
-write.sdf <- function(name, loc) {
-  path <- paste0(loc, "/", name, ".SDF")
-  write.table(file = path)
-}
-# Cactus Cleaning ---------------------------------------------------------
+# Cactus Download (1) -----------------------------------------------------
 
-dataset <-readRDS(file = "./bound/02.ri.clean.RDS")
-# this takes a while, around 3-4 minutes on 8GB RAM
+dir.create("./molecules")
+dataset <-readRDS("./bound/combined ri and suzuki.RDS")
+
+# This takes around 3-4 minutes on 8GB RAM
 guest.sdf <- dataset %>% 
   dplyr::select(guest) %>%
   unique() %>% 
   rowwise() %>%
   mutate(encoded = URLencode(guest, reserved = T)) %>% 
-  mutate(url = paste0("https://cactus.nci.nih.gov/chemical/structure/", encoded, "/sdf")) %>%
+  mutate(url = paste0("https://cactus.nci.nih.gov/chemical/structure/", 
+                      encoded, "/sdf")) %>%
   mutate(sdf = try(getURL(url = url))) 
-guest.sdf %>% write.table("./bound/02.1-guestSDF.csv",quote = F, row.names = F)
 
-# Cactus was able to resolve 448 out of 564 molecules for an 79% success rate - AX
-# 116 failures - AX
-guest.sdf %>% filter(str_detect(string = sdf, pattern = "Page")) %>% count()
+guest.sdf %>% write.table("./molecules/02.guestSDF.csv", 
+                          quote = F, row.names = F)
+guest.sdf.success <- guest.sdf %>% 
+  filter(!str_detect(string = sdf, pattern = "Page"))
+
+for(i in 1:nrow(guest.sdf)) {
+  filename <- paste("./molecules/", guest.sdf[i, 1], ".SDF", sep = "")
+  write.table(guest.sdf[i, 4], filename, 
+              col.names = F, row.names = F, quote = F)
+}
+
+# Cactus resolved 420 out of 511 molecules for an 82% success rate 
+# 91 failures 
+
+# Cactus Cleaning ---------------------------------------------------------
+
+# 91 undownloaded molecules
+guest.sdf %>% filter(str_detect(string = sdf, pattern = "Page")) %>% nrow()
 
 problem.sdf <- guest.sdf %>%
   filter(str_detect(sdf, "Page")) %>%
@@ -377,7 +296,8 @@ replace.sdf %>% dplyr::select(copythis) %>%
 
 read.table("./bound/02.1-problemSDF.txt", sep = "\n") %>% View()
 
-#---------------
+# Cactus Download (2) -----------------------------------------------------
+
 problem.sdf.dwnld <- problem.sdf %>% 
   select(guest) %>%
   rowwise() %>%
