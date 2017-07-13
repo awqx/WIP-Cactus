@@ -263,6 +263,7 @@ ri <- ri.squeaky.clean %>%
 # Splitting based on CD type
 ri.a <- filter(ri, host == "alpha")
 ri.b <- filter(ri, host == "beta")
+ri.c <- filter(ri, host == "gamma") # Gamma is RI-exclusive
 
 suz.a <- filter(suz.clean, host == "alpha")
 suz.b <- filter(suz.clean, host == "beta")
@@ -284,5 +285,5 @@ comb.b <- comb.b[ , list(host = host, DelG = mean(DelG),
                                              collapse = ", ")), 
                   by = guest] 
 
-comb.dg <- rbind(comb.a, comb.b)
+comb.dg <- rbind(comb.a, comb.b, ri.c)
 saveRDS(comb.dg, "./bound/combined ri and suzuki.RDS")
