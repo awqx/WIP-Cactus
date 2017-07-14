@@ -5,6 +5,7 @@ library(stringr)
 # Rekharsky and Inoue -----------------------------------------------------
 
 # The following reading will vary based on user preference
+setwd("~/SREP LAB/qsar")
 ri.bound <- readRDS("./bound/ri.bound.df.RDS")
 # Rename columns 
 #     Note: for some reason, this doesn't work on Windows
@@ -164,6 +165,9 @@ mutate(guest = str_replace(
 ri.clean <- ri.clean[!str_detect(ri.clean$ref, "b|c|g|i|j|m"),]
 # Filtering for 1:1 complexes
 ri.clean <- ri.clean[str_detect(ri.clean$host, "^1[[:alpha:]]"), ]
+ri.clean <- ri.clean[str_detect(ri.clean$solvent, "H2O$"), ]
+ri.clean <- ri.clean[str_detect(ri.clean$solvent, "^H2O"), ]
+ri.clean <- ri.clean[!str_detect(ri.clean$guest, pattern = "hydrochloride"), ]
 
 # Discriminating based on pH and T
 ri.squeaky.clean <- ri.clean[ri.clean$pH > 6.9, ]
@@ -192,18 +196,18 @@ ri.squeaky.clean <- ri.squeaky.clean %>%
   mutate_at(vars(7:18), as.numeric) 
 
 # Nice to know:
-# Total = 1225
-# Alpha = 615
-# Beta = 547
-# Gamma = 63
-# 564 unique
+# Total = 1097
+# Alpha = 572
+# Beta = 493
+# Gamma = 32
+# 507 unique
 
 # Squeaky Clean:
-# Total = 558
-# Alpha = 266
-# Beta = 244
-# Gamma = 48
-# 329 unique
+# Total = 447
+# Alpha = 231
+# Beta = 195
+# Gamma = 21
+# 275 unique
 
 #     Save Output ---------------------------------------------------------
 saveRDS(ri.clean, file = "./bound/02.ri.clean.RDS")
@@ -248,6 +252,12 @@ suz.clean.dg.beta <- suz.clean %>%
 
 suz.clean <- rbind(suz.clean.dg.alpha, suz.clean.dg.beta)
 
+# Nice to know:
+# Total 320 complexes
+# Alpha: 102
+# Beta: 218
+# Unique guests: 218
+
 #     Save Output ---------------------------------------------------------
 save(suz.clean, file = "./bound/02.suz.clean.RData")
 saveRDS(suz.clean, file = "./bound/02.suz.clean.RDS")
@@ -286,4 +296,45 @@ comb.b <- comb.b[ , list(host = host, DelG = mean(DelG),
                   by = guest] 
 
 comb.dg <- rbind(comb.a, comb.b, ri.c)
+comb.dg.nodup <- comb.dg[!duplicated(comb.dg), ]
 saveRDS(comb.dg, "./bound/combined ri and suzuki.RDS")
+saveRDS(comb.dg.nodup, "./bound/combined data.RDS")
+
+# Information about Data
+# Total: 617
+# Alpha: 241
+# Beta: 356
+# Gamma: 20
+# Unique: 457
+
+#####
+# Duplicate Cases ---------------------------------------------------------
+
+ri.clean.sub <- ri.clean %>% select(., guest, DelG, host, pH, T.K) %>%
+  mutate(data.source = "rekharsky.inoue") %>%
+  mutate(host = str_replace(host, "1", ""))
+suz.clean.add <- suz.clean %>% mutate(pH = 7) %>%
+  mutate(T.K = 298)
+
+ri.clean.sub.a <- ri.clean.sub %>% filter(host == "alpha")
+suz.clean.add.a <- suz.clean.add %>% filter(host == "alpha")
+all.a <- rbind(suz.clean.add.a, ri.clean.sub.a)
+dup.a.guest <- all.a$guest[duplicated(all.a$guest)] %>% unique()
+dup.a <- all.a[all.a$guest %in% dup.a.guest, ] %>% group_by(guest)
+
+dup.a.tk <- dup.a %>% select(-pH)
+dup.a.guest2 <- dup.a.tk[duplicated(dup.a.tk$guest), ]$guest %>% unique()
+dup.a.tk <- dup.a.tk[dup.a.tk$guest %in% dup.a.guest2, ] %>% group_by(guest)
+ggplot(dup.a.tk, aes(x = T.K, y = DelG, # color = pH, 
+                  shape = data.source, 
+                  group = guest)) + 
+  geom_point() + 
+  geom_line() 
+  # scale_colour_gradient2(low = "orangered2", mid = "seagreen2",
+  #                      high = "slateblue", midpoint = 7)
+
+ggplot(dup.a, aes(x = pH, y = DelG, # color = pH, 
+                  shape = data.source, 
+                  group = guest)) + 
+  geom_point() + 
+  geom_line() 
