@@ -1,9 +1,12 @@
 library(caret)
 library(devtools)
 library(doParallel)
+library(pls)
 library(pso)
 install_github("jakobbossek/acotsp")
 library(acotsp)
+
+
 set.seed(48)
 df.dg <- readRDS("./DelG.df.RDS")
 mat.dg <- readRDS("./DelG.matrix.RDS")
@@ -69,3 +72,8 @@ saveRDS(df.ga, "./GAFS.RDS")
 
 
 # Particle Swarm Optimization ---------------------------------------------
+
+
+# PLS ---------------------------------------------------------------------
+
+
