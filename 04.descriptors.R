@@ -2,7 +2,20 @@ install.packages("rcdk")
 library(rcdk)
 library(tidyverse)
 
-# ------
+
+# PaDEL-Descriptor --------------------------------------------------------
+
+# Current settings:
+#     1D, 2D, and 3D descriptors
+#     Fingerprints (PubChem)
+#     Remove Salt
+#     Standardize tautomers
+#     Convert to 3D, MMFF94, retain 3D coordinates
+#     Use filename 
+
+
+# Rcdk Descriptors --------------------------------------------------------
+
 mol <- load.molecules(c("C:/Users/Wei Xin/Documents/SREP LAB/Rekharsky and Inoue/Cactus/AlphaCD/2-butanol.SDF", 
                         "C:/Users/Wei Xin/Documents/SREP LAB/Rekharsky and Inoue/Cactus/AlphaCD/benzene.SDF"))
 view.molecule.2d(mol)
