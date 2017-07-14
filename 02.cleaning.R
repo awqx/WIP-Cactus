@@ -167,6 +167,7 @@ ri.clean <- ri.clean[!str_detect(ri.clean$ref, "b|c|g|i|j|m"),]
 ri.clean <- ri.clean[str_detect(ri.clean$host, "^1[[:alpha:]]"), ]
 ri.clean <- ri.clean[str_detect(ri.clean$solvent, "H2O$"), ]
 ri.clean <- ri.clean[str_detect(ri.clean$solvent, "^H2O"), ]
+ri.clean <- ri.clean[!str_detect(ri.clean$guest, pattern = "hydrochloride"), ]
 
 # Discriminating based on pH and T
 ri.squeaky.clean <- ri.clean[ri.clean$pH > 6.9, ]
@@ -195,18 +196,18 @@ ri.squeaky.clean <- ri.squeaky.clean %>%
   mutate_at(vars(7:18), as.numeric) 
 
 # Nice to know:
-# Total = 1149
-# Alpha = 590
-# Beta = 514
-# Gamma = 45
-# 531 unique
+# Total = 1097
+# Alpha = 572
+# Beta = 493
+# Gamma = 32
+# 507 unique
 
 # Squeaky Clean:
-# Total = 499
-# Alpha = 249
-# Beta = 216
-# Gamma = 34
-# 299 unique
+# Total = 447
+# Alpha = 231
+# Beta = 195
+# Gamma = 21
+# 275 unique
 
 #     Save Output ---------------------------------------------------------
 saveRDS(ri.clean, file = "./bound/02.ri.clean.RDS")
@@ -300,11 +301,11 @@ saveRDS(comb.dg, "./bound/combined ri and suzuki.RDS")
 saveRDS(comb.dg.nodup, "./bound/combined data.RDS")
 
 # Information about Data
-# Total: 669
-# Alpha: 259
-# Beta: 337
-# Gamma: 33
-# Unique: 481
+# Total: 617
+# Alpha: 241
+# Beta: 356
+# Gamma: 20
+# Unique: 457
 
 #####
 # Duplicate Cases ---------------------------------------------------------
