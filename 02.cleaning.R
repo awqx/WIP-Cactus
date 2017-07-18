@@ -7,6 +7,8 @@ library(stringr)
 # The following reading will vary based on user preference
 setwd("~/SREP LAB/qsar")
 ri.bound <- readRDS("./bound/ri.bound.df.RDS")
+# 1367 observations
+
 # Rename columns 
 #     Note: for some reason, this doesn't work on Windows
 #     Keeping this, in case it's important for RStudio on iOS
@@ -74,15 +76,17 @@ ri.clean <- ri.clean %>%
 # at the theoretical value of the solution
 
 # Creating regex for molarity detection
-pattern.molarity <- gsub("\n", replacement = "", x = "(([0-9]*\\.*[0-9]*\\s+[M]
-                         \\s+[A-Za-z]*[A-Za-z0-9]*\\s*[a-z]*)(\\;*\\,*\\+*\\s+[0-9]+\\.*[0-9]*\\s+[M]
-                         \\s+[A-Za-z]*[A-Za-z0-9]*[a-z]*)*)")
+pattern.molarity <- gsub("\n", replacement = "", x = "[0-9]+\\.*[0-9]*[[:space:]]M
+                         [[:space:]][A-Za-z0-9]*([[:space:]]*(;|\\,|\\+)[[:space:]][0-9]\\.*[0-9]*[[:space:]]M
+                         \\s[A-Za-z0-9]*)*")
+
+pattern.molarity <- "[0-9]\\.*[0-9]*[[:space:]]M[[:space:]][[:alnum:]]+([[:space:]]?[[:punct:]][[:space:]][0-9]\\.*[0-9]*[[:space:]]M[[:space:]][[:alnum:]]+)*"
 # Regex for pH
 pH.numeric <-  "[0-9]+\\.*[0-9]*"
 
 ri.clean <- ri.clean %>% 
-  mutate(ref.notes= str_extract(ref, pattern = "[:alpha:]"),
-         ref = str_extract(ref, pattern = "\\d+(\\,\\s\\d+)*"),
+  mutate(# ref.notes= str_extract(ref, pattern = "[:alpha:]"),
+         # ref = str_extract(ref, pattern = "\\d+(\\,\\s\\d+)*"),
          pH = str_extract(solvent.specs, 
                           pattern = "(pH\\s(\\<\\s)*[0-9]+(\\.[0-9]+)*)"),
          pH.range = str_extract(solvent.specs,
@@ -183,8 +187,8 @@ ri.clean <- ri.clean %>%
   mutate(DelG = str_replace(ri.clean$DelG, "(−|\u2212)", "-") %>% as.numeric()) %>%
   mutate(DelH = str_replace(ri.clean$DelH, "(−|\u2212)", "-") %>% as.numeric()) %>%
   mutate(TDelS = str_replace(ri.clean$TDelS, "(−|\u2212)", "-") %>% as.numeric()) %>%
-  mutate(DelCp = str_replace(ri.clean$DelCp, "(−|\u2212)", "-") %>% as.numeric()) %>%
-  select(1:4, 20:21, pH, 5:13, DelCp, DelCp.Uncertainty, methoda, ref, ref.notes) %>%
+  mutate(DelCp = str_replace(ri.clean$DelCp, "(−|\u2212)", "-") %>% as.numeric()) %>% 
+  select(1:4, 19:20, pH, 5:13, DelCp, DelCp.Uncertainty, methoda, ref) %>%
   mutate_at(vars(7:18), as.numeric) 
 
 ri.squeaky.clean <- ri.squeaky.clean %>%
@@ -192,28 +196,31 @@ ri.squeaky.clean <- ri.squeaky.clean %>%
   mutate(DelH = str_replace(ri.squeaky.clean$DelH, "(−|\u2212)", "-") %>% as.numeric()) %>%
   mutate(TDelS = str_replace(ri.squeaky.clean$TDelS, "(−|\u2212)", "-") %>% as.numeric()) %>%
   mutate(DelCp = str_replace(ri.squeaky.clean$DelCp, "(−|\u2212)", "-") %>% as.numeric()) %>%
-  select(1:4, 20:21, pH, 5:13, DelCp, DelCp.Uncertainty, methoda, ref, ref.notes) %>%
+  select(1:4, 19:20, pH, 5:13, DelCp, DelCp.Uncertainty, methoda, ref) %>%
   mutate_at(vars(7:18), as.numeric) 
 
 # Nice to know:
-# Total = 1097
-# Alpha = 572
-# Beta = 493
+# Total = 1069
+# Alpha = 554
+# Beta = 483
 # Gamma = 32
-# 507 unique
+# 504 unique
 
 # Squeaky Clean:
-# Total = 447
-# Alpha = 231
-# Beta = 195
+# Total = 427
+# Alpha = 221
+# Beta = 185
 # Gamma = 21
-# 275 unique
+# 273 unique
 
 #     Save Output ---------------------------------------------------------
-saveRDS(ri.clean, file = "./bound/02.ri.clean.RDS")
+# saveRDS(ri.clean, file = "./bound/02.ri.clean.RDS")
+# saveRDS(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RDS")
+# save(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RData")
 
-saveRDS(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RDS")
-save(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RData")
+saveRDS(ri.clean, file = "./bound/02.2.ri.clean.RDS")
+saveRDS(ri.squeaky.clean, file = "./bound/02.2.ri.squeaky.clean.RDS")
+save(ri.squeaky.clean, file = "./bound/02.2.ri.squeaky.clean.RData")
 
 #####
 # Suzuki ------------------------------------------------------------------
@@ -301,9 +308,9 @@ saveRDS(comb.dg, "./bound/combined ri and suzuki.RDS")
 saveRDS(comb.dg.nodup, "./bound/combined data.RDS")
 
 # Information about Data
-# Total: 617
+# Total: 615
 # Alpha: 241
-# Beta: 356
+# Beta: 354
 # Gamma: 20
 # Unique: 457
 
