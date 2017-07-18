@@ -42,8 +42,9 @@ summary(rf.ga)
 ga.final <- rf.ga$ga$final
 
 df.ga <- df[ , colnames(df) %in% ga.final]
-df.ga <- cbind(df$DelG, df)
-colnames(df.ga)[1] <- "DelG"
+df.ga <- df %>% 
+  select(guest:data.source) %>%
+  cbind(., df.ga)
 saveRDS(rf.ga, "./feature.select/GAFS object.RDS")
 saveRDS(df.ga, "./feature.select/GAFS df.RDS") 
 saveRDS(ga.final, "./feature.select/GAFS names.RDS")
