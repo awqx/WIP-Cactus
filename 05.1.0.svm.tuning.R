@@ -10,49 +10,45 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-df <- readRDS("./DelG.df.RDS") %>%
-  select(., -guest)
-rf.ga <- readRDS("./genetic alg.RDS")
-ga.final <- rf.ga$ga$final
+setwd("~/SREP LAB/qsar")
+dir.create("./tuning")
+dir.create("./tuning/svm")
+# Reading data with all descriptors
+df.raw <- readRDS("./padel.pp.RDS") 
+df <- df.raw %>%
+  select(., -guest:-host) %>%
+  select(., -data.source)
+
+# Reading data selected via genetic alg
+ga.raw <- readRDS("./feature.select/ga.pp.RDS")
+ga <- ga.raw %>%
+  select(., -guest:-host) %>%
+  select(., -data.source)
+
+# Creating train-test splits on the dataset
 set.seed(25)
 trn.ind <- sample(x = 1:nrow(df), size = round(0.7 * nrow(df)))
-df.trn <- df[trn.ind, ]
-df.trn.x <- df.trn[ , -1]
-df.trn.y <- df.trn[ , 1]
-df.tst <- df[-trn.ind, ]
-df.tst.x <- df.tst[ , -1]
-df.tst.y <- df.tst[ , 1]
-df.ga <- cbind(df[ , 1], df[ , colnames(df) %in% ga.final])
-colnames(df.ga)[1] <- "DelG"
-df.ga.trn <- df[trn.ind, ]
-df.ga.trn.x <- df.ga.trn[ , -1]
-df.ga.trn.y <- df.ga.trn[ , 1]
-df.ga.tst <- df[-trn.ind, ]
-df.ga.tst.x <- df.ga.tst[ , -1]
-df.ga.tst.y <- df.tst[ , 1]
+trn <- df[trn.ind, ]
+tst <- df[-trn.ind, ]
+
+ga.trn <- ga[trn.ind, ]
+ga.tst <- ga[-trn.ind, ]
 
 sprse <- sparse.model.matrix(~., df)
 trn.ind <- sample(x = 1:nrow(sprse), size = round(0.7 * nrow(sprse)))
 sprse.trn <- sprse[trn.ind, ]
-sprse.trn.x <- sprse.trn[ , -1:-2]
-sprse.trn.y <- sprse.trn[ , 2]
 sprse.tst <- sprse[-trn.ind, ]
-sprse.tst.x <- sprse.tst[ , -1:-2]
-sprse.tst.y <- sprse.tst[ , 2]
 
-sprse.ga <- sparse.model.matrix(~., df.ga)
+sprse.ga <- sparse.model.matrix(~., ga)
 sprse.ga.trn <- sprse.ga[trn.ind, ]
-sprse.ga.trn.x <- sprse.ga.trn[ , -1:-2]
-sprse.ga.trn.y <- sprse.ga.trn[ , 2]
 sprse.ga.tst <- sprse.ga[-trn.ind, ]
-sprse.ga.tst.x <- sprse.ga.tst[ , -1:-2]
-sprse.ga.tst.y <- sprse.ga.tst[ , 2]
 
-# Manual Tuning -----------------------------------------------------------
+# Tuning Functions --------------------------------------------------------
+
 # Creating a set of function to tune each parameter individually
 
 # Cost - works for all kernels
-validate.svm.cost <- function(data, nfolds, cost, kerneltype, seed) {
+tune.svm.cost <- function(data, nfolds, cost, kerneltype, seed) {
   set.seed(seed)
   fold.list <- createFolds(y = data[ , 2], k = nfolds)
   results <- c(rep(0.0, nfolds))
@@ -86,7 +82,7 @@ validate.svm.cost <- function(data, nfolds, cost, kerneltype, seed) {
     rsquared = sum(results) / nfolds))
 }
 # Gamma - works for all kernels except linear 
-validate.svm.gamma <- function(data, nfolds, g, kerneltype, seed) {
+tune.svm.gamma <- function(data, nfolds, g, kerneltype, seed) {
   set.seed(seed)
   fold.list <- createFolds(y = data[ , 2], k = nfolds)
   results <- c(rep(0.0, nfolds))
@@ -118,7 +114,7 @@ validate.svm.gamma <- function(data, nfolds, g, kerneltype, seed) {
     rsquared = sum(results) / nfolds))
 }
 # Epsilon - works for all kernels
-validate.svm.epsilon <- function(data, nfolds, e, kerneltype, seed) {
+tune.svm.epsilon <- function(data, nfolds, e, kerneltype, seed) {
   set.seed(seed)
   fold.list <- createFolds(y = data[ , 2], k = nfolds)
   results <- c(rep(0.0, nfolds))
@@ -150,7 +146,7 @@ validate.svm.epsilon <- function(data, nfolds, e, kerneltype, seed) {
     rsquared = sum(results) / nfolds))
 }
 # Constant coefficient - only for polynomial and sigmoid
-validate.svm.coef <- function(data, nfolds, coef, kerneltype, seed) {
+tune.svm.coef <- function(data, nfolds, coef, kerneltype, seed) {
   set.seed(seed)
   fold.list <- createFolds(y = data[ , 2], k = nfolds)
   results <- c(rep(0.0, nfolds))
@@ -182,89 +178,75 @@ validate.svm.coef <- function(data, nfolds, coef, kerneltype, seed) {
     rsquared = sum(results) / nfolds))
 }
 
+# All Predictors ----------------------------------------------------------
+
 #     Polynomial Kernel ---------------------------------------------------
-#         Seed 5 ----
-# Peaks at 8
+
+#         Seed 1 ----
 results.cost <-
   do.call(
     rbind,
     lapply(
       2 ^ (2:12),
-      FUN = validate.svm.cost,
+      FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 5
+      seed = 1
     )
-  ) # Peak around 8
+  ) 
 
-# Keeps reaching "max number of iterations", which may be a factor ^^^
 results.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-5:8),
-      FUN = validate.svm.gamma,
+      2 ^ (-12:1),
+      FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 5
+      seed = 1
     )
   )
 
-# Peaks around 1 or 2
 results.epsilon <-
   do.call(
     rbind,
     lapply(
       2 ^ (-5:2),
-      FUN = validate.svm.epsilon,
+      FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 5
+      seed = 1
     )
   )
-# peaks at 2
-# probably has the most impact
+
 results.coef <-
   do.call(
     rbind,
     lapply(
       2 ^ (-4:4),
-      FUN = validate.svm.coef,
+      FUN = tune.svm.coef,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 5
+      seed = 1
     )
   )
 
-# Very little variation, possibly due to reaching max iterations
-results.ga.cost <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (-5:8),
-      FUN = validate.svm.gamma,
-      data = sprse.ga.trn,
-      kerneltype = "polynomial",
-      nfolds = 10,
-      seed = 5
-    )
-  )
-#         Seed 6 ----
+#         Seed 2 ----
 # Peaks at 8
 results2.cost <-
   do.call(
     rbind,
     lapply(
       2 ^ (2:12),
-      FUN = validate.svm.cost,
+      FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 6
+      seed = 2
     )
   ) 
 results.cost.comp <- rbind(results.cost, results2.cost)
@@ -273,12 +255,12 @@ results2.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-5:8),
-      FUN = validate.svm.gamma,
+      2 ^ (-12:1),
+      FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 6
+      seed = 2
     )
   )
 results.gamma.comp <- rbind(results.gamma, results2.gamma)
@@ -288,11 +270,11 @@ results2.epsilon <-
     rbind,
     lapply(
       2 ^ (-5:2),
-      FUN = validate.svm.epsilon,
+      FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 6
+      seed = 2
     )
   )
 results.epsilon.comp <- rbind(results.epsilon, results2.epsilon)
@@ -302,26 +284,26 @@ results2.coef <-
     rbind,
     lapply(
       2 ^ (-4:4),
-      FUN = validate.svm.coef,
+      FUN = tune.svm.coef,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 6
+      seed = 2
     )
   )
 results.coef.comp <- rbind(results.coef, results2.coef)
 
-#         Seed 24 ----
+#         Seed 3 ----
 results3.cost <-
   do.call(
     rbind,
     lapply(
       2 ^ (2:12),
-      FUN = validate.svm.cost,
+      FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 24
+      seed = 3
     )
   ) # 
 results.cost.comp <- rbind(results.cost.comp, results3.cost)
@@ -330,12 +312,12 @@ results3.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-5:8),
-      FUN = validate.svm.gamma,
+      2 ^ (-12:1),
+      FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 24
+      seed = 3
     )
   )
 results.gamma.comp <- rbind(results.gamma.comp, results3.gamma)
@@ -345,11 +327,11 @@ results3.epsilon <-
     rbind,
     lapply(
       2 ^ (-5:2),
-      FUN = validate.svm.epsilon,
+      FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 24
+      seed = 3
     )
   )
 results.epsilon.comp <- rbind(results.epsilon.comp, results3.epsilon)
@@ -359,26 +341,26 @@ results3.coef <-
     rbind,
     lapply(
       2 ^ (-4:4),
-      FUN = validate.svm.coef,
+      FUN = tune.svm.coef,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 24
+      seed = 3
     )
   )
 results.coef.comp <- rbind(results.coef.comp, results3.coef)
 
-#         Seed 512 ----
+#         Seed 4 ----
 results4.cost <-
   do.call(
     rbind,
     lapply(
       2 ^ (2:12),
-      FUN = validate.svm.cost,
+      FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 512
+      seed = 4
     )
   ) # 
 results.cost.comp <- rbind(results.cost.comp, results4.cost)
@@ -388,11 +370,11 @@ results4.epsilon <-
     rbind,
     lapply(
       2 ^ (-5:2),
-      FUN = validate.svm.epsilon,
+      FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 512
+      seed = 4
     )
   )
 results.epsilon.comp <- rbind(results.epsilon.comp, results4.epsilon)
@@ -402,25 +384,25 @@ results4.coef <-
     rbind,
     lapply(
       2 ^ (-4:4),
-      FUN = validate.svm.coef,
+      FUN = tune.svm.coef,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 512
+      seed = 4
     )
   )
 results.coef.comp <- rbind(results.coef.comp, results4.coef)
-#         Seed 333 ----
+#         Seed 5 ----
 results5.cost <-
   do.call(
     rbind,
     lapply(
       2 ^ (2:12),
-      FUN = validate.svm.cost,
+      FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 333
+      seed = 5
     )
   ) # 
 results.cost.comp <- rbind(results.cost.comp, results5.cost)
@@ -430,11 +412,11 @@ results5.epsilon <-
     rbind,
     lapply(
       2 ^ (-5:2),
-      FUN = validate.svm.epsilon,
+      FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 333
+      seed = 5
     )
   )
 results.epsilon.comp <- rbind(results.epsilon.comp, results5.epsilon)
@@ -444,25 +426,25 @@ results5.coef <-
     rbind,
     lapply(
       2 ^ (-4:4),
-      FUN = validate.svm.coef,
+      FUN = tune.svm.coef,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 333
+      seed = 5
     )
   )
 results.coef.comp <- rbind(results.coef.comp, results5.coef)
-#         Seed 193 ----
+#         Seed 6 ----
 results6.cost <-
   do.call(
     rbind,
     lapply(
       2 ^ (2:12),
-      FUN = validate.svm.cost,
+      FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 193
+      seed = 7
     )
   ) # 
 results.cost.comp <- rbind(results.cost.comp, results6.cost)
@@ -472,11 +454,11 @@ results6.epsilon <-
     rbind,
     lapply(
       2 ^ (-5:2),
-      FUN = validate.svm.epsilon,
+      FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 193
+      seed = 7
     )
   )
 results.epsilon.comp <- rbind(results.epsilon.comp, results6.epsilon)
@@ -486,11 +468,11 @@ results6.coef <-
     rbind,
     lapply(
       2 ^ (-4:4),
-      FUN = validate.svm.coef,
+      FUN = tune.svm.coef,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
-      seed = 193
+      seed = 7
     )
   )
 results.coef.comp <- rbind(results.coef.comp, results6.coef)
@@ -503,18 +485,18 @@ saveRDS(results.epsilon.comp, "./tuning/svm/poly.tune.epsilon.RDS")
 saveRDS(results.coef.comp, "./tuning/svm/poly.tune.coef.RDS")
 
 #     Radial Kernel -------------------------------------------------------
-#         Seed 5 ----------------------------------------------------------
+#         Seed 1 ----------------------------------------------------------
 # Peaks at 8
 results.rbf.cost <-
   do.call(
     rbind,
     lapply(
       2 ^ (0:12),
-      FUN = validate.svm.cost,
+      FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "radial",
       nfolds = 10,
-      seed = 5
+      seed = 1
     )
   ) 
 
@@ -523,12 +505,12 @@ results.rbf.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-14:1),
-      FUN = validate.svm.gamma,
+      2 ^ (-13:3),
+      FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "radial",
       nfolds = 10,
-      seed = 5
+      seed = 1
     )
   )
 
@@ -538,247 +520,240 @@ results.rbf.epsilon <-
     rbind,
     lapply(
       2 ^ (-8:3),
-      FUN = validate.svm.epsilon,
+      FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "radial",
       nfolds = 10,
-      seed = 5
+      seed = 1
     )
   )
 
-# Peaks around 0.0009765625 or 0.0001
-results.rbf.ga.cost <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (-14:-4),
-      FUN = validate.svm.gamma,
-      data = sprse.ga.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 5
-    )
-  )
-
-
-#         Seed 6 ----------------------------------------------------------
+#         Seed 2 ----------------------------------------------------------
+# Peaks at 8
 results2.rbf.cost <-
   do.call(
     rbind,
     lapply(
       2 ^ (0:12),
-      FUN = validate.svm.cost,
+      FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "radial",
       nfolds = 10,
-      seed = 6
+      seed = 2
     )
   ) 
-rbf.cost.comp <- rbind(results.rbf.cost, results2.rbf.cost)
 
+# Peaks around 0.0005
 results2.rbf.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-14:1),
-      FUN = validate.svm.gamma,
+      2 ^ (-13:3),
+      FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "radial",
       nfolds = 10,
-      seed = 6
+      seed = 2
     )
   )
-rbf.gamma.comp <- rbind(results.rbf.gamma, results2.rbf.gamma)
 
+# Peaks around 1
 results2.rbf.epsilon <-
   do.call(
     rbind,
     lapply(
       2 ^ (-8:3),
-      FUN = validate.svm.epsilon,
+      FUN = tune.svm.epsilon,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 2
+    )
+  )
+
+#         Seed 3 ----------------------------------------------------------
+# Peaks at 8
+results3.rbf.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (0:12),
+      FUN = tune.svm.cost,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 3
+    )
+  ) 
+
+# Peaks around 0.0005
+results3.rbf.gamma <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-13:3),
+      FUN = tune.svm.gamma,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 3
+    )
+  )
+
+# Peaks around 1
+results3.rbf.epsilon <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-8:3),
+      FUN = tune.svm.epsilon,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 3
+    )
+  )
+
+#         Seed 4 ----------------------------------------------------------
+# Peaks at 8
+results4.rbf.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (0:12),
+      FUN = tune.svm.cost,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 4
+    )
+  ) 
+
+# Peaks around 0.0005
+results4.rbf.gamma <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-13:3),
+      FUN = tune.svm.gamma,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 4
+    )
+  )
+
+# Peaks around 1
+results4.rbf.epsilon <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-8:3),
+      FUN = tune.svm.epsilon,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 4
+    )
+  )
+
+#         Seed 5 ----------------------------------------------------------
+# Peaks at 8
+results5.rbf.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (0:12),
+      FUN = tune.svm.cost,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 5
+    )
+  ) 
+
+# Peaks around 0.0005
+results5.rbf.gamma <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-13:3),
+      FUN = tune.svm.gamma,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 5
+    )
+  )
+
+# Peaks around 1
+results5.rbf.epsilon <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-8:3),
+      FUN = tune.svm.epsilon,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 5
+    )
+  )
+#         Seed 6 ----------------------------------------------------------
+
+# Peaks at 8
+results6.rbf.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (0:12),
+      FUN = tune.svm.cost,
+      data = sprse.trn,
+      kerneltype = "radial",
+      nfolds = 10,
+      seed = 6
+    )
+  ) 
+
+# Peaks around 0.0005
+results6.rbf.gamma <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-13:3),
+      FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "radial",
       nfolds = 10,
       seed = 6
     )
   )
-rbf.epsilon.comp <- rbind(results.rbf.epsilon, results2.rbf.epsilon)
 
-#         Seed 24  --------------------------------------------------------
-
-results3.rbf.cost <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (0:12),
-      FUN = validate.svm.cost,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 24
-    )
-  ) 
-rbf.cost.comp <- rbind(rbf.cost.comp, results3.rbf.cost)
-
-results3.rbf.gamma <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (-14:1),
-      FUN = validate.svm.gamma,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 24
-    )
-  )
-rbf.gamma.comp <- rbind(rbf.gamma.comp, results3.rbf.gamma)
-
-results3.rbf.epsilon <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (-8:3),
-      FUN = validate.svm.epsilon,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 24
-    )
-  )
-rbf.epsilon.comp <- rbind(rbf.epsilon.comp, results3.rbf.epsilon)
-
-#         Seed 512  -------------------------------------------------------
-
-results4.rbf.cost <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (0:12),
-      FUN = validate.svm.cost,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 512
-    )
-  ) 
-rbf.cost.comp <- rbind(rbf.cost.comp, results4.rbf.cost)
-
-results4.rbf.gamma <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (-14:1),
-      FUN = validate.svm.gamma,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 512
-    )
-  )
-rbf.gamma.comp <- rbind(rbf.gamma.comp, results4.rbf.gamma)
-
-results4.rbf.epsilon <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (-8:3),
-      FUN = validate.svm.epsilon,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 512
-    )
-  )
-rbf.epsilon.comp <- rbind(rbf.epsilon.comp, results4.rbf.epsilon)
-#         Seed 333  -------------------------------------------------------
-
-results5.rbf.cost <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (0:12),
-      FUN = validate.svm.cost,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 333
-    )
-  ) 
-rbf.cost.comp <- rbind(rbf.cost.comp, results5.rbf.cost)
-
-results5.rbf.gamma <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (-14:1),
-      FUN = validate.svm.gamma,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 333
-    )
-  )
-rbf.gamma.comp <- rbind(rbf.gamma.comp, results5.rbf.gamma)
-
-results5.rbf.epsilon <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (-8:3),
-      FUN = validate.svm.epsilon,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 333
-    )
-  )
-rbf.epsilon.comp <- rbind(rbf.epsilon.comp, results5.rbf.epsilon)
-#         Seed 193  -------------------------------------------------------
-
-results6.rbf.cost <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (0:12),
-      FUN = validate.svm.cost,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 193
-    )
-  ) 
-rbf.cost.comp <- rbind(rbf.cost.comp, results6.rbf.cost)
-
-results6.rbf.gamma <-
-  do.call(
-    rbind,
-    lapply(
-      2 ^ (-14:1),
-      FUN = validate.svm.gamma,
-      data = sprse.trn,
-      kerneltype = "radial",
-      nfolds = 10,
-      seed = 193
-    )
-  )
-rbf.gamma.comp <- rbind(rbf.gamma.comp, results6.rbf.gamma)
-
+# Peaks around 1
 results6.rbf.epsilon <-
   do.call(
     rbind,
     lapply(
       2 ^ (-8:3),
-      FUN = validate.svm.epsilon,
+      FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "radial",
       nfolds = 10,
-      seed = 193
+      seed = 6
     )
   )
-rbf.epsilon.comp <- rbind(rbf.epsilon.comp, results6.rbf.epsilon)
 
 #         Compilation -----------------------------------------------------
+rbf.cost.comp <- rbind(results.rbf.cost, results2.rbf.cost, 
+                       results3.rbf.cost, results4.rbf.cost, 
+                       results5.rbf.cost, results6.rbf.cost)
+rbf.gamma.comp <- rbind(results.rbf.gamma, results2.rbf.gamma, 
+                       results3.rbf.gamma, results4.rbf.gamma, 
+                       results5.rbf.gamma, results6.rbf.gamma)
+rbf.epsilon.comp <- rbind(results.rbf.epsilon, results2.rbf.epsilon, 
+                       results3.rbf.epsilon, results4.rbf.epsilon, 
+                       results5.rbf.epsilon, results6.rbf.epsilon)
+
 saveRDS(rbf.cost.comp, "./tuning/svm/rbf.tune.cost.RDS")
 saveRDS(rbf.gamma.comp, "./tuning/svm/rbf.tune.gamma.RDS")
 saveRDS(rbf.epsilon.comp, "./tuning/svm/rbf.tune.epsilon.RDS")
@@ -790,7 +765,7 @@ results.sig.cost <-
     rbind,
     lapply(
       2 ^ (-6:6),
-      FUN = validate.svm.cost,
+      FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "sigmoid",
       nfolds = 10,
@@ -804,7 +779,7 @@ results.sig.gamma <-
     rbind,
     lapply(
       2 ^ (-12:1),
-      FUN = validate.svm.gamma,
+      FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "sigmoid",
       nfolds = 10,
@@ -818,7 +793,7 @@ results.sig.epsilon <-
     rbind,
     lapply(
       2 ^ (-8:3),
-      FUN = validate.svm.epsilon,
+      FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "sigmoid",
       nfolds = 10,
@@ -832,7 +807,7 @@ results.sig.ga.cost <-
     rbind,
     lapply(
       2 ^ (-14:-4),
-      FUN = validate.svm.gamma,
+      FUN = tune.svm.gamma,
       data = sprse.ga.trn,
       kerneltype = "sigmoid",
       nfolds = 10,
@@ -840,6 +815,309 @@ results.sig.ga.cost <-
     )
   )
 
+
+#####
+# GAFS Predictors ---------------------------------------------------------
+
+#     Polynomial Kernel ---------------------------------------------------
+
+#         Seed 1 ----
+results.ga.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (2:12),
+      FUN = tune.svm.cost,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 1
+    )
+  ) 
+
+results.ga.gamma <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-12:1),
+      FUN = tune.svm.gamma,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 1
+    )
+  )
+
+results.ga.epsilon <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-5:2),
+      FUN = tune.svm.epsilon,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 1
+    )
+  )
+
+results.ga.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-4:4),
+      FUN = tune.svm.coef,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 1
+    )
+  )
+
+#         Seed 2 ----
+# Peaks at 8
+results.ga2.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (2:12),
+      FUN = tune.svm.cost,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 2
+    )
+  ) 
+
+results.ga2.gamma <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-12:1),
+      FUN = tune.svm.gamma,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 2
+    )
+  )
+
+results.ga2.epsilon <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-5:2),
+      FUN = tune.svm.epsilon,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 2
+    )
+  )
+
+results.ga2.coef <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-4:4),
+      FUN = tune.svm.coef,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 2
+    )
+  )
+
+#         Seed 3 ----
+results.ga3.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (2:12),
+      FUN = tune.svm.cost,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 3
+    )
+  ) 
+
+results.ga3.gamma <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-12:1),
+      FUN = tune.svm.gamma,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 3
+    )
+  )
+
+results.ga3.epsilon <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-5:2),
+      FUN = tune.svm.epsilon,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 3
+    )
+  )
+
+results.ga3.coef <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-4:4),
+      FUN = tune.svm.coef,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 3
+    )
+  )
+
+#         Seed 4 ----
+results.ga4.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (2:12),
+      FUN = tune.svm.cost,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 4
+    )
+  )
+
+results.ga4.epsilon <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-5:2),
+      FUN = tune.svm.epsilon,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 4
+    )
+  )
+
+results.ga4.coef <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-4:4),
+      FUN = tune.svm.coef,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 4
+    )
+  )
+
+#         Seed 5 ----
+results.ga5.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (2:12),
+      FUN = tune.svm.cost,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 5
+    )
+  ) 
+
+results.ga5.epsilon <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-5:2),
+      FUN = tune.svm.epsilon,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 5
+    )
+  )
+
+results.ga5.coef <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-4:4),
+      FUN = tune.svm.coef,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 5
+    )
+  )
+#         Seed 6 ----
+results.ga6.cost <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (2:12),
+      FUN = tune.svm.cost,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 7
+    )
+  ) # 
+
+results.ga6.epsilon <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-5:2),
+      FUN = tune.svm.epsilon,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 7
+    )
+  )
+
+results.ga6.coef <-
+  do.call(
+    rbind,
+    lapply(
+      2 ^ (-4:4),
+      FUN = tune.svm.coef,
+      data = sprse.ga.trn,
+      kerneltype = "polynomial",
+      nfolds = 10,
+      seed = 7
+    )
+  )
+
+#         Compilation -----------------------------------------------------
+ga.coef.comp <- rbind(results.ga.coef, results.ga2.coef, 
+                      results.ga3.coef, results.ga4.coef, 
+                      results.ga5.coef, results.ga6.coef)
+ga.cost.comp <- rbind(results.ga.cost, results.ga2.cost, 
+                      results.ga3.cost, results.ga4.cost, 
+                      results.ga5.cost, results.ga6.cost)
+ga.gamma.comp <- rbind(results.ga.gamma, results.ga2.gamma, 
+                      results.ga3.gamma)
+ga.epsilon.comp <- rbind(results.ga.epsilon, results.ga2.epsilon, 
+                      results.ga3.epsilon, results.ga4.epsilon, 
+                      results.ga5.epsilon, results.ga6.epsilon)
+
+
+saveRDS(ga.cost.comp, "./tuning/svm/ga.tune.cost.RDS")
+saveRDS(ga.gamma.comp, "./tuning/svm/ga.tune.gamma.RDS")
+saveRDS(ga.epsilon.comp, "./tuning/svm/ga.tune.epsilon.RDS")
+saveRDS(ga.coef.comp, "./tuning/svm/ga.tune.coef.RDS")
 
 # Plots -------------------------------------------------------------------
 #     Polynomial graphs ---------------------------------------------------
@@ -856,7 +1134,7 @@ ggplot(data = temp.data, aes(x = cost, y = rsquared,
        title = "Polynomial Kernel - Cost", 
        color = "Random Seed") + 
   theme_bw()
-ggsave(filename = "./tuning/svm/2017-07-11 poly cost tune.png")
+ggsave(filename = "./tuning/svm/2017-07-18 poly cost tune.png")
 
 temp.data <- results.gamma.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -868,7 +1146,7 @@ ggplot(data = temp.data, aes(x = gamma, y = rsquared,
        title = "Polynomial Kernel - Gamma", 
        color = "Random Seed") + 
   theme_bw()
-ggsave(filename = "./tuning/svm/2017-07-11 poly gamma tune.png")
+ggsave(filename = "./tuning/svm/2017-07-18 poly gamma tune.png")
 
 temp.data <- results.epsilon.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -880,7 +1158,7 @@ ggplot(data = temp.data, aes(x = epsilon, y = rsquared,
        title = "Polynomial Kernel - Epsilon", 
        color = "Random Seed") + 
   theme_bw()
-ggsave("./tuning/svm/2017-07-11 poly epsilon tune.png")
+ggsave("./tuning/svm/2017-07-18 poly epsilon tune.png")
 
 temp.data <- results.coef.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -892,7 +1170,7 @@ ggplot(data = temp.data, aes(x = coef, y = rsquared,
        color = "Random Seed") + 
   scale_x_continuous(trans = 'log2') + 
   theme_bw()
-ggsave("./tuning/svm/2017-07-11 poly coef tune.png")
+ggsave("./tuning/svm/2017-07-18 poly coef tune.png")
 
 #     RBF graphs ----------------------------------------------------------
 
@@ -906,7 +1184,7 @@ ggplot(data = temp.data, aes(x = cost, y = rsquared,
        title = "Radial Basis Kernel - Cost", 
        color = "Random Seed") + 
   theme_bw()
-ggsave(filename = "./tuning/svm/2017-07-11 rbf cost tune.png")
+ggsave(filename = "./tuning/svm/2017-07-18 rbf cost tune.png")
 
 temp.data <- rbf.gamma.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -918,7 +1196,7 @@ ggplot(data = temp.data, aes(x = gamma, y = rsquared,
        title = "Radial Basis Kernel - Gamma", 
        color = "Random Seed") + 
   theme_bw()
-ggsave(filename = "./tuning/svm/2017-07-11 rbf gamma tune.png")
+ggsave(filename = "./tuning/svm/2017-07-18 rbf gamma tune.png")
 
 temp.data <- rbf.epsilon.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -930,7 +1208,7 @@ ggplot(data = temp.data, aes(x = epsilon, y = rsquared,
        title = "Radial Basis Kernel - Epsilon", 
        color = "Random Seed") + 
   theme_bw()
-ggsave("./tuning/svm/2017-07-11 rbf epsilon tune.png")
+ggsave("./tuning/svm/2017-07-18 rbf epsilon tune.png")
 # Final parameters:
 # for polynomial:coef0 = 2, gamma = 0.0625, cost = 8, epsilon = 1
 # for radial: cost = 8, gamma = 0.0005, epsilon = 1
@@ -955,3 +1233,54 @@ ggplot(data = results.sig.ga.cost, aes(x = gamma, y = rsquared)) +
   geom_line() + 
   scale_x_continuous(trans = 'log2') + 
   theme_bw()
+
+
+#     Polynomial GAFS Graphs ----------------------------------------------
+
+temp.data <- ga.cost.comp
+temp.data$seed <- as.factor(temp.data$seed)
+ggplot(data = temp.data, aes(x = cost, y = rsquared, 
+                             group = seed, color = seed)) + 
+  geom_line(size = 1) + 
+  scale_x_continuous(trans = 'log2') + 
+  labs(x = "Cost", y = "R-squared", 
+       title = "GAFS Polynomial Kernel - Cost", 
+       color = "Random Seed") + 
+  theme_bw()
+ggsave(filename = "./tuning/svm/2017-07-18 ga cost tune.png")
+
+temp.data <- ga.gamma.comp
+temp.data$seed <- as.factor(temp.data$seed)
+ggplot(data = temp.data, aes(x = gamma, y = rsquared,
+                             group = seed, color = seed)) + 
+  geom_line(size = 1) + 
+  scale_x_continuous(trans = 'log2') + 
+  labs(x = "Gamma", y = "R-squared", 
+       title = "GAFS Polynomial Kernel - Gamma", 
+       color = "Random Seed") + 
+  theme_bw()
+ggsave(filename = "./tuning/svm/2017-07-18 ga gamma tune.png")
+
+temp.data <- ga.epsilon.comp
+temp.data$seed <- as.factor(temp.data$seed)
+ggplot(data = temp.data, aes(x = epsilon, y = rsquared, 
+                             group = seed, color = seed)) + 
+  geom_line(size = 1) + 
+  scale_x_continuous(trans = 'log2') + 
+  labs(x = "Epsilon", y = "R-squared", 
+       title = "GAFS Polynomial Kernel - Epsilon", 
+       color = "Random Seed") + 
+  theme_bw()
+ggsave("./tuning/svm/2017-07-18 ga epsilon tune.png")
+
+temp.data <- ga.coef.comp
+temp.data$seed <- as.factor(temp.data$seed)
+ggplot(data = temp.data, aes(x = coef, y = rsquared, 
+                             group = seed, color = seed)) + 
+  geom_line(size = 1) + 
+  labs(x = "Constant Coefficient", y = "R-squared", 
+       title = "GAFS Polynomial Kernel - Coefficient", 
+       color = "Random Seed") + 
+  scale_x_continuous(trans = 'log2') + 
+  theme_bw()
+ggsave("./tuning/svm/2017-07-18 ga coef tune.png")
