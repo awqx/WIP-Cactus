@@ -44,9 +44,9 @@ ga.final <- rf.ga$ga$final
 df.ga <- df[ , colnames(df) %in% ga.final]
 df.ga <- cbind(df$DelG, df)
 colnames(df.ga)[1] <- "DelG"
-saveRDS(rf.ga, "./feature.select/genetic alg.RDS")
-saveRDS(df.ga, "./feature.select/genetic alg results.RDS") 
-saveRDS(df.ga, "./feature.select/GAFS.RDS")
+saveRDS(rf.ga, "./feature.select/GAFS object.RDS")
+saveRDS(df.ga, "./feature.select/GAFS df.RDS") 
+saveRDS(ga.final, "./feature.select/GAFS names.RDS")
 
 # Ant Colony --------------------------------------------------------------
 # net.dg <- makeNetwork(mat.dg)
