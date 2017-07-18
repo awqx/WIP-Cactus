@@ -8,6 +8,7 @@ library(tidyverse)
 #     1D, 2D, and 3D descriptors
 #     Fingerprints (PubChem)
 #     Remove Salt
+#     Detect aromaticity
 #     Standardize tautomers
 #     Convert to 3D, MMFF94, retain 3D coordinates
 #     Use filename 
@@ -50,6 +51,11 @@ saveRDS(all.padel, "./molecules/descriptors/04.all.padel.RDS")
 saveRDS(alpha.padel, "./molecules/descriptors/04.alpha.padel.RDS")
 saveRDS(beta.padel, "./molecules/descriptors/04.beta.padel.RDS")
 saveRDS(gamma.padel, "./molecules/descriptors/04.gamma.padel.RDS")
+
+write.csv(all.padel, "./molecules/descriptors/04.all.padel.csv")
+write.csv(alpha.padel, "./molecules/descriptors/04.alpha.padel.csv")
+write.csv(beta.padel, "./molecules/descriptors/04.beta.padel.csv")
+write.csv(gamma.padel, "./molecules/descriptors/04.gamma.padel.csv")
 
 # Rcdk Descriptors --------------------------------------------------------
 
