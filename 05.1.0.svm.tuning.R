@@ -14,7 +14,7 @@ setwd("~/SREP LAB/qsar")
 dir.create("./tuning")
 dir.create("./tuning/svm")
 # Reading data with all descriptors
-df.raw <- readRDS("./padel.pp.RDS") 
+df.raw <- readRDS("./padel.pp.new.RDS") 
 df <- df.raw %>%
   select(., -guest:-host) %>%
   select(., -data.source)
