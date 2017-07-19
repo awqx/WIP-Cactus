@@ -10,68 +10,46 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-df <- readRDS("./DelG.df.RDS") %>%
-  select(-guest)
+setwd("~/SREP LAB/qsar")
+df <- readRDS("./rpt.RDS") %>%
+  select(-guest:-host) %>% select(-data.source)
 set.seed(2)
 trn.ind <- sample(x = 1:nrow(df), 
                   size = round(0.7 * nrow(df)))
 df.trn <- df[trn.ind, ]
-df.trn.x <- df.trn[ , -1]
-df.trn.y <- df.trn[ , 1]
 df.tst <- df[-trn.ind, ]
-df.tst.x <- df.tst[ , -1]
-df.tst.y <- df.tst[ , 1]
-df.ga <- cbind(df[ , 1], df[ , colnames(df) %in% ga.final])
-colnames(df.ga)[1] <- "DelG"
-df.ga.trn <- df[trn.ind, ]
-df.ga.trn.x <- df.ga.trn[ , -1]
-df.ga.trn.y <- df.ga.trn[ , 1]
-df.ga.tst <- df[-trn.ind, ]
-df.ga.tst.x <- df.ga.tst[ , -1]
-df.ga.tst.y <- df.tst[ , 1]
 
 set.seed(1)
 # sprse <- readRDS("./DelG.sparse.RDS")
-sprse <- sparse.model.matrix(~., df)
+sprse <- readRDS(".feature.select/sprse.ga.RDS")
 trn.ind <- sample(x = 1:nrow(sprse), 
                   size = round(0.7 * nrow(sprse)))
 sprse.trn <- sprse[trn.ind, ]
-sprse.trn.x <- sprse.trn[ , -1:-2]
-sprse.trn.y <- sprse.trn[ , 2]
 sprse.tst <- sprse[-trn.ind, ]
-sprse.tst.x <- sprse.tst[ , -1:-2]
-sprse.tst.y <- sprse.tst[ , 2]
-
-sprse.ga <- sparse.model.matrix(~., df.ga)
-sprse.ga.trn <- sprse.ga[trn.ind, ]
-sprse.ga.trn.x <- sprse.ga.trn[ , -1:-2]
-sprse.ga.trn.y <- sprse.ga.trn[ , 2]
-sprse.ga.tst <- sprse.ga[-trn.ind, ]
-sprse.ga.tst.x <- sprse.ga.tst[ , -1:-2]
-sprse.ga.tst.y <- sprse.ga.tst[ , 2]
 
 # Polynomial Kernel -------------------------------------------------------
 #     All Data ----------------------------------------------------
 
-svm.all <- svm(x = sprse.trn.x, 
-               y = sprse.trn.y, 
+svm.all <- svm(x = sprse.trn[ , -1:-2], 
+               y = sprse.trn[ , 2], 
                coef0 = 2, 
-               cost = 1024, 
+               cost = 8, 
                epsilon = 0.1, 
                kernel = "polynomial", 
                gamma = 0.5, 
                degree = 2)
 
-svm.all.tst <- predict(svm.all, sprse.tst.x) %>%
-  cbind(sprse.tst.y) %>%
+svm.all.tst <- predict(svm.all, sprse.tst[ , -1:-2]) %>%
+  cbind(sprse.tst[ , 2]) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = sprse.tst.y)
-svm.all.trn <- predict(svm.all, sprse.trn.x) %>%
-  cbind(sprse.trn.y) %>%
+  rename(., pred = `.`, obs = V2)
+svm.all.trn <- predict(svm.all, sprse.trn[ , -1:-2]) %>%
+  cbind(sprse.trn[ , 2]) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = sprse.trn.y)
+  rename(., pred = `.`, obs = V2)
 
-defaultSummary(svm.all.tst)[2] # 0.482
+defaultSummary(svm.all.tst)[2] # 0.00971
+defaultSummary(svm.all.trn)[2] # 0.985
 
 #     Alpha -------------------------------------------------------
 df.a <- filter(df, alpha > 0)

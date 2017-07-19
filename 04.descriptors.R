@@ -5,12 +5,13 @@ library(tidyverse)
 # PaDEL-Descriptor --------------------------------------------------------
 
 # Current settings:
-#     1D, 2D, and 3D descriptors
+#     1D, 2D
 #     Fingerprints (PubChem)
 #     Remove Salt
 #     Detect aromaticity
-#     Standardize tautomers
-#     Convert to 3D, MMFF94, retain 3D coordinates
+#     Standardize nitro groups
+#     Standardize tautomer
+#     Convert to 3D, MM2, retain 3D coordinates
 #     Use filename 
 
 dataset <- readRDS("./bound/combined data.RDS")
@@ -20,42 +21,60 @@ dataset <- readRDS("./bound/combined data.RDS")
 # SDFs that fail to process:
 #     Phenol?, p-cresol
 alpha.dg <- dataset %>% filter(host == "alpha")
-alpha.padel.raw <- read_csv("./molecules/descriptors/2017-07-14 alpha predictors.csv") %>%
+alpha.padel.raw <- read_csv("./molecules/descriptors/2017-07-19 alpha predictors.csv") %>%
   rename(guest = Name)
 alpha.padel <- inner_join(alpha.dg, alpha.padel.raw, by = "guest")
-# Total: 180 guests
+
+# alpha.padel.2d <- read_csv("./molecules/descriptors/2017-07-19 alpha pred 2d.csv") %>%
+#   rename(guest = Name)
+# alpha.padel.2d <- inner_join(alpha.dg, alpha.padel.2d)
+# Total: 209 guests
 
 #     Beta-CD -------------------------------------------------------------
 
 # SDFs that fail to process:
 #     Barbital, p-cresol, thianapthene, 4-hydroxyacetophenone
 beta.dg <- dataset %>% filter(host == "beta")
-beta.padel.raw <- read_csv("./molecules/descriptors/2017-07-14 beta predictors.csv") %>%
+beta.padel.raw <- read_csv("./molecules/descriptors/2017-07-19 beta predictors.csv") %>%
   rename(guest = Name)
 beta.padel <- inner_join(beta.dg, beta.padel.raw, by = "guest")
-# Total: 15 guest molecules
+
+# beta.padel.2d <- read_csv("./molecules/descriptors/2017-07-19 beta pred 2d.csv") %>%
+#   rename(guest = Name)
+# beta.padel.2d <- inner_join(beta.dg, beta.padel.2d)
+# Total: 321 guest molecules
 
 #     Gamma-CD ------------------------------------------------------------
 
 # No SDFs failed to process
 gamma.dg <- dataset %>% filter(host == "gamma")
-gamma.padel.raw <- read_csv("./molecules/descriptors/2017-07-14 gamma predictors.csv") %>%
+gamma.padel.raw <- read_csv("./molecules/descriptors/2017-07-19 gamma predictors.csv") %>%
   rename(guest = Name)
 gamma.padel <- inner_join(gamma.dg, gamma.padel.raw, by = "guest")
-# Total: 20 guest molecules
+
+# gamma.padel.2d <- read_csv("./molecules/descriptors/2017-07-19 gamma pred 2d.csv") %>%
+#   rename(guest = Name)
+# gamma.padel.2d <- inner_join(gamma.dg, gamma.padel.2d)
+# Total: 17 guest molecules
 
 #     Saving Files --------------------------------------------------------
 
 all.padel <- rbind(alpha.padel, beta.padel, gamma.padel)
-saveRDS(all.padel, "./molecules/descriptors/04.all.padel.RDS")
-saveRDS(alpha.padel, "./molecules/descriptors/04.alpha.padel.RDS")
-saveRDS(beta.padel, "./molecules/descriptors/04.beta.padel.RDS")
-saveRDS(gamma.padel, "./molecules/descriptors/04.gamma.padel.RDS")
+saveRDS(all.padel, "./molecules/descriptors/all.padel.RDS")
+saveRDS(alpha.padel, "./molecules/descriptors/alpha.padel.RDS")
+saveRDS(beta.padel, "./molecules/descriptors/beta.padel.RDS")
+saveRDS(gamma.padel, "./molecules/descriptors/gamma.padel.RDS")
 
-write.csv(all.padel, "./molecules/descriptors/04.all.padel.csv")
-write.csv(alpha.padel, "./molecules/descriptors/04.alpha.padel.csv")
-write.csv(beta.padel, "./molecules/descriptors/04.beta.padel.csv")
-write.csv(gamma.padel, "./molecules/descriptors/04.gamma.padel.csv")
+write.csv(all.padel, "./molecules/descriptors/all.padel.csv")
+write.csv(alpha.padel, "./molecules/descriptors/alpha.padel.csv")
+write.csv(beta.padel, "./molecules/descriptors/beta.padel.csv")
+write.csv(gamma.padel, "./molecules/descriptors/gamma.padel.csv")
+
+# all.padel.2d <- rbind(alpha.padel.2d, beta.padel.2d, gamma.padel.2d)
+# saveRDS(all.padel.2d, "./molecules/descriptors/04.all.2d.RDS")
+# saveRDS(alpha.padel.2d, "./molecules/descriptors/04.alpha.2d.RDS")
+# saveRDS(beta.padel.2d, "./molecules/descriptors/04.beta.2d.RDS")
+# saveRDS(gamma.padel.2d, "./molecules/descriptors/04.gamma.2d.RDS")
 
 # Rcdk Descriptors --------------------------------------------------------
 
