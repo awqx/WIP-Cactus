@@ -24,64 +24,132 @@ make.regex <- function(string) {
   return(new.string)
 }
 
+download.cactus.results <- function(guest, path, chemical.format) {
+  report <- tryCatch({
+    destfile       <- paste0(path, "/", guest, ".SDF")
+    # Chemical format must be parsed to match all the outputs from NCI cactus
+    Guest.URL      <- unlist(lapply(guest, URLencode, reserved = T))
+    URL            <- paste0(
+      "https://cactus.nci.nih.gov/chemical/structure/",
+      Guest.URL,
+      "/",
+      chemical.format
+    )
+    Map(download.file, url = URL, destfile = destfile)
+    data.frame(
+      guest = guest,
+      downloaded = "yes",
+      warning = "no",
+      error = "no"
+    )
+  },
+  warning = function(warn) {
+    message("Warning: either URL error or already existing directory.")
+    destfile       <- paste0(path, "/", guest, ".SDF")
+    Guest.URL      <- unlist(lapply(guest, URLencode, reserved = T))
+    URL            <- paste0(
+      "https://cactus.nci.nih.gov/chemical/structure/",
+      Guest.URL, "/", chemical.format
+    )
+    Map(download.file, url = URL, destfile = destfile)
+    data.frame(
+      guest = guest,
+      downloaded = "yes",
+      warning = "yes",
+      error = "no"
+    )
+  },
+  error = function(err) {
+    message("An error occurred")
+    data.frame(
+      guest = guest,
+      downloaded = "no",
+      warning = "yes",
+      error = "yes"
+    )
+    
+  },
+  finally = {
+    message("Chemical name processed")
+  })
+  return(report)
+}
+
 
 # Cactus Download (1) -----------------------------------------------------
 
 setwd("~/SREP LAB/qsar")
 # dir.create("./molecules")
-# dir.create("./molecules/alpha")
-# dir.create("./molecules/beta")
-# dir.create("./molecules/gamma")
+# dir.create("./molecules/alphaCD")
+# dir.create("./molecules/betaCD")
+# dir.create("./molecules/gammaCD")
 dataset <-readRDS("./bound/combined data.RDS")
+# Reading dataset for guest molecules specific to host
+alpha.guest <- dataset[host == "alpha", guest]
+beta.guest <- dataset[host == "beta", guest]
+gamma.guest <- dataset[host == "gamma", guest]
 
-# This takes around 3-4 minutes on 8GB RAM
-guest.sdf <- dataset %>% 
-  dplyr::select(guest) %>%
-  unique() %>% 
-  rowwise() %>%
-  mutate(encoded = URLencode(guest, reserved = T)) %>% 
-  mutate(url = paste0("https://cactus.nci.nih.gov/chemical/structure/", 
-                      encoded, "/sdf")) %>%
-  mutate(sdf = try(getURL(url = url))) 
 
-guest.sdf %>% write.table("./molecules/02.guestSDF.csv", 
-                          quote = F, row.names = F)
-saveRDS(guest.sdf, "./molecules/02.guestSDF.RDS")
-guest.sdf.success <- guest.sdf %>% 
-  filter(!str_detect(string = sdf, pattern = "Page"))
+# AlphaCD
+#     Creates a dataframe of results; SDFs downloaded to disk
+results.alpha <-
+  do.call(
+    rbind,
+    lapply(
+      alpha.guest,
+      download.cactus.results,
+      path = "./molecules/alphaCD",
+      chemical.format = "SDF"
+    )
+  ) %>% mutate(host = "alpha")
 
-# for(i in 1:nrow(guest.sdf)) {
-#   filename <- paste("./molecules/", guest.sdf[i, 1], ".SDF", sep = "")
-#   write.table(guest.sdf[i, 4], filename, 
-#               col.names = F, row.names = F, quote = F)
-# }
+# Beta-CD
+results.beta <-
+  do.call(
+    rbind,
+    lapply(
+      beta.guest,
+      download.cactus.results,
+      path = "./molecules/betaCD",
+      chemical.format = "SDF"
+    )
+  ) %>% mutate(host = "beta")
 
-# Cactus resolved 395 out of 457 molecules for an 86% success rate 
-# 62 failures 
+# Gamma-CD
+results.gamma <-
+  do.call(
+    rbind,
+    lapply(
+      gamma.guest,
+      download.cactus.results,
+      path = "./molecules/gammaCD",
+      chemical.format = "SDF"
+    )
+  ) %>% mutate(host = "gamma")
+
+results.all <- rbind(results.alpha, results.beta, results.gamma)
+saveRDS(results.all, "./molecules/cactus dwnld results.RDS")
 
 # Failed SDFs -------------------------------------------------------------
 
-# 62 undownloaded molecules
-guest.sdf %>% filter(str_detect(string = sdf, pattern = "Page")) %>% nrow()
+# 32 undownloaded alpha guests
+alpha.fail <- results.alpha %>% 
+  filter(downloaded == "no") %>%
+  select(guest)
 
-problem.sdf <- guest.sdf %>%
-  filter(str_detect(sdf, "Page")) %>%
-  select(guest) 
+# 34 undownloaded beta guests
+beta.fail <- results.beta %>% 
+  filter(downloaded == "no") %>%
+  select(guest)
 
-# This creates 40 entries
-problem.sdf.filter <- problem.sdf %>% 
-  filter(!str_detect(guest, pattern = "anion")) %>%
-  filter(!str_detect(guest, pattern = "carboxylate")) %>%
-  filter(!str_detect(guest, pattern = "[0-9][Hh]ydrochloride")) %>%
-  filter(!str_detect(guest, pattern = "\\â")) %>%
-  filter(!str_detect(guest, pattern = "ferrocen")) 
+# 3 undownloaded gamma guests
+gamma.fail <- results.gamma %>% 
+  filter(downloaded == "no") %>%
+  select(guest)
 
-write.csv(problem.sdf.filter, "./molecules/02.1.problemSDF.csv")
-saveRDS(problem.sdf.filter, "./molecules/02.1.problemSDF.RDS")
-
-write.csv(problem.sdf, "./molecules/02.problemSDF.all.csv")
-saveRDS(problem.sdf, "./molecules/02.problemSDF.all.RDS")
-
+problem.sdf <- results.all %>% 
+  filter(downloaded == "no") %>%
+  select(guest, host)
 
 # Cleaning Issues ---------------------------------------------------------
 
@@ -236,6 +304,98 @@ wip.sdf$guest <- str_replace(wip.sdf$guest, pattern = '4-nitrophenyl-beta-d-gala
 wip.sdf$guest <- str_replace(wip.sdf$guest, pattern = '4-nitrophenyl-beta-d-glucosamide', 
                              'N-[(2R,3R,4R,5S,6R)-4,5-dihydroxy-6-(hydroxymethyl)-2-[(4-nitrophenyl)methoxy]oxan-3-yl]acetamide')
 
+# Cactus Download (2) -----------------------------------------------------
+alpha.guest2 <- wip.sdf[wip.sdf$host == "alpha", ]
+alpha.guest2 <- alpha.guest2$guest
+beta.guest2 <- wip.sdf[wip.sdf$host == "beta", ]
+beta.guest2 <- beta.guest2$guest
+gamma.guest2 <- wip.sdf[wip.sdf$host == "gamma", ]
+gamma.guest2 <- gamma.guest2$guest
+
+# Alpha-CD
+results2.alpha <-
+  do.call(
+    rbind,
+    lapply(
+      alpha.guest2,
+      download.cactus.results,
+      path = "./molecules/alphaCD",
+      chemical.format = "SDF"
+    )
+  ) %>% mutate(host = "alpha")
+
+# Beta-CD
+results2.beta <-
+  do.call(
+    rbind,
+    lapply(
+      beta.guest2,
+      download.cactus.results,
+      path = "./molecules/betaCD",
+      chemical.format = "SDF"
+    )
+  ) %>% mutate(host = "beta")
+
+# Gamma-CD
+results2.gamma <-
+  do.call(
+    rbind,
+    lapply(
+      gamma.guest2,
+      download.cactus.results,
+      path = "./molecules/gammaCD",
+      chemical.format = "SDF"
+    )
+  ) %>% mutate(host = "gamma")
+
+results2.all <- rbind(results2.alpha, results2.beta, results2.gamma)
+results2.fail <- results2.all %>% filter(downloaded == "no")
+saveRDS(results2.all, "./molecules/cactus dwnld 2.RDS")
+
+# 5 alpha, 13 beta, 3 gamma did not download 
+
+#####
+# Old Functions that may be Useful ----------------------------------------
+
+# This takes around 3-4 minutes on 8GB RAM
+# guest.sdf <- dataset %>% 
+#   dplyr::select(guest) %>%
+#   unique() %>% 
+#   rowwise() %>%
+#   mutate(encoded = URLencode(guest, reserved = T)) %>% 
+#   mutate(url = paste0("https://cactus.nci.nih.gov/chemical/structure/", 
+#                       encoded, "/sdf")) %>%
+#   mutate(sdf = try(getURL(url = url))) 
+# 
+# guest.sdf %>% write.table("./molecules/02.guestSDF.csv", 
+#                           quote = F, row.names = F)
+# saveRDS(guest.sdf, "./molecules/02.guestSDF.RDS")
+# guest.sdf.success <- guest.sdf %>% 
+#   filter(!str_detect(string = sdf, pattern = "Page"))
+
+# for(i in 1:nrow(guest.sdf)) {
+#   filename <- paste("./molecules/", guest.sdf[i, 1], ".SDF", sep = "")
+#   write.table(guest.sdf[i, 4], filename, 
+#               col.names = F, row.names = F, quote = F)
+# }
+
+# Cactus resolved 395 out of 457 molecules for an 86% success rate 
+# 62 failures 
+
+# # 62 undownloaded molecules
+# guest.sdf %>% filter(str_detect(string = sdf, pattern = "Page")) %>% nrow()
+# 
+# problem.sdf <- guest.sdf %>%
+#   filter(str_detect(sdf, "Page")) %>%
+#   select(guest) 
+# 
+# # This creates 40 entries
+# problem.sdf.filter <- problem.sdf %>% 
+#   filter(!str_detect(guest, pattern = "anion")) %>%
+#   filter(!str_detect(guest, pattern = "carboxylate")) %>%
+#   filter(!str_detect(guest, pattern = "[0-9][Hh]ydrochloride")) %>%
+#   filter(!str_detect(guest, pattern = "\\â")) %>%
+#   filter(!str_detect(guest, pattern = "ferrocen")) 
 # Don't know why this is here, but I'm keeping it just in case
 # replace.sdf <- problem.sdf %>%
 #   filter(!str_detect(guest, pattern = "anion")) %>%
@@ -248,67 +408,58 @@ wip.sdf$guest <- str_replace(wip.sdf$guest, pattern = '4-nitrophenyl-beta-d-gluc
 # 
 # replace.sdf %>% dplyr::select(copythis) %>%
 #   write.table("./molecules/02.1-problemSDF.txt",quote = F, row.names = F, col.names = F)
+#
+# problem.sdf.dwnld <- wip.sdf %>% 
+#   select(guest) %>%
+#   rowwise() %>%
+#   mutate(encoded = URLencode(guest, reserved = T)) %>% 
+#   mutate(url = paste0("https://cactus.nci.nih.gov/chemical/structure/", encoded, "/sdf")) %>%
+#   mutate(sdf = try(getURL(url = url))) 
+# 
+# still.problem <- problem.sdf.dwnld %>%
+#   filter(str_detect(string = sdf, pattern = "Page"))
+# 
+# sdf.success <- problem.sdf.dwnld %>%
+#   filter(!str_detect(string = sdf, pattern = "Page")) %>%
+#   rbind(guest.sdf.success)
 
-# Cactus Download (2) -----------------------------------------------------
-
-problem.sdf.dwnld <- wip.sdf %>% 
-  select(guest) %>%
-  rowwise() %>%
-  mutate(encoded = URLencode(guest, reserved = T)) %>% 
-  mutate(url = paste0("https://cactus.nci.nih.gov/chemical/structure/", encoded, "/sdf")) %>%
-  mutate(sdf = try(getURL(url = url))) 
-
-still.problem <- problem.sdf.dwnld %>%
-  filter(str_detect(string = sdf, pattern = "Page"))
-
-sdf.success <- problem.sdf.dwnld %>%
-  filter(!str_detect(string = sdf, pattern = "Page")) %>%
-  rbind(guest.sdf.success)
-
-##### 
-
-# Results -----------------------------------------------------------------
-
-# 440 Guest molecules retained post-Cactus
-saveRDS(sdf.success, "./molecules/successfulSDFs.RDS")
-
-# Saving SDFs -------------------------------------------------------------
-
-#     Alpha - 240 molecules
-guest.a <- dataset[dataset$host == "alpha", ]
-guest.a <- guest.a$guest
-
-sdf.a <- sdf.success %>%
-  filter(guest %in% guest.a)
-
-for(i in 1:nrow(sdf.a)) {
-  filename <- paste("./molecules/alpha/", sdf.a[i, "guest"], ".SDF", sep = "")
-  write.table(guest.sdf[i, "sdf"], filename,
-              col.names = F, row.names = F, quote = F)
-}
-
-#     Beta - 326 molecules
-guest.b <- dataset[dataset$host == "beta", ]
-guest.b <- guest.b$guest
-
-sdf.b <- sdf.success %>%
-  filter(guest %in% guest.b)
-
-for(i in 1:nrow(sdf.b)) {
-  filename <- paste("./molecules/beta/", sdf.b[i, "guest"], ".SDF", sep = "")
-  write.table(guest.sdf[i, "sdf"], filename,
-              col.names = F, row.names = F, quote = F)
-}
-
-#     Gamma - 17 molecules
-guest.c <- dataset[dataset$host == "gamma", ]
-guest.c <- guest.c$guest
-
-sdf.c <- sdf.success %>%
-  filter(guest %in% guest.c)
-
-for(i in 1:nrow(sdf.c)) {
-  filename <- paste("./molecules/gamma/", sdf.c[i, "guest"], ".SDF", sep = "")
-  write.table(guest.sdf[i, "sdf"], filename,
-              col.names = F, row.names = F, quote = F)
-}
+# #     Saving SDFs ---------------------------------------------------------
+# 
+# #     Alpha - 240 molecules
+# guest.a <- dataset[dataset$host == "alpha", ]
+# guest.a <- guest.a$guest
+# 
+# sdf.a <- sdf.success %>%
+#   filter(guest %in% guest.a)
+# 
+# for(i in 1:nrow(sdf.a)) {
+#   filename <- paste("./molecules/alpha/", sdf.a[i, "guest"], ".SDF", sep = "")
+#   write.table(guest.sdf[i, "sdf"], filename,
+#               col.names = F, row.names = F, quote = F)
+# }
+# 
+# #     Beta - 326 molecules
+# guest.b <- dataset[dataset$host == "beta", ]
+# guest.b <- guest.b$guest
+# 
+# sdf.b <- sdf.success %>%
+#   filter(guest %in% guest.b)
+# 
+# for(i in 1:nrow(sdf.b)) {
+#   filename <- paste("./molecules/beta/", sdf.b[i, "guest"], ".SDF", sep = "")
+#   write.table(guest.sdf[i, "sdf"], filename,
+#               col.names = F, row.names = F, quote = F)
+# }
+# 
+# #     Gamma - 17 molecules
+# guest.c <- dataset[dataset$host == "gamma", ]
+# guest.c <- guest.c$guest
+# 
+# sdf.c <- sdf.success %>%
+#   filter(guest %in% guest.c)
+# 
+# for(i in 1:nrow(sdf.c)) {
+#   filename <- paste("./molecules/gamma/", sdf.c[i, "guest"], ".SDF", sep = "")
+#   write.table(guest.sdf[i, "sdf"], filename,
+#               col.names = F, row.names = F, quote = F)
+# }
