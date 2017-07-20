@@ -194,7 +194,7 @@ results.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:14),
       FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
@@ -248,7 +248,7 @@ results2.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:14),
       FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
@@ -256,7 +256,6 @@ results2.cost <-
       seed = 2
     )
   ) 
-results.cost.comp <- rbind(results.cost, results2.cost)
 
 results2.gamma <-
   do.call(
@@ -305,15 +304,14 @@ results3.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:14),
       FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
       seed = 3
     )
-  ) # 
-results.cost.comp <- rbind(results.cost.comp, results3.cost)
+  )
 
 results3.gamma <-
   do.call(
@@ -362,15 +360,14 @@ results4.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:14),
       FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
       seed = 4
     )
-  ) # 
-results.cost.comp <- rbind(results.cost.comp, results4.cost)
+  ) 
 
 results4.epsilon <-
   do.call(
@@ -404,15 +401,14 @@ results5.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:14),
       FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
       seed = 5
     )
-  ) # 
-results.cost.comp <- rbind(results.cost.comp, results5.cost)
+  ) 
 
 results5.epsilon <-
   do.call(
@@ -446,15 +442,14 @@ results6.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:14),
       FUN = tune.svm.cost,
       data = sprse.trn,
       kerneltype = "polynomial",
       nfolds = 10,
       seed = 7
     )
-  ) # 
-results.cost.comp <- rbind(results.cost.comp, results6.cost)
+  ) 
 
 results6.epsilon <-
   do.call(
@@ -485,6 +480,10 @@ results6.coef <-
 results.coef.comp <- rbind(results.coef.comp, results6.coef)
 
 #     Compilation -----------------------------------------------------
+results.cost.comp <- rbind(results.cost, results2.cost, 
+                           results3.cost, results4.cost, 
+                           results5.cost, results6.cost)
+
 
 saveRDS(results.cost.comp, "./tuning/svm/poly.tune.cost.RDS")
 saveRDS(results.gamma.comp, "./tuning/svm/poly.tune.gamma.RDS")
@@ -494,12 +493,16 @@ saveRDS(results.coef.comp, "./tuning/svm/poly.tune.coef.RDS")
 #####
 # GAFS Predictors ---------------------------------------------------------
 
+# In an effort to simplify the modeling process, only the predictors from
+# the rfGA of caret are used. To be fair, these MAY BE WRONG due to still
+# using the flawed SDFs. 
+
 #     Seed 1 ----
 results.ga.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:13),
       FUN = tune.svm.cost,
       data = sprse.ga.trn,
       kerneltype = "polynomial",
@@ -534,7 +537,7 @@ results.ga.epsilon <-
     )
   )
 
-results.ga.cost <-
+results.ga.coef <-
   do.call(
     rbind,
     lapply(
@@ -548,12 +551,11 @@ results.ga.cost <-
   )
 
 #     Seed 2 ----
-# Peaks at 8
 results.ga2.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:13),
       FUN = tune.svm.cost,
       data = sprse.ga.trn,
       kerneltype = "polynomial",
@@ -606,7 +608,7 @@ results.ga3.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:13),
       FUN = tune.svm.cost,
       data = sprse.ga.trn,
       kerneltype = "polynomial",
@@ -659,7 +661,7 @@ results.ga4.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:13),
       FUN = tune.svm.cost,
       data = sprse.ga.trn,
       kerneltype = "polynomial",
@@ -699,7 +701,7 @@ results.ga5.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:13),
       FUN = tune.svm.cost,
       data = sprse.ga.trn,
       kerneltype = "polynomial",
@@ -738,7 +740,7 @@ results.ga6.cost <-
   do.call(
     rbind,
     lapply(
-      2 ^ (2:12),
+      2 ^ (4:13),
       FUN = tune.svm.cost,
       data = sprse.ga.trn,
       kerneltype = "polynomial",
@@ -807,7 +809,7 @@ ggplot(data = temp.data, aes(x = cost, y = rsquared,
        title = "Polynomial Kernel - Cost", 
        color = "Random Seed") + 
   theme_bw()
-ggsave(filename = "./tuning/svm/2017-07-18 poly cost tune.png")
+ggsave(filename = "./tuning/svm/2017-07-20 poly cost.png")
 
 temp.data <- results.gamma.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -819,7 +821,7 @@ ggplot(data = temp.data, aes(x = gamma, y = rsquared,
        title = "Polynomial Kernel - Gamma", 
        color = "Random Seed") + 
   theme_bw()
-ggsave(filename = "./tuning/svm/2017-07-18 poly gamma tune.png")
+ggsave(filename = "./tuning/svm/2017-07-20 poly gamma.png")
 
 temp.data <- results.epsilon.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -831,7 +833,7 @@ ggplot(data = temp.data, aes(x = epsilon, y = rsquared,
        title = "Polynomial Kernel - Epsilon", 
        color = "Random Seed") + 
   theme_bw()
-ggsave("./tuning/svm/2017-07-18 poly epsilon tune.png")
+ggsave("./tuning/svm/2017-07-20 poly epsilon.png")
 
 temp.data <- results.coef.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -843,7 +845,7 @@ ggplot(data = temp.data, aes(x = coef, y = rsquared,
        color = "Random Seed") + 
   scale_x_continuous(trans = 'log2') + 
   theme_bw()
-ggsave("./tuning/svm/2017-07-18 poly coef tune.png")
+ggsave("./tuning/svm/2017-07-20 poly coef.png")
 
 
 #     GAFS ----------------------------------------------
@@ -858,7 +860,7 @@ ggplot(data = temp.data, aes(x = cost, y = rsquared,
        title = "GAFS Polynomial Kernel - Cost", 
        color = "Random Seed") + 
   theme_bw()
-ggsave(filename = "./tuning/svm/2017-07-18 ga cost tune.png")
+ggsave(filename = "./tuning/svm/2017-07-20 ga poly cost.png")
 
 temp.data <- ga.gamma.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -870,7 +872,7 @@ ggplot(data = temp.data, aes(x = gamma, y = rsquared,
        title = "GAFS Polynomial Kernel - Gamma", 
        color = "Random Seed") + 
   theme_bw()
-ggsave(filename = "./tuning/svm/2017-07-18 ga gamma tune.png")
+ggsave(filename = "./tuning/svm/2017-07-20 ga poly gamma.png")
 
 temp.data <- ga.epsilon.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -882,7 +884,7 @@ ggplot(data = temp.data, aes(x = epsilon, y = rsquared,
        title = "GAFS Polynomial Kernel - Epsilon", 
        color = "Random Seed") + 
   theme_bw()
-ggsave("./tuning/svm/2017-07-18 ga epsilon tune.png")
+ggsave("./tuning/svm/2017-07-20 ga poly epsilon.png")
 
 temp.data <- ga.coef.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -894,4 +896,4 @@ ggplot(data = temp.data, aes(x = coef, y = rsquared,
        color = "Random Seed") + 
   scale_x_continuous(trans = 'log2') + 
   theme_bw()
-ggsave("./tuning/svm/2017-07-18 ga coef tune.png")
+ggsave("./tuning/svm/2017-07-20 ga poly coef.png")

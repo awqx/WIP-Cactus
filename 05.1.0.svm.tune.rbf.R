@@ -19,7 +19,7 @@ results.rbf.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-13:3),
+      2 ^ (-13:2),
       FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "radial",
@@ -33,7 +33,7 @@ results.rbf.epsilon <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-8:3),
+      2 ^ (-6:3),
       FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "radial",
@@ -62,7 +62,7 @@ results2.rbf.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-13:3),
+      2 ^ (-13:2),
       FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "radial",
@@ -76,7 +76,7 @@ results2.rbf.epsilon <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-8:3),
+      2 ^ (-6:3),
       FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "radial",
@@ -105,7 +105,7 @@ results3.rbf.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-13:3),
+      2 ^ (-13:2),
       FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "radial",
@@ -119,7 +119,7 @@ results3.rbf.epsilon <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-8:3),
+      2 ^ (-6:3),
       FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "radial",
@@ -148,7 +148,7 @@ results4.rbf.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-13:3),
+      2 ^ (-13:2),
       FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "radial",
@@ -162,7 +162,7 @@ results4.rbf.epsilon <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-8:3),
+      2 ^ (-6:3),
       FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "radial",
@@ -191,7 +191,7 @@ results5.rbf.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-13:3),
+      2 ^ (-13:2),
       FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "radial",
@@ -205,7 +205,7 @@ results5.rbf.epsilon <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-8:3),
+      2 ^ (-6:3),
       FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "radial",
@@ -234,7 +234,7 @@ results6.rbf.gamma <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-13:3),
+      2 ^ (-13:2),
       FUN = tune.svm.gamma,
       data = sprse.trn,
       kerneltype = "radial",
@@ -248,7 +248,7 @@ results6.rbf.epsilon <-
   do.call(
     rbind,
     lapply(
-      2 ^ (-8:3),
+      2 ^ (-6:3),
       FUN = tune.svm.epsilon,
       data = sprse.trn,
       kerneltype = "radial",
