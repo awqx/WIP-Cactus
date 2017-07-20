@@ -285,7 +285,7 @@ ggplot(data = temp.data, aes(x = cost, y = rsquared,
        title = "Radial Basis Kernel - Cost", 
        color = "Random Seed") + 
   theme_bw()
-ggsave(filename = "./tuning/svm/2017-07-18 rbf cost tune.png")
+ggsave(filename = "./tuning/svm/2017-07-20 rbf cost.png")
 
 temp.data <- rbf.gamma.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -297,7 +297,7 @@ ggplot(data = temp.data, aes(x = gamma, y = rsquared,
        title = "Radial Basis Kernel - Gamma", 
        color = "Random Seed") + 
   theme_bw()
-ggsave(filename = "./tuning/svm/2017-07-18 rbf gamma tune.png")
+ggsave(filename = "./tuning/svm/2017-07-20 rbf gamma.png")
 
 temp.data <- rbf.epsilon.comp
 temp.data$seed <- as.factor(temp.data$seed)
@@ -309,7 +309,7 @@ ggplot(data = temp.data, aes(x = epsilon, y = rsquared,
        title = "Radial Basis Kernel - Epsilon", 
        color = "Random Seed") + 
   theme_bw()
-ggsave("./tuning/svm/2017-07-18 rbf epsilon tune.png")
+ggsave("./tuning/svm/2017-07-20 rbf epsilon.png")
 # Final parameters:
 # for polynomial:coef0 = 2, gamma = 0.0625, cost = 8, epsilon = 1
 # for radial: cost = 8, gamma = 0.0005, epsilon = 1

@@ -271,6 +271,7 @@ ggplot(data = temp.data, aes(x = cost, y = rsquared,
   labs(x = "Cost", y = "R-squared", 
        title = "Sigmoid Kernel - Cost", 
        color = "Random Seed")
+ggsave(filename = "./tuning/svm/2017-07-20 sig cost.png")
 
 temp.data <- sig.gamma.comp
 temp.data$seed <- temp.data$seed %>% as.factor()
@@ -282,6 +283,7 @@ ggplot(data = temp.data, aes(x = gamma, y = rsquared,
   labs(x = "Gamma", y = "R-squared", 
        title = "Sigmoid Kernel - Gamma", 
        color = "Random Seed")
+ggsave(filename = "./tuning/svm/2017-07-20 sig gamma.png")
 
 temp.data <- sig.epsilon.comp
 temp.data$seed <- temp.data$seed %>% as.factor()
@@ -293,5 +295,4 @@ ggplot(data = temp.data, aes(x = epsilon, y = rsquared,
   labs(x = "Epsilon", y = "R-squared", 
        title = "Sigmoid Kernel - Epsilon", 
        color = "Random Seed")
-
-
+ggsave(filename = "./tuning/svm/2017-07-20 sig epsilon.png")
