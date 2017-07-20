@@ -485,10 +485,10 @@ results.cost.comp <- rbind(results.cost, results2.cost,
                            results5.cost, results6.cost)
 
 
-saveRDS(results.cost.comp, "./tuning/svm/poly.tune.cost.RDS")
-saveRDS(results.gamma.comp, "./tuning/svm/poly.tune.gamma.RDS")
-saveRDS(results.epsilon.comp, "./tuning/svm/poly.tune.epsilon.RDS")
-saveRDS(results.coef.comp, "./tuning/svm/poly.tune.coef.RDS")
+saveRDS(results.cost.comp, "./tuning/svm/poly.cost.RDS")
+saveRDS(results.gamma.comp, "./tuning/svm/poly.gamma.RDS")
+saveRDS(results.epsilon.comp, "./tuning/svm/poly.epsilon.RDS")
+saveRDS(results.coef.comp, "./tuning/svm/poly.coef.RDS")
 
 #####
 # GAFS Predictors ---------------------------------------------------------

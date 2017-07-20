@@ -258,6 +258,7 @@ results6.rbf.epsilon <-
   )
 
 #         Compilation -----------------------------------------------------
+
 rbf.cost.comp <- rbind(results.rbf.cost, results2.rbf.cost, 
                        results3.rbf.cost, results4.rbf.cost, 
                        results5.rbf.cost, results6.rbf.cost)
@@ -271,6 +272,7 @@ rbf.epsilon.comp <- rbind(results.rbf.epsilon, results2.rbf.epsilon,
 saveRDS(rbf.cost.comp, "./tuning/svm/rbf.tune.cost.RDS")
 saveRDS(rbf.gamma.comp, "./tuning/svm/rbf.tune.gamma.RDS")
 saveRDS(rbf.epsilon.comp, "./tuning/svm/rbf.tune.epsilon.RDS")
+
 #     RBF graphs ----------------------------------------------------------
 
 temp.data <- rbf.cost.comp

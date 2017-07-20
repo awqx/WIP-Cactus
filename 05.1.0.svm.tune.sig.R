@@ -256,6 +256,10 @@ sig.epsilon.comp <- rbind(sig.epsilon, sig2.epsilon,
                        sig3.epsilon, sig4.epsilon, 
                        sig5.epsilon, sig6.epsilon)
 
+saveRDS(sig.cost.comp, "./tuning/svm/sig.cost.RDS")
+saveRDS(sig.gamma.comp, "./tuning/svm/sig.gamma.RDS")
+saveRDS(sig.epsilon.comp, "./tuning/svm/sig.epsilon.RDS")
+
 #     Sigmoid graphs ----------------------------------------------------------
 temp.data <- sig.cost.comp
 temp.data$seed <- temp.data$seed %>% as.factor()
