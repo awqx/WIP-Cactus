@@ -10,54 +10,44 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-df <- readRDS("./DelG.df.RDS")
-set.seed(2)
-trn.ind <- sample(x = 1:nrow(df), 
-                  size = round(0.7 * nrow(df)))
-df.trn <- df[trn.ind, ]
-df.trn.x <- df.trn[ , -1]
-df.trn.y <- df.trn[ , 1]
-df.tst <- df[-trn.ind, ]
-df.tst.x <- df.tst[ , -1]
-df.tst.y <- df.tst[ , 1]
-df.ga <- cbind(df[ , 1], df[ , colnames(df) %in% ga.final])
-colnames(df.ga)[1] <- "DelG"
-df.ga.trn <- df[trn.ind, ]
-df.ga.trn.x <- df.ga.trn[ , -1]
-df.ga.trn.y <- df.ga.trn[ , 1]
-df.ga.tst <- df[-trn.ind, ]
-df.ga.tst.x <- df.ga.tst[ , -1]
-df.ga.tst.y <- df.tst[ , 1]
+setwd("~/SREP LAB/qsar")
+dir.create("./models")
+dir.create("./models/svm")
+df.raw <- readRDS("./padel.pp.new.RDS") 
+df <- df.raw %>%
+  select(., -guest:-host) %>%
+  select(., -data.source)
 
-set.seed(1)
-sprse <- readRDS("./DelG.sparse.RDS")
-trn.ind <- sample(x = 1:nrow(sprse), 
-                  size = round(0.7 * nrow(sprse)))
+sprse <- sparse.model.matrix(~., df)
+
+set.seed(25)
+trn.ind <- sample(x = 1:nrow(df), size = round(0.7 * nrow(df)))
+trn <- df[trn.ind, ]
+tst <- df[-trn.ind, ]
+
+sprse <- sparse.model.matrix(~., df)
+trn.ind <- sample(x = 1:nrow(sprse), size = round(0.7 * nrow(sprse)))
+
 sprse.trn <- sprse[trn.ind, ]
 sprse.trn.x <- sprse.trn[ , -1:-2]
 sprse.trn.y <- sprse.trn[ , 2]
+
 sprse.tst <- sprse[-trn.ind, ]
 sprse.tst.x <- sprse.tst[ , -1:-2]
 sprse.tst.y <- sprse.tst[ , 2]
 
-sprse.ga <- sparse.model.matrix(~., df.ga)
-sprse.ga.trn <- sprse.ga[trn.ind, ]
-sprse.ga.trn.x <- sprse.ga.trn[ , -1:-2]
-sprse.ga.trn.y <- sprse.ga.trn[ , 2]
-sprse.ga.tst <- sprse.ga[-trn.ind, ]
-sprse.ga.tst.x <- sprse.ga.tst[ , -1:-2]
-sprse.ga.tst.y <- sprse.ga.tst[ , 2]
 
 # Polynomial Kernel -------------------------------------------------------
+
 #     All Data ----------------------------------------------------
 
 svm.all <- svm(x = sprse.trn.x, 
                y = sprse.trn.y, 
-               coef0 = 2, 
-               cost = 512, 
-               epsilon = 0.5, 
+               coef0 = 1.5, 
+               cost = 4096, 
+               epsilon = 1, 
                kernel = "polynomial", 
-               gamma = 0.5, 
+               gamma = 0.03, 
                degree = 2)
 
 svm.all.tst <- predict(svm.all, sprse.tst.x) %>%
@@ -69,17 +59,15 @@ svm.all.trn <- predict(svm.all, sprse.trn.x) %>%
   data.frame() %>%
   rename(., pred = `.`, obs = sprse.trn.y)
 
-defaultSummary(svm.all.tst)[2] # 0.407
+defaultSummary(svm.all.tst)[2] # 0.529
+defaultSummary(svm.all.trn)[2] # 0.969
 
 #     Alpha -------------------------------------------------------
-df.a <- filter(df, alpha > 0)
-set.seed(24)
-trn.ind <- sample(x = 1:nrow(df.a), 
-                  size = round(0.7 * nrow(df.a)))
-df.a.trn <- df.a[trn.ind, ]
-df.a.tst <- df.a[-trn.ind, ]
 
+df.a <- filter(df, alpha > 0)
 sprse.a <- sparse.model.matrix(~., df.a)
+
+set.seed(24)
 trn.ind <- sample(x = 1:nrow(sprse.a), 
                   size = round(0.7 * nrow(sprse.a)))
 sprse.a.trn <- sprse.a[trn.ind, ]
@@ -89,10 +77,10 @@ svm.a <- svm(x = sprse.a.trn[ , -1:-2],
              y = sprse.a.trn[ , 2], 
              kernel = "polynomial", 
              degree = 2,
-             cost = 512, 
-             gamma = 0.5, 
-             epsilon = 0.5, 
-             coef0 = 2)
+             cost = 4096, 
+             gamma = 0.03, 
+             epsilon = 1, 
+             coef0 = 1.5)
 svm.a.tst <- predict(svm.a, sprse.a.tst[ , -1:-2]) %>%
   cbind(sprse.a.tst[ , 2]) %>%
   data.frame() %>%
@@ -102,14 +90,9 @@ defaultSummary(svm.a.tst)[2]
 
 #     Beta --------------------------------------------------------
 df.b <- filter(df, beta > 0)
-# 20 # 34 (outlier) # 54
-set.seed(100)
-trn.ind <- sample(x = 1:nrow(df.b), 
-                  size = round(0.7 * nrow(df.b)))
-df.b.trn <- df.b[trn.ind, ]
-df.b.tst <- df.b[-trn.ind, ]
-
 sprse.b <- sparse.model.matrix(~., df.b)
+
+set.seed(25)
 trn.ind <- sample(x = 1:nrow(sprse.b), 
                   size = round(0.7 * nrow(sprse.b)))
 sprse.b.trn <- sprse.b[trn.ind, ]
@@ -119,10 +102,10 @@ svm.b <- svm(x = sprse.b.trn[ , -1:-2],
              y = sprse.b.trn[ , 2], 
              kernel = "polynomial", 
              degree = 2,
-             cost = 512, 
-             gamma = 0.5, 
-             epsilon = 0.5, 
-             coef0 = 1)
+             cost = 4096, 
+             gamma = 0.03, 
+             epsilon = 1, 
+             coef0 = 1.5)
 svm.b.tst <- predict(svm.b, sprse.b.tst[ , -1:-2]) %>%
   cbind(sprse.b.tst[ , 2]) %>%
   data.frame() %>%
@@ -133,13 +116,11 @@ defaultSummary(svm.b.tst)[2]
 #     Gamma -------------------------------------------------------
 
 df.c <- filter(df, gamma > 0)
-set.seed(8)
-trn.ind <- sample(x = 1:nrow(df.c), size = round(0.7 * nrow(df.c)))
-df.c.trn <- df.c[trn.ind, ]
-df.c.tst <- df.c[-trn.ind, ]
-
 sprse.c <- sparse.model.matrix(~., df.c)
-trn.ind <- sample(x = 1:nrow(sprse.c), size = round(0.7 * nrow(sprse.c)))
+
+set.seed(12)
+trn.ind <- sample(x = 1:nrow(sprse.c), 
+                  size = round(0.7 * nrow(sprse.c)))
 sprse.c.trn <- sprse.c[trn.ind, ]
 sprse.c.tst <- sprse.c[-trn.ind, ]
 
@@ -147,17 +128,16 @@ svm.c <- svm(x = sprse.c.trn[ , -1:-2],
              y = sprse.c.trn[ , 2], 
              kernel = "polynomial", 
              degree = 2,
-             cost = 512, 
-             gamma = 0.5, 
-             epsilon = 0.5, 
-             coef0 = 2)
+             cost = 4096, 
+             gamma = 0.03, 
+             epsilon = 1, 
+             coef0 = 1.5)
 svm.c.tst <- predict(svm.c, sprse.c.tst[ , -1:-2]) %>%
   cbind(sprse.c.tst[ , 2]) %>%
   data.frame() %>%
   rename(., pred = `.`, obs = V2)
 
 defaultSummary(svm.c.tst)[2]
-
 
 #     Compiled CDs --------------------------------------------------------
 
@@ -177,10 +157,10 @@ defaultSummary(svm.abc.tst)
 #     All ------------------------------------------------------------
 rbf.all <- svm(x = sprse.trn.x, 
                y = sprse.trn.y,
-               cost = 8, 
+               cost = 2048, 
                epsilon = 0.5, 
                kernel = "radial", 
-               gamma = 0.0005)
+               gamma = 0.001)
 
 rbf.all.tst <- predict(rbf.all, sprse.tst.x) %>%
   cbind(sprse.tst.y) %>%
@@ -249,6 +229,26 @@ rbf.abc.tst <- rbind(temp.a, temp.b, temp.c,
                      make.row.names = F)
 defaultSummary(rbf.abc.tst)
 
+# Sigmoid Kernel -----------------------------------------------------
+#     All ------------------------------------------------------------
+sig.all <- svm(x = sprse.trn.x, 
+               y = sprse.trn.y,
+               cost = 1, 
+               epsilon = 0.125, 
+               kernel = "sigmoid", 
+               gamma = 0.001)
+
+sig.all.tst <- predict(sig.all, sprse.tst.x) %>%
+  cbind(sprse.tst.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = sprse.tst.y)
+sig.all.trn <- predict(sig.all, sprse.trn.x) %>%
+  cbind(sprse.trn.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = sprse.trn.y)
+
+defaultSummary(sig.all.tst)[2]
+defaultSummary(sig.all.trn)
 # Plots -------------------------------------------------------------------
 # Notes: Outlier is 3-methylbenzoic acid
 #     Polynomial ----------------------------------------------------------
@@ -261,7 +261,7 @@ ggplot(svm.all.tst, aes(x = obs, y = pred)) +
        title = "Polynomial SVM - All Data Points") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 poly all data points.png")
+ggsave("./models/svm/2017-07-20 poly all data.png")
 
 # Alpha-CD
 ggplot(svm.a.tst, aes(x = obs, y = pred)) + 
@@ -300,18 +300,18 @@ ggplot(svm.abc.tst, aes(x = obs, y = pred,
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) +
   labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Polynomail SVM - Compiled CD Types", 
+       title = "Polynomial SVM - Compiled CD Types", 
        color = "Cyclodextrin Type") + 
   coord_fixed() + 
   theme_bw()
 ggsave("./graphs/svm/2017-07-06 poly compiled cds.png")
 
 #    Residuals
-ggplot(svm.abc.tst, aes(x = obs, y = residual)) + 
+ggplot(svm.abc.tst, aes(x = obs, y = residual, color = cd.type)) + 
   geom_point() + 
   geom_hline(yintercept = 0) + 
   labs(x = "Experimental DelG, kJ/mol", y = "Residual, kJ/mol", 
-       title = "Polynomail SVM - Residuals of Compiled CD Types") + 
+       title = "Polynomial SVM - Residuals of Compiled CD Types") + 
   coord_fixed() + 
   theme_bw()
 ggsave("./graphs/svm/2017-07-06 poly compiled cds resid.png")
