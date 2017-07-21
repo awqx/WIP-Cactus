@@ -159,7 +159,7 @@ tune.glm.alpha <- function(data, nfolds, alpha, seed) {
                       alpha = alpha, 
                       family = "mgaussian")
     glm.df <- predict.glmnet(glm.mod, tst.x,
-                             s = tail(test.glm$lambda, n = 1)) %>%
+                             s = tail(glm.mod$lambda, n = 1)) %>%
       cbind(tst.y) %>%
       data.frame() %>%
       rename(pred = X1, obs = tst.y)
@@ -192,7 +192,7 @@ tune.glm.dfmax <- function(data, nfolds, max, seed) {
                       dfmax = max, 
                       family = "mgaussian")
     glm.df <- predict.glmnet(glm.mod, tst.x,
-                             s = tail(test.glm$lambda, n = 1)) %>%
+                             s = tail(glm.mod$lambda, n = 1)) %>%
       cbind(tst.y) %>%
       data.frame() %>%
       rename(pred = X1, obs = tst.y)
