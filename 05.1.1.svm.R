@@ -265,13 +265,13 @@ ggsave("./models/svm/2017-07-20 poly all data.png")
 
 # Alpha-CD
 ggplot(svm.a.tst, aes(x = obs, y = pred)) + 
-  geom_point() + 
+  geom_point(fill = "salmon") + 
   geom_abline(intercept = 0, slope = 1) +
   labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "Polynomial SVM - Alpha CD") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 poly alpha cd.png")
+ggsave("./models/svm/2017-07-20 poly alpha cd.png")
 
 # Beta-CD
 ggplot(svm.b.tst, aes(x = obs, y = pred)) + 
@@ -281,7 +281,7 @@ ggplot(svm.b.tst, aes(x = obs, y = pred)) +
        title = "Polynomial SVM - Beta CD") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 poly beta cd.png")
+ggsave("./models/svm/2017-07-20 poly beta cd.png")
 
 # Gamma-CD
 ggplot(svm.c.tst, aes(x = obs, y = pred)) + 
@@ -291,7 +291,7 @@ ggplot(svm.c.tst, aes(x = obs, y = pred)) +
        title = "Polynomial SVM - Gamma CD") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 poly gamma cd.png")
+ggsave("./models/svm/2017-07-20 poly gamma cd.png")
 
 # All-CDs
 ggplot(svm.abc.tst, aes(x = obs, y = pred, 
@@ -304,7 +304,7 @@ ggplot(svm.abc.tst, aes(x = obs, y = pred,
        color = "Cyclodextrin Type") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 poly compiled cds.png")
+ggsave("./models/svm/2017-07-20 poly compiled cds.png")
 
 #    Residuals
 ggplot(svm.abc.tst, aes(x = obs, y = residual, color = cd.type)) + 
@@ -314,7 +314,7 @@ ggplot(svm.abc.tst, aes(x = obs, y = residual, color = cd.type)) +
        title = "Polynomial SVM - Residuals of Compiled CD Types") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 poly compiled cds resid.png")
+ggsave("./models/svm/2017-07-20 poly compiled cds resid.png")
 
 #         Training Set ----------------------------------------------------
 # Very clearly overfitted
@@ -325,7 +325,7 @@ ggplot(svm.all.trn, aes(x = obs, y = pred)) +
        title = "Polynomial SVM - All Data Points, Training") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-07 poly all data points trn.png")
+ggsave("./models/svm/2017-07-07 poly all data points trn.png")
 
 #     RBF -----------------------------------------------------------------
 ggplot(rbf.all.tst, aes(x = obs, y = pred)) + 
@@ -334,7 +334,7 @@ ggplot(rbf.all.tst, aes(x = obs, y = pred)) +
   labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", title = "Radial SVM - All Data Points") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 rbf all data points.png")
+ggsave("./models/svm/2017-07-20 rbf all data points.png")
 
 ggplot(rbf.a.tst, aes(x = obs, y = pred)) + 
   geom_point(shape = 10, size = 2) + 
@@ -343,7 +343,7 @@ ggplot(rbf.a.tst, aes(x = obs, y = pred)) +
        title = "Radial SVM - Alpha CD") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 rbf alpha cd.png")
+ggsave("./models/svm/2017-07-20 rbf alpha cd.png")
 
 ggplot(rbf.b.tst, aes(x = obs, y = pred)) + 
   geom_point(shape = 10, size = 2) + 
@@ -351,7 +351,7 @@ ggplot(rbf.b.tst, aes(x = obs, y = pred)) +
   labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", title = "Radial SVM - Beta CD") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 rbf beta cd.png")
+ggsave("./models/svm/2017-07-20 rbf beta cd.png")
 
 ggplot(rbf.c.tst, aes(x = obs, y = pred)) + 
   geom_point(shape = 10, size = 2) + 
@@ -359,7 +359,7 @@ ggplot(rbf.c.tst, aes(x = obs, y = pred)) +
   labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", title = "Radial SVM - Gamma CD") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 rbf gamma cd.png")
+ggsave("./models/svm/2017-07-20 rbf gamma cd.png")
 
 ggplot(rbf.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point(shape = 10, size = 2) + 
@@ -369,4 +369,4 @@ ggplot(rbf.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
        color = "Cyclodextrin Type") + 
   coord_fixed() + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-06 rbf compiled cd.png")
+ggsave("./models/svm/2017-07-20 rbf compiled cd.png")
