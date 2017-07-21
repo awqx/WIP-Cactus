@@ -88,6 +88,8 @@ alpha.comp <- rbind(glm.alpha, glm2.alpha, glm3.alpha,
 dfmax.comp <- rbind(glm.dfmax, glm2.dfmax, glm3.dfmax, 
                     glm4.dfmax, glm5.dfmax, glm6.dfmax)
 
+saveRDS(alpha.comp, "./tuning/glmnet/alpha.results.RDS")
+saveRDS(dfmax.comp, "./tuning/glmnet/dfmax.results.RDS")
 
 # Graphs ------------------------------------------------------------------
 
