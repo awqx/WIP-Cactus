@@ -370,3 +370,47 @@ ggplot(rbf.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
   coord_fixed() + 
   theme_bw()
 ggsave("./models/svm/2017-07-20 rbf compiled cd.png")
+#####
+# Model with Untransformed Data -------------------------------------------
+
+df.raw <- readRDS("./padel.nopp.RDS") 
+df <- df.raw %>%
+  select(., -guest:-host) %>%
+  select(., -data.source)
+df <- lapply(df, as.numeric) %>% data.frame()
+set.seed(25)
+trn.ind <- sample(x = 1:nrow(df), size = round(0.7 * nrow(df)))
+trn <- df[trn.ind, ]
+tst <- df[-trn.ind, ]
+
+sprse <- sparse.model.matrix(~., df)
+trn.ind <- sample(x = 1:nrow(sprse), size = round(0.7 * nrow(sprse)))
+
+sprse.trn <- sprse[trn.ind, ]
+sprse.trn.x <- sprse.trn[ , -1:-2]
+sprse.trn.y <- sprse.trn[ , 2]
+
+sprse.tst <- sprse[-trn.ind, ]
+sprse.tst.x <- sprse.tst[ , -1:-2]
+sprse.tst.y <- sprse.tst[ , 2]
+
+svm.all <- svm(x = trn[ , -1], 
+               y = trn[ , 1], 
+               coef0 = 1.5, 
+               cost = 256, 
+               epsilon = 1, 
+               kernel = "polynomial", 
+               gamma = 0.03, 
+               degree = 2)
+
+svm.all.tst <- predict(svm.all, tst[ , -1]) %>%
+  cbind(tst[ , 1]) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+svm.all.trn <- predict(svm.all, trn[ , -1]) %>%
+  cbind(trn[ , 1]) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+defaultSummary(svm.all.tst)[2] # 0.529
+defaultSummary(svm.all.trn)[2] # 0.969

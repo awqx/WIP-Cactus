@@ -109,6 +109,35 @@ saveRDS(mat.ga, "./feature.select/mat.ga.RDS")
 saveRDS(ga.extval, "./feature.select/gafs.extval.RDS")
 
 
+# Processing Data with No Transformation ----------------------------------
+
+padel.nopp <- do.call(data.frame,lapply(padel.split2, 
+                      function(x) replace(x, is.infinite(x), NA))) 
+padel.nopp <- preProcess(padel.nopp, na.remove = T, method = c("medianImpute")) %>%
+  predict(., padel.nopp)
+
+too.high <- findCorrelation(cor(padel.nopp), 0.95) # 0.95 mostly arbitrary
+corr <- names(padel.nopp)[too.high]
+padel.nopp <- padel.nopp[ , -too.high]
+
+padel.nopp <- cbind(padel.split1, padel.nopp)
+
+colnames(padel.nopp) <- str_replace(colnames(padel.nopp), "-", ".")
+
+#     External Validation -------------------------------------------------
+
+set.seed(4)
+ext.val.ind <- sample(x = 1:nrow(padel.nopp), 
+                      size = round(0.15 * nrow(padel.nopp)))
+ext.val <- padel.nopp[ext.val.ind, ]
+padel.nopp.all <- padel.nopp
+padel.nopp <- padel.nopp[-ext.val.ind, ]
+
+#     Data Organization and Saving ----------------------------------------
+
+saveRDS(padel.nopp, "./padel.nopp.RDS")
+saveRDS(ext.val, "./padel.nopp external validation.RDS")
+
 # Processing 2D Only Data -------------------------------------------------
 
 twod <- readRDS("./molecules/descriptors/04.all.2d.RDS")
