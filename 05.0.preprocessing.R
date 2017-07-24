@@ -36,9 +36,10 @@ padel.split4 <- padel.cd %>% filter(data.source == "suzuki") %>%
 # padel.pp = padel.preprocess, just shortened
 padel.temp <- do.call(data.frame,lapply(padel.split2, 
                                         function(x) replace(x, is.infinite(x),NA)))
-padel.pp <- preProcess(padel.temp, na.remove = T, 
-                  method = c("knnImpute", "center", "scale")) %>%
-  predict(., padel.temp)
+pp.settings <- preProcess(padel.temp, na.remove = T, 
+                          method = c("knnImpute", "center", "scale"))
+saveRDS(pp.settings, "preprocess.settings.RDS")
+padel.pp <- predict(pp.settings, padel.temp)
 
 # padel.pp1 <- preProcess(padel.pp, method = "BoxCox") %>%
 #   predict(., padel.pp) # Not sure if any effect from BoxCox
@@ -107,36 +108,6 @@ saveRDS(sprse.ga, "./feature.select/sprse.ga.RDS")
 saveRDS(mat.ga, "./feature.select/mat.ga.RDS")
 
 saveRDS(ga.extval, "./feature.select/gafs.extval.RDS")
-
-
-# Processing Data with No Transformation ----------------------------------
-
-padel.nopp <- do.call(data.frame,lapply(padel.split2, 
-                      function(x) replace(x, is.infinite(x), NA))) 
-padel.nopp <- preProcess(padel.nopp, na.remove = T, method = c("medianImpute")) %>%
-  predict(., padel.nopp)
-
-too.high <- findCorrelation(cor(padel.nopp), 0.95) # 0.95 mostly arbitrary
-corr <- names(padel.nopp)[too.high]
-padel.nopp <- padel.nopp[ , -too.high]
-
-padel.nopp <- cbind(padel.split1, padel.nopp)
-
-colnames(padel.nopp) <- str_replace(colnames(padel.nopp), "-", ".")
-
-#     External Validation -------------------------------------------------
-
-set.seed(4)
-ext.val.ind <- sample(x = 1:nrow(padel.nopp), 
-                      size = round(0.15 * nrow(padel.nopp)))
-ext.val <- padel.nopp[ext.val.ind, ]
-padel.nopp.all <- padel.nopp
-padel.nopp <- padel.nopp[-ext.val.ind, ]
-
-#     Data Organization and Saving ----------------------------------------
-
-saveRDS(padel.nopp, "./padel.nopp.RDS")
-saveRDS(ext.val, "./padel.nopp external validation.RDS")
 
 # Processing 2D Only Data -------------------------------------------------
 
