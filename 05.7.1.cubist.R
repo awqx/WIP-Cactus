@@ -119,6 +119,8 @@ defaultSummary(cube.abc.tst) # 0.738
 
 # Graphs ------------------------------------------------------------------
 
+dir.create("./graphs/cubist")
+
 ggplot(all.tst, aes(x = pred, y = obs)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
@@ -126,7 +128,7 @@ ggplot(all.tst, aes(x = pred, y = obs)) +
   coord_fixed() + 
   labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        title = "Cubist - All Data Points") 
-ggsave("./models/cubist/2017-07-21 cubist all data.png")
+ggsave("./graphs/cubist/2017-07-21 cubist all data.png")
 
 ggplot(alpha.tst, aes(x = pred, y = obs)) + 
   geom_point() + 
@@ -135,7 +137,7 @@ ggplot(alpha.tst, aes(x = pred, y = obs)) +
   coord_fixed() + 
   labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        title = "Cubist - Alpha-CD") 
-ggsave("./models/cubist/2017-07-21 cubist alpha-cd.png")
+ggsave("./graphs/cubist/2017-07-21 cubist alpha-cd.png")
 
 ggplot(beta.tst, aes(x = pred, y = obs)) + 
   geom_point() + 
@@ -144,7 +146,7 @@ ggplot(beta.tst, aes(x = pred, y = obs)) +
   coord_fixed() + 
   labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        title = "Cubist - Beta-CD") 
-ggsave("./models/cubist/2017-07-21 cubist beta-cd.png")
+ggsave("./graphs/cubist/2017-07-21 cubist beta-cd.png")
 
 ggplot(gamma.tst, aes(x = pred, y = obs)) + 
   geom_point() + 
@@ -153,7 +155,7 @@ ggplot(gamma.tst, aes(x = pred, y = obs)) +
   coord_fixed() + 
   labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        title = "Cubist - Gamma-CD") 
-ggsave("./models/cubist/2017-07-21 cubist gamma-cd.png")
+ggsave("./graphs/cubist/2017-07-21 cubist gamma-cd.png")
 
 ggplot(cube.abc.tst, aes(x = pred, y = obs, color = cd.type)) + 
   geom_point() + 
@@ -162,4 +164,13 @@ ggplot(cube.abc.tst, aes(x = pred, y = obs, color = cd.type)) +
   coord_fixed() + 
   labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        title = "Cubist - Compiled CDs", color = "Cyclodextrin") 
-ggsave("./models/cubist/2017-07-21 cubist gamma-cd.png")
+ggsave("./graphs/cubist/2017-07-21 cubist compiled cd.png")
+
+ggplot(cube.abc.tst, aes(x = obs, y = residual, color = cd.type)) + 
+  geom_point() + 
+  geom_hline(yintercept = 0) + 
+  theme_bw() + 
+  coord_fixed() + 
+  labs(y = "Residuals, kJ/mol", x = "Experimental DelG, kJ/mol", 
+       title = "Cubist - Compiled CDs Residuals", color = "Cyclodextrin")
+ggsave("./graphs/cubist/2017-07-21 cubist compiled cd resid.png")

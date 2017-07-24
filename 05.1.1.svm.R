@@ -370,3 +370,226 @@ ggplot(rbf.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
   coord_fixed() + 
   theme_bw()
 ggsave("./models/svm/2017-07-20 rbf compiled cd.png")
+
+#####
+#####
+# Model on Dataframe (not sparse) -----------------------------------------
+
+trn.x <- trn[ , -1]
+trn.y <- trn[ , 1]
+tst.x <- tst[ , -1]
+tst.y <- tst[ , 1]
+
+svm.all <- svm(x = trn.x, 
+               y = trn.y, 
+               coef0 = 1.5, 
+               cost = 4096, 
+               epsilon = 1, 
+               kernel = "polynomial", 
+               gamma = 0.03, 
+               degree = 2)
+
+svm.all.tst <- predict(svm.all, tst.x) %>%
+  cbind(tst.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = tst.y)
+
+svm.all.trn <- predict(svm.all, trn.x) %>%
+  cbind(trn.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = trn.y)
+
+defaultSummary(svm.all.tst)
+defaultSummary(svm.all.trn)
+
+
+#####
+#####
+# Polynomial Kernel -------------------------------------------------------
+
+#     Alpha-CD ------------------------------------------------------------
+
+alpha <- df %>% filter(alpha > 0)
+set.seed(10)
+trn.ind <- sample(x = 1:nrow(alpha), size = round(0.7 * nrow(alpha)))
+a.trn.x <- alpha[trn.ind, -1]
+a.trn.y <- alpha[trn.ind, 1]
+
+a.tst.x <- alpha[-trn.ind, -1]
+a.tst.y <- alpha[-trn.ind, 1]
+
+svm.alpha <- svm(x = a.trn.x, 
+                 y = a.trn.y, 
+                 coef0 = 2, 
+                 cost = 2048, 
+                 epsilon = 0.1, 
+                 kernel = "polynomial", 
+                 gamma = 0.03, 
+                 degree = 2)
+
+svm.a.tst <- predict(svm.alpha, a.tst.x) %>%
+  cbind(a.tst.y) %>% data.frame() %>%
+  rename(., pred = `.`, obs = a.tst.y)
+svm.a.trn <- predict(svm.alpha, a.trn.x) %>%
+  cbind(a.trn.y) %>% data.frame() %>%
+  rename(., pred = `.`, obs = a.trn.y)
+defaultSummary(svm.a.tst) # 0.607
+defaultSummary(svm.a.trn) # 0.993
+
+saveRDS(svm.alpha, "./models/svm/polysvm.alpha.RDS")
+
+#     Beta-CD -------------------------------------------------------------
+
+beta <- df %>% filter(beta > 0)
+set.seed(10)
+trn.ind <- sample(x = 1:nrow(beta), size = round(0.7 * nrow(beta)))
+b.trn.x <- beta[trn.ind, -1]
+b.trn.y <- beta[trn.ind, 1]
+
+b.tst.x <- beta[-trn.ind, -1]
+b.tst.y <- beta[-trn.ind, 1]
+
+svm.beta <- svm(x = b.trn.x, 
+                 y = b.trn.y, 
+                 coef0 = 2, 
+                 cost = 2048, 
+                 epsilon = 0.1, 
+                 kernel = "polynomial", 
+                 gamma = 0.03, 
+                 degree = 2)
+
+svm.b.tst <- predict(svm.beta, b.tst.x) %>%
+  cbind(b.tst.y) %>% data.frame() %>%
+  rename(., pred = `.`, obs = b.tst.y)
+svm.b.trn <- predict(svm.beta, b.trn.x) %>%
+  cbind(b.trn.y) %>% data.frame() %>%
+  rename(., pred = `.`, obs = b.trn.y)
+defaultSummary(svm.b.tst) # 0.634
+defaultSummary(svm.b.trn) # 0.998
+
+saveRDS(svm.alpha, "./models/svm/polysvm.beta.RDS")
+
+#     Gamma-CD ------------------------------------------------------------
+
+gamma <- df %>% filter(gamma > 0)
+set.seed(10)
+trn.ind <- sample(x = 1:nrow(gamma), size = round(0.7 * nrow(gamma)))
+c.trn.x <- gamma[trn.ind, -1]
+c.trn.y <- gamma[trn.ind, 1]
+
+c.tst.x <- gamma[-trn.ind, -1]
+c.tst.y <- gamma[-trn.ind, 1]
+
+svm.gamma <- svm(x = c.trn.x, 
+                 y = c.trn.y, 
+                 coef0 = 2, 
+                 cost = 2048, 
+                 epsilon = 0.1, 
+                 kernel = "polynomial", 
+                 gamma = 0.03, 
+                 degree = 2)
+
+svm.c.tst <- predict(svm.gamma, c.tst.x) %>%
+  cbind(c.tst.y) %>% data.frame() %>%
+  rename(., pred = `.`, obs = c.tst.y)
+svm.c.trn <- predict(svm.gamma, c.trn.x) %>%
+  cbind(c.trn.y) %>% data.frame() %>%
+  rename(., pred = `.`, obs = c.trn.y)
+defaultSummary(svm.c.tst) # 0.214
+defaultSummary(svm.c.trn) # 0.99986
+
+saveRDS(svm.gamma, "./models/svm/polysvm.gamma.RDS")
+
+#     Compiled CDs --------------------------------------------------------
+
+temp.a <- svm.a.tst %>% 
+  mutate(cd.type = rep("alpha", length(svm.a.tst$pred)))
+temp.b <- svm.b.tst %>% 
+  mutate(cd.type = rep("beta", length(svm.b.tst$pred)))
+temp.c <- svm.c.tst %>% 
+  mutate(cd.type = rep("gamma", length(svm.c.tst$pred)))
+svm.abc.tst <- rbind(temp.a, temp.b, temp.c, 
+                     make.row.names = F) %>%
+  mutate(residual = pred - obs)
+
+temp.a <- svm.a.trn %>% 
+  mutate(cd.type = rep("alpha", length(svm.a.trn$pred)))
+temp.b <- svm.b.trn %>% 
+  mutate(cd.type = rep("beta", length(svm.b.trn$pred)))
+temp.c <- svm.c.trn %>% 
+  mutate(cd.type = rep("gamma", length(svm.c.trn$pred)))
+svm.abc.trn <- rbind(temp.a, temp.b, temp.c, 
+                     make.row.names = F) %>%
+  mutate(residual = pred - obs)
+
+defaultSummary(svm.abc.tst) # 0.617
+defaultSummary(svm.abc.trn) # 0.997
+
+
+# Graphs ------------------------------------------------------------------
+dir.create("./graphs")
+dir.create("./graphs/svm")
+
+# ggplot_build(p)$data
+ggplot(svm.a.tst, aes(x = pred, y = obs)) + 
+  geom_point(color = "#F8766D") + 
+  geom_abline(slope = 1, intercept = 0) + 
+  theme_bw() + 
+  coord_fixed() + 
+  labs(title = "Polynomial SVM - Alpha-CD", 
+       x = "Predicted DelG, kJ/mol", 
+       y = "Experimental DelG, kJ/mol")
+ggsave("./graphs/svm/2017-07-24 poly alpha on df.png")
+
+ggplot(svm.b.tst, aes(x = pred, y = obs)) + 
+  geom_point(color = "#00BA38") + 
+  geom_abline(slope = 1, intercept = 0) + 
+  theme_bw() + 
+  coord_fixed() + 
+  labs(title = "Polynomial SVM - Beta-CD", 
+       x = "Predicted DelG, kJ/mol", 
+       y = "Experimental DelG, kJ/mol")
+ggsave("./graphs/svm/2017-07-24 poly beta on df.png")
+
+ggplot(svm.c.tst, aes(x = pred, y = obs)) + 
+  geom_point(color = "#619CFF") + 
+  geom_abline(slope = 1, intercept = 0) + 
+  theme_bw() + 
+  coord_fixed() + 
+  labs(title = "Polynomial SVM - Gamma-CD", 
+       x = "Predicted DelG, kJ/mol", 
+       y = "Experimental DelG, kJ/mol")
+ggsave("./graphs/svm/2017-07-24 poly gamma on df.png")
+
+ggplot(svm.abc.tst, aes(x = pred, y = obs, color = cd.type)) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  theme_bw() + 
+  coord_fixed() + 
+  labs(title = "Polynomial SVM - Compiled CD Types", 
+       x = "Predicted DelG, kJ/mol", 
+       y = "Experimental DelG, kJ/mol", 
+       color = "Cyclodextrin Type")
+ggsave("./graphs/svm/2017-07-24 poly compiled on df.png")
+
+ggplot(svm.all.tst, aes(x = pred, y = obs)) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  theme_bw() + 
+  coord_fixed() + 
+  labs(title = "Polynomial SVM", 
+       x = "Predicted DelG, kJ/mol", 
+       y = "Experimental DelG, kJ/mol")
+ggsave("./graphs/svm/2017-07-24 poly all on df.png")
+
+# On training data
+ggplot(svm.abc.trn, aes(x = pred, y = obs, color = cd.type)) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  theme_bw() + 
+  coord_fixed() + 
+  labs(title = "Polynomial SVM - Training Data", 
+       x = "Predicted DelG, kJ/mol", 
+       y = "Experimental DelG, kJ/mol")
+ggsave("./graphs/svm/2017-07-24 poly all on df trn.png")
+
