@@ -128,7 +128,7 @@ ggplot(all.tst, aes(x = pred, y = obs)) +
   coord_fixed() + 
   labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        title = "Cubist - All Data Points") 
-ggsave("./graphs/cubist/2017-07-21 cubist all data.png")
+# ggsave("./graphs/cubist/2017-07-21 cubist all data.png")
 
 ggplot(alpha.tst, aes(x = pred, y = obs)) + 
   geom_point() + 
@@ -137,7 +137,7 @@ ggplot(alpha.tst, aes(x = pred, y = obs)) +
   coord_fixed() + 
   labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        title = "Cubist - Alpha-CD") 
-ggsave("./graphs/cubist/2017-07-21 cubist alpha-cd.png")
+# ggsave("./graphs/cubist/2017-07-21 cubist alpha-cd.png")
 
 ggplot(beta.tst, aes(x = pred, y = obs)) + 
   geom_point() + 
@@ -146,7 +146,7 @@ ggplot(beta.tst, aes(x = pred, y = obs)) +
   coord_fixed() + 
   labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        title = "Cubist - Beta-CD") 
-ggsave("./graphs/cubist/2017-07-21 cubist beta-cd.png")
+# ggsave("./graphs/cubist/2017-07-21 cubist beta-cd.png")
 
 ggplot(gamma.tst, aes(x = pred, y = obs)) + 
   geom_point() + 
@@ -155,7 +155,7 @@ ggplot(gamma.tst, aes(x = pred, y = obs)) +
   coord_fixed() + 
   labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        title = "Cubist - Gamma-CD") 
-ggsave("./graphs/cubist/2017-07-21 cubist gamma-cd.png")
+# ggsave("./graphs/cubist/2017-07-21 cubist gamma-cd.png")
 
 ggplot(cube.abc.tst, aes(x = pred, y = obs, color = cd.type)) + 
   geom_point() + 
@@ -164,7 +164,7 @@ ggplot(cube.abc.tst, aes(x = pred, y = obs, color = cd.type)) +
   coord_fixed() + 
   labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        title = "Cubist - Compiled CDs", color = "Cyclodextrin") 
-ggsave("./graphs/cubist/2017-07-21 cubist compiled cd.png")
+# ggsave("./graphs/cubist/2017-07-21 cubist compiled cd.png")
 
 ggplot(cube.abc.tst, aes(x = obs, y = residual, color = cd.type)) + 
   geom_point() + 
@@ -173,4 +173,48 @@ ggplot(cube.abc.tst, aes(x = obs, y = residual, color = cd.type)) +
   coord_fixed() + 
   labs(y = "Residuals, kJ/mol", x = "Experimental DelG, kJ/mol", 
        title = "Cubist - Compiled CDs Residuals", color = "Cyclodextrin")
-ggsave("./graphs/cubist/2017-07-21 cubist compiled cd resid.png")
+# ggsave("./graphs/cubist/2017-07-21 cubist compiled cd resid.png")
+
+#####
+
+# External  Validation ----------------------------------------------------
+
+#####
+
+ext.val <- readRDS("./external validation set new.RDS") %>%
+  select(-guest:-host) %>%
+  select(-data.source) 
+
+ext.val.a <- ext.val %>% filter(alpha > 0) 
+ext.val.b <- ext.val %>% filter(beta > 0)
+ext.val.c <- ext.val %>% filter(gamma > 0) 
+
+ev.a <-  predict(cube.alpha, ext.val.a[ , -1]) %>%
+  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+ev.b <-  predict(cube.beta, ext.val.b[ , -1]) %>%
+  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+ev.c <-  predict(cube.gamma, ext.val.c[ , -1]) %>%
+  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+temp.a <- ev.a %>% mutate(cd.type = "alpha")
+temp.b <- ev.b %>% mutate(cd.type = "beta")
+temp.c <- ev.c %>% mutate(cd.type = "gamma")
+# temp.a <- temp.a[-2, ]
+ev.abc <- rbind(temp.a, temp.b, temp.c) %>%
+  mutate(resid = pred - obs)
+
+defaultSummary(ev.abc) # 0.419 normally, 0.666 without outlier
+ggplot(ev.abc, aes(x = pred, y = obs, color = cd.type)) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
+  theme_bw() + 
+  labs(title = "Cubist - External Validation", 
+       x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
+       color = "Cyclodextrin Type")
+3 ggsave("./graphs/svm/2017-07-25 cubist extval.png")
