@@ -180,7 +180,7 @@ rf.tst.df %>% ggplot(., aes(x = obs, y = pred)) +
   labs(x = "Experimental DelG Observations, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest on Testing Data")
-ggsave("./graphs/rforest/2017-07-24 rf test.png")
+# ggsave("./graphs/rforest/2017-07-24 rf test.png")
 
 ggplot(rf.tst.a, aes(x = obs, y = pred)) +
   geom_point() + 
@@ -190,7 +190,7 @@ ggplot(rf.tst.a, aes(x = obs, y = pred)) +
   labs(x = "Experimental DelG Observations, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest - Alpha CD")
-ggsave("./graphs/rforest/2017-07-24 rf alphacd tst.png")
+# ggsave("./graphs/rforest/2017-07-24 rf alphacd tst.png")
 
 ggplot(rf.tst.b, aes(x = obs, y = pred)) +
   geom_point() + 
@@ -200,7 +200,7 @@ ggplot(rf.tst.b, aes(x = obs, y = pred)) +
   labs(x = "Experimental DelG Observations, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest - Beta CD")
-ggsave("./graphs/rforest/2017-07-24 rf betacd tst.png")
+# ggsave("./graphs/rforest/2017-07-24 rf betacd tst.png")
 
 ggplot(rf.tst.c, aes(x = obs, y = pred)) +
   geom_point() + 
@@ -210,7 +210,7 @@ ggplot(rf.tst.c, aes(x = obs, y = pred)) +
   labs(x = "Experimental DelG Observations, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest - Gamma CD")
-ggsave("./graphs/rforest/2017-07-24 rf gammacd tst.png")
+# ggsave("./graphs/rforest/2017-07-24 rf gammacd tst.png")
 
 ggplot(rf.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
   geom_point() + 
@@ -220,7 +220,7 @@ ggplot(rf.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
   labs(x = "Experimental DelG Observations, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest - Compiled CD")
-ggsave("./graphs/rforest/2017-07-24 rf compiled cd tst.png")
+# ggsave("./graphs/rforest/2017-07-24 rf compiled cd tst.png")
 
 
 #     Training Data -------------------------------------------------------
@@ -233,7 +233,7 @@ rf.trn.df %>% ggplot(., aes(x = obs, y = pred)) +
   labs(x = "Experimental DelG Observations, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest on Training Data")
-ggsave("./graphs/rforest/2017-07-24 rf trn.png")
+# ggsave("./graphs/rforest/2017-07-24 rf trn.png")
 
 ggplot(rf.abc.trn, aes(x = obs, y = pred, color = cd.type)) +
   geom_point() + 
@@ -243,7 +243,7 @@ ggplot(rf.abc.trn, aes(x = obs, y = pred, color = cd.type)) +
   labs(x = "Experimental DelG Observations, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest - Compiled CD, Training Data")
-ggsave("./graphs/rforest/2017-07-24 rf compiled cd trn.png")
+# ggsave("./graphs/rforest/2017-07-24 rf compiled cd trn.png")
 
 #     Residuals -----------------------------------------------------------
 
@@ -255,7 +255,7 @@ ggplot(rf.abc.tst, aes(x = obs, y = tst.resid, color = cd.type)) +
   labs(x = "Experimental DelG Observations, kJ/mol", 
        y = "Residuals, kJ/mol", 
        title = "Random Forest Residuals on Testing Data")
-ggsave("./graphs/rforest/2017-07-24 rf tst resid.png")
+# ggsave("./graphs/rforest/2017-07-24 rf tst resid.png")
 
 rf.abc.trn %>% ggplot(., aes(x = obs, y = trn.resid, color = cd.type)) + 
   geom_point() + 
@@ -265,4 +265,47 @@ rf.abc.trn %>% ggplot(., aes(x = obs, y = trn.resid, color = cd.type)) +
   labs(x = "Experimental DelG Observations, kJ/mol", 
        y = "Residuals, kJ/mol", 
        title = "Random Forest Residuals on Training Data")
-ggsave("./graphs/rforest/2017-07-13 rforest trn resid.png")
+# ggsave("./graphs/rforest/2017-07-13 rforest trn resid.png")
+
+#####
+# External Validation -----------------------------------------------------
+#####
+ext.val <- readRDS("./external validation set new.RDS") %>%
+  select(-guest:-host) %>%
+  select(-data.source) 
+
+ext.val.a <- ext.val %>% filter(alpha > 0) 
+ext.val.b <- ext.val %>% filter(beta > 0)
+ext.val.c <- ext.val %>% filter(gamma > 0) 
+
+ev.a <-  predict(rf.alpha, ext.val.a[ , -1]) %>%
+  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+ev.b <-  predict(rf.beta, ext.val.b[ , -1]) %>%
+  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+ev.c <-  predict(rf.gamma, ext.val.c[ , -1]) %>%
+  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
+  rename(., pred = `.`, obs = V2)
+
+temp.a <- ev.a %>% mutate(cd.type = "alpha")
+temp.b <- ev.b %>% mutate(cd.type = "beta")
+temp.c <- ev.c %>% mutate(cd.type = "gamma")
+# temp.a <- temp.a[-2, ]
+ev.abc <- rbind(temp.a, temp.b, temp.c) %>%
+  mutate(resid = pred - obs)
+
+defaultSummary(ev.abc) # 0.385 normally, 0.621 without outlier
+ggplot(ev.abc, aes(x = pred, y = obs, color = cd.type)) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
+  theme_bw() + 
+  labs(title = "Cubist - External Validation", 
+       x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
+       color = "Cyclodextrin Type")
+# ggsave("./graphs/svm/2017-07-25 rf extval.png")
+
+

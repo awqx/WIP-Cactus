@@ -2,9 +2,10 @@
 .Rhistory
 .RData
 .Ruserdata
-06.1.svm.Rmd
-06.2.rf.Rmd
-06.3.pls.Rmd
-06.4.glm.Rmd
-06.7.cubist.Rmd
+report.svm.Rmd
+report.rf.Rmd
+report.pls.Rmd
+report.glm.Rmd
+report.cubist.Rmd
 06.4.glm.html
+report.cubist.Rmd

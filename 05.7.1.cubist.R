@@ -217,4 +217,4 @@ ggplot(ev.abc, aes(x = pred, y = obs, color = cd.type)) +
   labs(title = "Cubist - External Validation", 
        x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        color = "Cyclodextrin Type")
-3 ggsave("./graphs/svm/2017-07-25 cubist extval.png")
+# ggsave("./graphs/svm/2017-07-25 cubist extval.png")
