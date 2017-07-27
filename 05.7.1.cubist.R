@@ -6,7 +6,7 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-setwd("~/SREP LAB/qsar")
+# setwd("~/SREP LAB/qsar")
 dir.create("./models/cubist")
 
 df.raw <- readRDS("./padel.pp.new.RDS")
@@ -26,21 +26,24 @@ tst.y <- mat[-trn.ind, 1]
 # All Predictors ----------------------------------------------------------
 ctrl <- cubistControl(
   seed = 12, 
-  sample = 90
+  sample = 75
 )
+
+# Took around 40 seconds to create model
 cube <- cubist(trn.x, trn.y, 
                control = ctrl, 
-               committees = 90)
+               committees = 75)
+
 all.tst <- predict(cube, tst.x) %>%
   cbind(tst.y) %>%
   data.frame() %>%
   rename(., pred = `.`, obs = tst.y)
 
-defaultSummary(all.tst) # 0.531
+defaultSummary(all.tst) # 0.530
 
 # Separate Cyclodextrin ---------------------------------------------------
 
-# Alpha-CD ----------------------------------------------------------------
+#     Alpha-CD ------------------------------------------------------------
 
 alpha <- df %>% filter(alpha > 0) %>% as.matrix()
 set.seed(12)
@@ -59,9 +62,10 @@ alpha.tst <- predict(cube.alpha, a.tst.x) %>%
   data.frame() %>%
   rename(., pred = `.`, obs = a.tst.y)
 
-defaultSummary(alpha.tst) # 0.683
+defaultSummary(alpha.tst) # 0.619
+saveRDS(cube.alpha, "./models/cubist/cube.alpha.RDS")
 
-# Beta-CD ----------------------------------------------------------------
+#     Beta-CD ------------------------------------------------------------
 
 beta <- df %>% filter(beta > 0) %>% as.matrix()
 set.seed(13)
@@ -80,7 +84,8 @@ beta.tst <- predict(cube.beta, b.tst.x) %>%
   data.frame() %>%
   rename(., pred = `.`, obs = b.tst.y)
 
-defaultSummary(beta.tst) # 0.799
+defaultSummary(beta.tst) # 0.771
+saveRDS(cube.beta, "./models/cubist/cube.beta.RDS")
 
 # Gamma-CD ----------------------------------------------------------------
 
@@ -101,8 +106,8 @@ gamma.tst <- predict(cube.gamma, c.tst.x) %>%
   data.frame() %>%
   rename(., pred = `.`, obs = c.tst.y)
 
-defaultSummary(gamma.tst) # 0.799
-
+defaultSummary(gamma.tst) # 0.665
+saveRDS(cube.gamma, "./models/cubist/cube.gamma.RDS")
 
 #     Compiled CDs --------------------------------------------------------
 
@@ -115,56 +120,57 @@ temp.c <- gamma.tst %>%
 cube.abc.tst <- rbind(temp.a, temp.b, temp.c, 
                      make.row.names = F) %>%
   mutate(residual = pred - obs)
-defaultSummary(cube.abc.tst) # 0.738
+defaultSummary(cube.abc.tst) # 0.726
+saveRDS(cube.abc.tst, "./models/cubist/compiled.results.RDS")
 
 # Graphs ------------------------------------------------------------------
 
 dir.create("./graphs/cubist")
 
-ggplot(all.tst, aes(x = pred, y = obs)) + 
+ggplot(all.tst, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
   coord_fixed() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
+  labs(y = "Predicted DelG, kJ/mol", x = "Experimental DelG, kJ/mol", 
        title = "Cubist - All Data Points") 
-# ggsave("./graphs/cubist/2017-07-21 cubist all data.png")
+ggsave("./graphs/cubist/2017-07-27 cubist all data.png")
 
-ggplot(alpha.tst, aes(x = pred, y = obs)) + 
-  geom_point() + 
+ggplot(alpha.tst, aes(y = pred, x = obs)) + 
+  geom_point(color = "#F8766D") + 
   geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
   coord_fixed() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
+  labs(y = "Predicted DelG, kJ/mol", x = "Experimental DelG, kJ/mol", 
        title = "Cubist - Alpha-CD") 
-# ggsave("./graphs/cubist/2017-07-21 cubist alpha-cd.png")
+ggsave("./graphs/cubist/2017-07-27 cubist alpha-cd.png")
 
-ggplot(beta.tst, aes(x = pred, y = obs)) + 
-  geom_point() + 
+ggplot(beta.tst, aes(y = pred, x = obs)) + 
+  geom_point(color = "#00BA38") + 
   geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
   coord_fixed() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
+  labs(y = "Predicted DelG, kJ/mol", x = "Experimental DelG, kJ/mol", 
        title = "Cubist - Beta-CD") 
-# ggsave("./graphs/cubist/2017-07-21 cubist beta-cd.png")
+ggsave("./graphs/cubist/2017-07-27 cubist beta-cd.png")
 
-ggplot(gamma.tst, aes(x = pred, y = obs)) + 
-  geom_point() + 
+ggplot(gamma.tst, aes(y = pred, x = obs)) + 
+  geom_point(color = "#619CFF" ) + 
   geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
   coord_fixed() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
+  labs(y = "Predicted DelG, kJ/mol", x = "Experimental DelG, kJ/mol", 
        title = "Cubist - Gamma-CD") 
-# ggsave("./graphs/cubist/2017-07-21 cubist gamma-cd.png")
+ggsave("./graphs/cubist/2017-07-27 cubist gamma-cd.png")
 
-ggplot(cube.abc.tst, aes(x = pred, y = obs, color = cd.type)) + 
+ggplot(cube.abc.tst, aes(y = pred, x = obs, color = cd.type)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
   coord_fixed() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
+  labs(y = "Predicted DelG, kJ/mol", x = "Experimental DelG, kJ/mol", 
        title = "Cubist - Compiled CDs", color = "Cyclodextrin") 
-# ggsave("./graphs/cubist/2017-07-21 cubist compiled cd.png")
+ggsave("./graphs/cubist/2017-07-27 cubist compiled cd.png")
 
 ggplot(cube.abc.tst, aes(x = obs, y = residual, color = cd.type)) + 
   geom_point() + 
@@ -173,7 +179,7 @@ ggplot(cube.abc.tst, aes(x = obs, y = residual, color = cd.type)) +
   coord_fixed() + 
   labs(y = "Residuals, kJ/mol", x = "Experimental DelG, kJ/mol", 
        title = "Cubist - Compiled CDs Residuals", color = "Cyclodextrin")
-# ggsave("./graphs/cubist/2017-07-21 cubist compiled cd resid.png")
+ggsave("./graphs/cubist/2017-07-27 cubist compiled cd resid.png")
 
 #####
 
@@ -208,7 +214,7 @@ temp.c <- ev.c %>% mutate(cd.type = "gamma")
 ev.abc <- rbind(temp.a, temp.b, temp.c) %>%
   mutate(resid = pred - obs)
 
-defaultSummary(ev.abc) # 0.419 normally, 0.666 without outlier
+defaultSummary(ev.abc) # 0.384 normally, 0.658 without outlier
 ggplot(ev.abc, aes(x = pred, y = obs, color = cd.type)) + 
   geom_point() + 
   geom_abline(slope = 1, intercept = 0) + 
@@ -217,4 +223,4 @@ ggplot(ev.abc, aes(x = pred, y = obs, color = cd.type)) +
   labs(title = "Cubist - External Validation", 
        x = "Predicted DelG, kJ/mol", y = "Experimental DelG, kJ/mol", 
        color = "Cyclodextrin Type")
-# ggsave("./graphs/svm/2017-07-25 cubist extval.png")
+ggsave("./graphs/cubist/2017-07-27 cubist extval.png")
