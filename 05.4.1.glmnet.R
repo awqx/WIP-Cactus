@@ -128,60 +128,60 @@ defaultSummary(glm.abc.tst)
 # Graphs ------------------------------------------------------------------
 
 # all datapoints
-ggplot(glm.df, aes(x = pred, y = obs)) + 
+ggplot(glm.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
-  coord_fixed() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Expeirmental DelG, kJ/mol", 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet on All Datapoints")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet all datapoints.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet all datapoints.png")
 
-ggplot(glm.alpha.df, aes(x = pred, y = obs)) + 
+ggplot(glm.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed() + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Expeirmental DelG, kJ/mol", 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet on Alpha-CD")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet alpha-cd.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet alpha-cd.png")
 
-ggplot(glm.beta.df, aes(x = pred, y = obs)) + 
+ggplot(glm.beta.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed() + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Expeirmental DelG, kJ/mol", 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet on Beta-CD")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet beta-cd.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet beta-cd.png")
 
-ggplot(glm.gamma.df, aes(x = pred, y = obs)) + 
+ggplot(glm.gamma.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
-  # coord_fixed() + 
+  # coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Expeirmental DelG, kJ/mol", 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet on Gamma-CD")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet gamma-cd.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet gamma-cd.png")
 
-ggplot(glm.abc.tst, aes(x = pred, y = obs, color = cd.type)) + 
+ggplot(glm.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
-  coord_fixed() + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Expeirmental DelG, kJ/mol", 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet on Separate CDs", color = "Cyclodextrin")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet compiled.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet compiled.png")
 
 ggplot(glm.abc.tst, aes(x = obs, y = residual, color = cd.type)) + 
   geom_point() + 
-  coord_fixed() + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   geom_hline(yintercept = 0) + 
   theme_bw() + 
   labs(y = "Residuals, kJ/mol", x = "Expeirmental DelG, kJ/mol", 
        title = "GLMnet Residuals on Separate CDs", 
        color = "Cyclodextrin")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet compiled resid.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet compiled resid.png")
 
 #####
 
@@ -214,10 +214,10 @@ glm.df <- predict.glmnet(glm.all, tst.x,
                          s = tail(glm.all$lambda, n = 1)) %>%
   cbind(tst.y) %>% data.frame() %>%
   rename(pred = X1, obs = tst.y)
-ggplot(glm.df, aes(x = pred, y = obs)) + 
+ggplot(glm.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed() + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
 defaultSummary(glm.df) # 0.635
 
@@ -243,6 +243,10 @@ glm.alpha.df <- predict.glmnet(glm.alpha, a.tst.x,
                                s = tail(glm.alpha$lambda, n = 1)) %>%
   cbind(a.tst.y) %>% data.frame() %>%
   rename(pred = X1, obs = a.tst.y)
+glm.alpha.trn <- predict.glmnet(glm.alpha, a.trn.x, 
+                               s = tail(glm.alpha$lambda, n = 1)) %>%
+  cbind(a.trn.y) %>% data.frame() %>%
+  rename(pred = X1, obs = a.trn.y)
 
 defaultSummary(glm.alpha.df) # 0.629
 saveRDS(glm.alpha, "./models/glmnet/glm.alpha.RDS")
@@ -267,6 +271,10 @@ glm.beta.df <- predict.glmnet(glm.beta, b.tst.x,
                               s = tail(glm.beta$lambda, n = 1)) %>%
   cbind(b.tst.y) %>% data.frame() %>%
   rename(pred = X1, obs = b.tst.y)
+glm.beta.trn <- predict.glmnet(glm.beta, b.trn.x, 
+                              s = tail(glm.beta$lambda, n = 1)) %>%
+  cbind(b.trn.y) %>% data.frame() %>%
+  rename(pred = X1, obs = b.trn.y)
 
 defaultSummary(glm.beta.df) # 0.718
 saveRDS(glm.beta, "./models/glmnet/glm.beta.RDS")
@@ -291,6 +299,10 @@ glm.gamma.df <- predict.glmnet(glm.gamma, c.tst.x,
                                s = tail(glm.gamma$lambda, n = 1)) %>%
   cbind(c.tst.y) %>% data.frame() %>%
   rename(pred = X1, obs = c.tst.y)
+glm.gamma.trn <- predict.glmnet(glm.gamma, c.trn.x, 
+                               s = tail(glm.gamma$lambda, n = 1)) %>%
+  cbind(c.trn.y) %>% data.frame() %>%
+  rename(pred = X1, obs = c.trn.y)
 
 defaultSummary(glm.gamma.df) # 0.304
 saveRDS(glm.gamma, "./models/glmnet/glm.gamma.RDS")
@@ -308,63 +320,82 @@ glm.abc.tst <- rbind(temp.a, temp.b, temp.c,
   mutate(residual = pred - obs)
 defaultSummary(glm.abc.tst)
 
+temp.a <- glm.alpha.trn %>% 
+  mutate(cd.type = rep("alpha", length(glm.alpha.trn$pred)))
+temp.b <- glm.beta.trn %>% 
+  mutate(cd.type = rep("beta", length(glm.beta.trn$pred)))
+temp.c <- glm.gamma.trn %>% 
+  mutate(cd.type = rep("gamma", length(glm.gamma.trn$pred)))
+glm.abc.trn <- rbind(temp.a, temp.b, temp.c, 
+                     make.row.names = F) %>%
+  mutate(residual = pred - obs)
+defaultSummary(glm.abc.trn)
+
 # Graphs ------------------------------------------------------------------
 
 # all datapoints
-ggplot(glm.df, aes(x = pred, y = obs)) + 
+ggplot(glm.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
-  coord_fixed() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Expeirmental DelG, kJ/mol", 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet on All Datapoints")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet all datapoints df.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet all datapoints df.png")
 
-ggplot(glm.alpha.df, aes(x = pred, y = obs)) + 
+ggplot(glm.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed() + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Expeirmental DelG, kJ/mol", 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet on Alpha-CD")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet alpha-cd df.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet alpha-cd df.png")
 
-ggplot(glm.beta.df, aes(x = pred, y = obs)) + 
+ggplot(glm.beta.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed() + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Expeirmental DelG, kJ/mol", 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet on Beta-CD")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet beta-cd df.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet beta-cd df.png")
 
-ggplot(glm.gamma.df, aes(x = pred, y = obs)) + 
+ggplot(glm.gamma.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
-  # coord_fixed() + 
+  # coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Expeirmental DelG, kJ/mol", 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet on Gamma-CD")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet gamma-cd df.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet gamma-cd df.png")
 
-ggplot(glm.abc.tst, aes(x = pred, y = obs, color = cd.type)) + 
+ggplot(glm.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
-  coord_fixed() + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
-  labs(x = "Predicted DelG, kJ/mol", y = "Expeirmental DelG, kJ/mol", 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet on Separate CDs", color = "Cyclodextrin")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet compiled df.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet compiled df.png")
 
 ggplot(glm.abc.tst, aes(x = obs, y = residual, color = cd.type)) + 
   geom_point() + 
-  coord_fixed() + 
   geom_hline(yintercept = 0) + 
   theme_bw() + 
-  labs(y = "Residuals, kJ/mol", x = "Experimental DelG, kJ/mol", 
+  labs(y = "Residuals, kJ/mol", x = "Observed DelG, kJ/mol", 
        title = "GLMnet Residuals on Separate CDs", 
        color = "Cyclodextrin")
-# ggsave("./graphs/glmnet/2017-07-21 glmnet compiled resid df.png")
+ggsave("./graphs/glmnet/2017-07-28 glmnet compiled resid df.png")
+
+ggplot(glm.abc.trn, aes(x = obs, y = pred, color = cd.type)) + 
+  geom_point() + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
+  geom_abline(intercept = 0, slope = 1) + 
+  theme_bw() + 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "GLMnet on Separate CDs, Training", color = "Cyclodextrin")
+ggsave("./graphs/glmnet/2017-07-28 glmnet compiled trn.png")
 
 
 # External Validation -----------------------------------------------------
@@ -403,8 +434,11 @@ temp.c <- ev.c %>% mutate(cd.type = "gamma")
 ev.abc <- rbind(temp.a, temp.b, temp.c)
 
 defaultSummary(ev.abc) # 0.429 normally, 0.649 without outlier
-ggplot(ev.abc, aes(x = pred, y = obs, color = cd.type)) + 
+ggplot(ev.abc, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
   geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed() + 
-  theme_bw()
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
+  theme_bw() + 
+  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "GLMnet External Validation", color = "Cyclodextrin")
+ggsave("./graphs/glmnet/2017-07-28 glm extval.png")
