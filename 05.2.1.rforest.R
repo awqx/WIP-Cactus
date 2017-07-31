@@ -313,4 +313,11 @@ ggplot(ev.abc, aes(x = obs, y = pred, color = cd.type)) +
        color = "Cyclodextrin")
 ggsave("./graphs/rforest/2017-07-28 rf extval.png")
 
+# Variable Analysis -------------------------------------------------------
+
+rf.var <- importance(rf)
+rf.var.a <- importance(rf.alpha)
+rf.var.b <- importance(rf.beta)
+rf.var.c <- importance(rf.gamma)
+
 
