@@ -154,3 +154,35 @@ ext.val <- twod.pp[ext.val.ind, ]
 
 saveRDS(twod.pp, "./2d.pp.RDS")
 saveRDS(ext.val, "./2d.extval.RDS")
+
+# Suzuki Only -------------------------------------------------------------
+
+suz <- readRDS("./molecules/descriptors/suz.all.padel.RDS")
+suz.nz <- suz[ , -zero.pred]
+suz.cd <- suz.nz  %>% 
+  mutate(alpha = ifelse(str_detect(host, "alpha"), 1, 0)) %>%
+  mutate(beta = ifelse(str_detect(host, "beta"), 1, 0)) %>%
+  mutate(gamma = ifelse(str_detect(host, "gamma"), 1, 0))
+
+suz.split <- suz.cd %>% dplyr::select(., -guest:-data.source)
+suz.temp <- do.call(data.frame,
+                    lapply(suz.split, function(x) replace(x, is.infinite(x),NA)))
+suz.pp <- predict(pp.settings, suz.temp)
+suz.pp <- suz.pp[ , -zero.pred2]
+suz.pp <- suz.pp[ , -too.high]
+suz.pp <- cbind(suz.nz[ , 1:4], suz.pp)
+colnames(suz.pp) <- str_replace(colnames(suz.pp), "-", ".")
+
+#     External Validation -------------------------------------------------
+
+set.seed(4)
+ext.val.ind <- sample(x = 1:nrow(suz.pp), 
+                      size = round(0.15 * nrow(suz.pp)))
+ext.val <- suz.pp[ext.val.ind, ]
+suz.pp.all <- suz.pp
+suz.pp <- suz.pp[-ext.val.ind, ]
+
+#     Saving --------------------------------------------------------------
+
+saveRDS(suz.pp, "./suz.pp.RDS")
+saveRDS(ext.val, "./suz.extval.RDS")

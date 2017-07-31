@@ -304,8 +304,10 @@ comb.b <- comb.b[ , list(host = host, DelG = mean(DelG),
 
 comb.dg <- rbind(comb.a, comb.b, ri.c)
 comb.dg.nodup <- comb.dg[!duplicated(comb.dg), ]
+suz.df <- rbind(suz.a, suz.b)
 saveRDS(comb.dg, "./bound/combined ri and suzuki.RDS")
 saveRDS(comb.dg.nodup, "./bound/combined data.RDS")
+saveRDS(suz.df, "./bound/suzuki only.RDS")
 
 # Information about Data
 # Total: 615
