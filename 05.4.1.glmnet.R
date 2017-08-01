@@ -32,7 +32,7 @@ glm.all <- glmnet(x = trn.x, y = trn.y,
 glm.df <- predict.glmnet(glm.all, tst.x, 
                          s = tail(glm.all$lambda, n = 1)) %>%
   cbind(tst.y) %>% data.frame() %>%
-  rename(pred = X1, obs = tst.y) %>%
+  dplyr::rename(pred = X1, obs = tst.y) %>%
   mutate(resid = pred - obs)
 
 defaultSummary(glm.df) # 0.505
@@ -59,7 +59,7 @@ glm.alpha <- glmnet(x = a.trn.x, y = a.trn.y,
 glm.alpha.df <- predict.glmnet(glm.alpha, a.tst.x, 
                          s = tail(glm.alpha$lambda, n = 1)) %>%
   cbind(a.tst.y) %>% data.frame() %>%
-  rename(pred = X1, obs = a.tst.y)  %>%
+  dplyr::rename(., pred = X1, obs = a.tst.y)  %>%
   mutate(resid = pred - obs)
 
 defaultSummary(glm.alpha.df) # 0.473
@@ -83,7 +83,7 @@ glm.beta <- glmnet(x = b.trn.x, y = b.trn.y,
 glm.beta.df <- predict.glmnet(glm.beta, b.tst.x, 
                                s = tail(glm.beta$lambda, n = 1)) %>%
   cbind(b.tst.y) %>% data.frame() %>%
-  rename(pred = X1, obs = b.tst.y) %>%
+  dplyr::rename(pred = X1, obs = b.tst.y) %>%
   mutate(resid = pred - obs)
 
 defaultSummary(glm.beta.df) # 0.718
@@ -107,7 +107,7 @@ glm.gamma <- glmnet(x = c.trn.x, y = c.trn.y,
 glm.gamma.df <- predict.glmnet(glm.gamma, c.tst.x, 
                               s = tail(glm.gamma$lambda, n = 1)) %>%
   cbind(c.tst.y) %>% data.frame() %>%
-  rename(pred = X1, obs = c.tst.y) %>%
+  dplyr::rename(pred = X1, obs = c.tst.y) %>%
   mutate(resid = pred - obs)
 
 defaultSummary(glm.gamma.df) # 0.345
@@ -213,7 +213,7 @@ glm.all <- glmnet(x = trn.x, y = trn.y,
 glm.df <- predict.glmnet(glm.all, tst.x, 
                          s = tail(glm.all$lambda, n = 1)) %>%
   cbind(tst.y) %>% data.frame() %>%
-  rename(pred = X1, obs = tst.y)
+  dplyr::rename(pred = X1, obs = tst.y)
 ggplot(glm.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
@@ -242,11 +242,11 @@ glm.alpha <- glmnet(x = a.trn.x, y = a.trn.y,
 glm.alpha.df <- predict.glmnet(glm.alpha, a.tst.x, 
                                s = tail(glm.alpha$lambda, n = 1)) %>%
   cbind(a.tst.y) %>% data.frame() %>%
-  rename(pred = X1, obs = a.tst.y)
+  dplyr::rename(pred = X1, obs = a.tst.y)
 glm.alpha.trn <- predict.glmnet(glm.alpha, a.trn.x, 
                                s = tail(glm.alpha$lambda, n = 1)) %>%
   cbind(a.trn.y) %>% data.frame() %>%
-  rename(pred = X1, obs = a.trn.y)
+  dplyr::rename(pred = X1, obs = a.trn.y)
 
 defaultSummary(glm.alpha.df) # 0.629
 saveRDS(glm.alpha, "./models/glmnet/glm.alpha.RDS")
@@ -270,11 +270,11 @@ glm.beta <- glmnet(x = b.trn.x, y = b.trn.y,
 glm.beta.df <- predict.glmnet(glm.beta, b.tst.x, 
                               s = tail(glm.beta$lambda, n = 1)) %>%
   cbind(b.tst.y) %>% data.frame() %>%
-  rename(pred = X1, obs = b.tst.y)
+  dplyr::rename(pred = X1, obs = b.tst.y)
 glm.beta.trn <- predict.glmnet(glm.beta, b.trn.x, 
                               s = tail(glm.beta$lambda, n = 1)) %>%
   cbind(b.trn.y) %>% data.frame() %>%
-  rename(pred = X1, obs = b.trn.y)
+  dplyr::rename(pred = X1, obs = b.trn.y)
 
 defaultSummary(glm.beta.df) # 0.718
 saveRDS(glm.beta, "./models/glmnet/glm.beta.RDS")
@@ -298,11 +298,11 @@ glm.gamma <- glmnet(x = c.trn.x, y = c.trn.y,
 glm.gamma.df <- predict.glmnet(glm.gamma, c.tst.x, 
                                s = tail(glm.gamma$lambda, n = 1)) %>%
   cbind(c.tst.y) %>% data.frame() %>%
-  rename(pred = X1, obs = c.tst.y)
+  dplyr::rename(pred = X1, obs = c.tst.y)
 glm.gamma.trn <- predict.glmnet(glm.gamma, c.trn.x, 
                                s = tail(glm.gamma$lambda, n = 1)) %>%
   cbind(c.trn.y) %>% data.frame() %>%
-  rename(pred = X1, obs = c.trn.y)
+  dplyr::rename(pred = X1, obs = c.trn.y)
 
 defaultSummary(glm.gamma.df) # 0.304
 saveRDS(glm.gamma, "./models/glmnet/glm.gamma.RDS")
@@ -411,12 +411,12 @@ ext.val.c <- ext.val %>% filter(gamma > 0)
 ev.a <-  predict.glmnet(glm.alpha, ext.val.a[ , -1], 
                         s = tail(glm.alpha$lambda, n = 1)) %>%
   cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  rename(pred = X1, obs = V2)
+  dplyr::rename(pred = X1, obs = V2)
 
 ev.b <-  predict.glmnet(glm.beta, ext.val.b[ , -1], 
                         s = tail(glm.beta$lambda, n = 1)) %>%
   cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  rename(pred = X1, obs = V2)
+  dplyr::rename(pred = X1, obs = V2)
 
 ext.val.temp <- ext.val.c
 ext.val.temp[ , 1] <- NULL
@@ -425,7 +425,7 @@ ext.val.temp <- as.matrix(ext.val.temp)
 ev.c <-  predict.glmnet(glm.gamma, ext.val.temp, 
                         s = tail(glm.gamma$lambda, n = 1)) %>%
   cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  rename(pred = X1, obs = V2)
+  dplyr::rename(pred = X1, obs = V2)
 
 temp.a <- ev.a %>% mutate(cd.type = "alpha")
 temp.b <- ev.b %>% mutate(cd.type = "beta")

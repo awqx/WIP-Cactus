@@ -120,7 +120,7 @@ svm.b.trn <- predict(svm.beta, b.trn.x) %>%
 defaultSummary(svm.b.tst) # 0.634
 defaultSummary(svm.b.trn) # 0.998
 
-saveRDS(svm.alpha, "./models/svm/polysvm.beta.RDS")
+saveRDS(svm.beta, "./models/svm/polysvm.beta.RDS")
 
 #     Gamma-CD ------------------------------------------------------------
 
@@ -820,3 +820,209 @@ ggplot(ev.abc.sig, aes(x = pred, y = obs, color = cd.type)) +
        x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        color = "Cyclodextrin")
 ggsave("./graphs/svm/2017-07-28 sigsvm extval.png")
+
+#####
+
+# Suzuki Only -------------------------------------------------------------
+
+#####
+
+# Loading Data ------------------------------------------------------------
+
+suz.raw <- readRDS("./suz.pp.RDS") 
+suz <- suz.raw %>%
+  select(., -guest, -host, -data.source)
+
+set.seed(25)
+trn.ind <- sample(x = 1:nrow(suz), size = round(0.7 * nrow(suz)))
+trn <- suz[trn.ind, ]
+tst <- suz[-trn.ind, ]
+trn.x <- trn[ , -1]
+trn.y <- trn[ , 1]
+tst.x <- tst[ , -1]
+tst.y <- tst[ , 1]
+
+
+# Polynomial Kernel -------------------------------------------------------
+
+#     All Predictors ------------------------------------------------------
+
+svm.all <- svm(x = trn.x, 
+               y = trn.y, 
+               coef0 = 1.5, 
+               cost = 4096, 
+               epsilon = 0.1, 
+               kernel = "polynomial", 
+               gamma = 0.03, 
+               degree = 2)
+
+svm.all.tst <- predict(svm.all, tst.x) %>%
+  cbind(tst.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = tst.y) %>%
+  mutate(resid = obs - pred)
+
+svm.all.trn <- predict(svm.all, trn.x) %>%
+  cbind(trn.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = trn.y) %>%
+  mutate(resid = obs - pred)
+
+defaultSummary(svm.all.tst) # 0.807
+defaultSummary(svm.all.trn) # 0.9997
+
+#     Alpha-CD ------------------------------------------------------------
+
+alpha <- suz %>% filter(alpha > 0)
+set.seed(10)
+trn.ind <- sample(x = 1:nrow(alpha), size = round(0.7 * nrow(alpha)))
+a.trn.x <- alpha[trn.ind, -1]
+a.trn.y <- alpha[trn.ind, 1]
+
+a.tst.x <- alpha[-trn.ind, -1]
+a.tst.y <- alpha[-trn.ind, 1]
+
+svm.alpha <- svm(x = a.trn.x, 
+                 y = a.trn.y, 
+                 coef0 = 2, 
+                 cost = 2048, 
+                 epsilon = 0.1, 
+                 kernel = "polynomial", 
+                 gamma = 0.03, 
+                 degree = 2)
+
+svm.a.tst <- predict(svm.alpha, a.tst.x) %>%
+  cbind(a.tst.y) %>% data.frame() %>%
+  rename(., pred = `.`, obs = a.tst.y) %>%
+  mutate(resid = obs - pred)
+
+svm.a.trn <- predict(svm.alpha, a.trn.x) %>%
+  cbind(a.trn.y) %>% data.frame() %>%
+  rename(., pred = `.`, obs = a.trn.y)%>%
+  mutate(resid = obs - pred)
+
+defaultSummary(svm.a.tst) # 0.796
+defaultSummary(svm.a.trn) # 0.9997
+
+saveRDS(svm.alpha, "./models/svm/polysvm.alpha.suzuki.RDS")
+
+#     Beta-CD -------------------------------------------------------------
+
+beta <- suz %>% filter(beta > 0)
+set.seed(10)
+trn.ind <- sample(x = 1:nrow(beta), size = round(0.7 * nrow(beta)))
+b.trn.x <- beta[trn.ind, -1]
+b.trn.y <- beta[trn.ind, 1]
+
+b.tst.x <- beta[-trn.ind, -1]
+b.tst.y <- beta[-trn.ind, 1]
+
+svm.beta <- svm(x = b.trn.x, 
+                y = b.trn.y, 
+                coef0 = 2, 
+                cost = 2048, 
+                epsilon = 0.1, 
+                kernel = "polynomial", 
+                gamma = 0.03, 
+                degree = 2)
+
+svm.b.tst <- predict(svm.beta, b.tst.x) %>%
+  cbind(b.tst.y) %>% data.frame() %>%
+  rename(., pred = `.`, obs = b.tst.y) %>%
+  mutate(resid = obs - pred)
+svm.b.trn <- predict(svm.beta, b.trn.x) %>%
+  cbind(b.trn.y) %>% data.frame() %>%
+  rename(., pred = `.`, obs = b.trn.y) %>%
+  mutate(resid = obs - pred)
+defaultSummary(svm.b.tst) # 0.853
+defaultSummary(svm.b.trn) # 0.9997
+
+saveRDS(svm.beta, "./models/svm/polysvm.beta.suzukiRDS")
+
+#     Gamma-CD ------------------------------------------------------------
+
+# Suzuki dataset contains no gamma-Cd
+
+#     Compiled CDs --------------------------------------------------------
+
+temp.a <- svm.a.tst %>% mutate(cd.type = "alpha")
+temp.b <- svm.b.tst %>% mutate(cd.type = "beta")
+poly.abc.tst.suz <- rbind(temp.a, temp.b, make.row.names = F)
+
+temp.a <- svm.a.trn %>% mutate(cd.type = "alpha")
+temp.b <- svm.b.trn %>% mutate(cd.type = "beta")
+poly.abc.trn.suz <- rbind(temp.a, temp.b, make.row.names = F) 
+
+defaultSummary(poly.abc.tst.suz) # 0.856
+defaultSummary(poly.abc.trn.suz) # 0.9997
+
+saveRDS(poly.abc.tst.suz, "./models/svm/polysvm.tst.suzuki.RDS")
+saveRDS(poly.abc.trn.suz, "./models/svm/polysvm.trn.suzuki.RDS")
+
+# External Validation -----------------------------------------------------
+
+ext.val <- readRDS("./suz.extval.RDS") %>%
+  select(-guest, -host, -data.source) 
+
+ext.val.a <- ext.val %>% filter(alpha > 0) 
+ext.val.b <- ext.val %>% filter(beta > 0)
+ext.val.c <- ext.val %>% filter(gamma > 0) 
+
+ev.a <-  predict(svm.alpha, ext.val.a[ , -1]) %>%
+  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
+  rename(., pred = `.`, obs = V2) %>% 
+  mutate(cd.type = "alpha")
+
+ev.b <-  predict(svm.beta, ext.val.b[ , -1]) %>%
+  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
+  rename(., pred = `.`, obs = V2) %>%
+  mutate(cd.type = "beta")
+
+ev.abc.poly <- rbind(ev.a, ev.b) %>%
+  mutate(resid = pred - obs)
+
+defaultSummary(ev.abc.poly) # 0.845
+
+# Plots -------------------------------------------------------------------
+
+ggplot(poly.abc.tst.suz, aes(x = obs, y = pred, color = cd.type)) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  coord_fixed(xlim = c(-30, 5), ylim = c(-30, 5)) + 
+  theme_bw() + 
+  labs(title = "Polynomial SVM - Suzuki", 
+       x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       color = "Cyclodextrin")
+ggsave("./graphs/svm/polysvm suzuki tst.png")
+
+ggplot(poly.abc.trn.suz, aes(x = obs, y = pred, color = cd.type)) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  coord_fixed(xlim = c(-30, 5), ylim = c(-30, 5)) + 
+  theme_bw() + 
+  labs(title = "Polynomial SVM - Training, Suzuki", 
+       x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       color = "Cyclodextrin")
+ggsave("./graphs/svm/polysvm suzuki trn.png")
+
+ggplot(ev.abc.poly, aes(x = obs, y = pred, color = cd.type)) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  coord_fixed(xlim = c(-30, 5), ylim = c(-30, 5)) + 
+  theme_bw() + 
+  labs(title = "Polynomial SVM - External Validation, Suzuki", 
+       x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       color = "Cyclodextrin")
+ggsave("./graphs/svm/polysvm suzuki extval.png")
+
+
+# Error in { : 
+#     task 1 failed - "There were missing importance values. There may be linear dependencies in your predictor variables"
+#   In addition: There were 50 or more warnings (use warnings() to see the first 50)
+# svm.profile <- rfe(trn.x, trn.y, 
+#                    sizes = c(2, 5, 10, 20, 70, 140),
+#                    rfeControl = rfeControl(functions = caretFuncs, 
+#                                            number = 200), 
+#                    method = "svmPoly")
+
+

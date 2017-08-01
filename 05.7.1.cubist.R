@@ -37,9 +37,10 @@ cube <- cubist(trn.x, trn.y,
 all.tst <- predict(cube, tst.x) %>%
   cbind(tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = tst.y)
+  dplyr::rename(., pred = `.`, obs = tst.y)
 
 defaultSummary(all.tst) # 0.530
+saveRDS(cube, "./models/cubist/cube.all.RDS")
 
 # Separate Cyclodextrin ---------------------------------------------------
 
@@ -60,11 +61,11 @@ cube.alpha <- cubist(a.trn.x, a.trn.y,
 alpha.tst <- predict(cube.alpha, a.tst.x) %>%
   cbind(a.tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = a.tst.y)
+  dplyr::rename(., pred = `.`, obs = a.tst.y)
 alpha.trn <- predict(cube.alpha, a.trn.x) %>%
   cbind(a.trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = a.trn.y)
+  dplyr::rename(., pred = `.`, obs = a.trn.y)
 
 defaultSummary(alpha.tst) # 0.619
 saveRDS(cube.alpha, "./models/cubist/cube.alpha.RDS")
@@ -86,11 +87,11 @@ cube.beta <- cubist(b.trn.x, b.trn.y,
 beta.tst <- predict(cube.beta, b.tst.x) %>%
   cbind(b.tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = b.tst.y)
+  dplyr::rename(., pred = `.`, obs = b.tst.y)
 beta.trn <- predict(cube.beta, b.trn.x) %>%
   cbind(b.trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = b.trn.y)
+  dplyr::rename(., pred = `.`, obs = b.trn.y)
 
 defaultSummary(beta.tst) # 0.771
 saveRDS(cube.beta, "./models/cubist/cube.beta.RDS")
@@ -112,11 +113,11 @@ cube.gamma <- cubist(c.trn.x, c.trn.y,
 gamma.tst <- predict(cube.gamma, c.tst.x) %>%
   cbind(c.tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = c.tst.y)
+  dplyr::rename(., pred = `.`, obs = c.tst.y)
 gamma.trn <- predict(cube.gamma, c.trn.x) %>%
   cbind(c.trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = c.trn.y)
+  dplyr::rename(., pred = `.`, obs = c.trn.y)
 
 defaultSummary(gamma.tst) # 0.665
 saveRDS(cube.gamma, "./models/cubist/cube.gamma.RDS")
@@ -132,7 +133,7 @@ temp.c <- gamma.tst %>%
 cube.abc.tst <- rbind(temp.a, temp.b, temp.c, 
                      make.row.names = F) %>%
   mutate(residual = pred - obs)
-defaultSummary(cube.abc.tst) # 0.726
+defaultSummary(cube.abc.tst) # 0.726 - 0.695
 saveRDS(cube.abc.tst, "./models/cubist/compiled.results.RDS")
 
 temp.a <- alpha.trn %>% 
@@ -144,7 +145,7 @@ temp.c <- gamma.trn %>%
 cube.abc.trn <- rbind(temp.a, temp.b, temp.c, 
                       make.row.names = F) %>%
   mutate(residual = pred - obs)
-defaultSummary(cube.abc.trn) # 0.726
+defaultSummary(cube.abc.trn) # 0.926
 saveRDS(cube.abc.trn, "./models/cubist/compiled.results.trn.RDS")
 
 # Graphs ------------------------------------------------------------------
@@ -230,15 +231,15 @@ ext.val.c <- ext.val %>% filter(gamma > 0)
 
 ev.a <-  predict(cube.alpha, ext.val.a[ , -1]) %>%
   cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 ev.b <-  predict(cube.beta, ext.val.b[ , -1]) %>%
   cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 ev.c <-  predict(cube.gamma, ext.val.c[ , -1]) %>%
   cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 temp.a <- ev.a %>% mutate(cd.type = "alpha")
 temp.b <- ev.b %>% mutate(cd.type = "beta")
@@ -257,3 +258,4 @@ ggplot(ev.abc, aes(y = pred, x = obs, color = cd.type)) +
        x = "Predicted DelG, kJ/mol", y = "Observed DelG, kJ/mol", 
        color = "Cyclodextrin")
 ggsave("./graphs/cubist/2017-07-28 cubist extval.png")
+
