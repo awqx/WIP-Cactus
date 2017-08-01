@@ -241,6 +241,7 @@ tune.cubist.cmte <- function(data, nfolds, cmte, seed) {
     colnames(cube.df)[2] <- "obs"
 
     results[i] <- defaultSummary(cube.df)[2]
+    message("Fold ", i, " of ", cmte, " committees completed.")
   }
   
   return(data.frame( # Useful for records
@@ -278,6 +279,7 @@ tune.cubist.samp <- function(data, nfolds, samp, seed) {
     colnames(cube.df)[2] <- "obs"
     
     results[i] <- defaultSummary(cube.df)[2]
+    message("Fold ", i, " of ", samp, " % sample size completed.")
   }
   
   return(data.frame( # Useful for records
@@ -315,6 +317,7 @@ tune.cubist.extra <- function(data, nfolds, extra, seed) {
     colnames(cube.df)[2] <- "obs"
     
     results[i] <- defaultSummary(cube.df)[2]
+    message("Fold ", i, " of ", extra, " extrapolation completed.")
   }
   
   return(data.frame( # Useful for records

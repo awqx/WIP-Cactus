@@ -57,6 +57,16 @@ gamma.padel <- inner_join(gamma.dg, gamma.padel.raw, by = "guest")
 # gamma.padel.2d <- inner_join(gamma.dg, gamma.padel.2d)
 # Total: 17 guest molecules
 
+# Suzuki Only -------------------------------------------------------------
+
+suz <- readRDS("./bound/suzuki only.RDS")
+suz.a <- suz %>% filter(host == "alpha")
+suz.b <- suz %>% filter(host == "beta")
+
+suz.a.padel <- inner_join(suz.a, alpha.padel.raw)
+suz.b.padel <- inner_join(suz.b, beta.padel.raw)
+suz.padel <- rbind(suz.a.padel, suz.b.padel)
+
 #     Saving Files --------------------------------------------------------
 
 all.padel <- rbind(alpha.padel, beta.padel, gamma.padel)
@@ -64,6 +74,8 @@ saveRDS(all.padel, "./molecules/descriptors/all.padel.RDS")
 saveRDS(alpha.padel, "./molecules/descriptors/alpha.padel.RDS")
 saveRDS(beta.padel, "./molecules/descriptors/beta.padel.RDS")
 saveRDS(gamma.padel, "./molecules/descriptors/gamma.padel.RDS")
+
+saveRDS(suz.padel, "./molecules/descriptors/suz.all.padel.RDS")
 
 write.csv(all.padel, "./molecules/descriptors/all.padel.csv")
 write.csv(alpha.padel, "./molecules/descriptors/alpha.padel.csv")

@@ -3,10 +3,9 @@ source("./model.code/tuning.functions.R")
 
 # Data Organization -------------------------------------------------------
 
-rpt <- readRDS("./rpt.RDS")
+rpt <- readRDS("./padel.pp.new.RDS")
 mat.dg <- rpt %>% 
-  dplyr::select(., -X1:-log.K.Uncertainty,
-                -DelG.Uncertainty:-`bind.aff, kcal/mol`)
+  dplyr::select(., -guest:-host, -data.source)
 
 set.seed(25)
 trn.ind <- sample(x = 1:nrow(mat.dg), size = round(0.7 * nrow(mat.dg)))
@@ -14,10 +13,6 @@ trn <- mat.dg[trn.ind, ]
 tst <- mat.dg[-trn.ind, ]
 
 dir.create("./tuning/cubist")
-
-cube.tst <- cubist(x = trn[ , -1], y = trn[ , 1])
-predict(cube.tst, tst[ , -1]) %>%
-  cbind(tst[ , 1])
 
 # Committees --------------------------------------------------------------
 
@@ -126,7 +121,7 @@ cube.extra3 <- do.call(
   )
 )
 
-# Seed 4 ------------------------------------------------------------------
+#     Seed 4 --------------------------------------------------------------
 
 cube.cmte4 <- do.call(
   rbind,
@@ -161,7 +156,7 @@ cube.extra4 <- do.call(
   )
 )
 
-# Seed 5 ------------------------------------------------------------------
+#     Seed 5 --------------------------------------------------------------
 
 cube.cmte5 <- do.call(
   rbind,
@@ -255,7 +250,7 @@ ggplot(temp, aes(x = committees, y = rsquared,
   theme_bw() + 
   labs(x = "Committees", y = "R-squared", color = "Random Seed", 
       title = "Cubist - Tuning Number of Committees")
-ggsave("./tuning/cubist/2017-07-21 cubist commitees.png")
+# ggsave("./tuning/cubist/2017-07-27 cubist commitees.png")
 
 temp <- samp.comp
 temp$seed <- as.factor(temp$seed)
@@ -265,8 +260,7 @@ ggplot(temp, aes(x = sample.perc, y = rsquared,
   theme_bw() + 
   labs(x = "Sample Percentage", y = "R-squared", color = "Random Seed", 
        title = "Cubist - Tuning Sample Percentage")
-ggsave("./tuning/cubist/2017-07-21 cubist sample percentage.png")
-
+# ggsave("./tuning/cubist/2017-07-27 cubist sample percentage.png")
 
 temp <- extra.comp
 temp$seed <- as.factor(temp$seed)
@@ -276,4 +270,4 @@ ggplot(temp, aes(x = extrapolation, y = rsquared,
   theme_bw() + 
   labs(x = "Extrapolation", y = "R-squared", color = "Random Seed", 
        title = "Cubist - Tuning Extrapolation")
-ggsave("./tuning/cubist/2017-07-21 cubist extrapolation.png")
+# ggsave("./tuning/cubist/2017-07-27 cubist extrapolation.png")
