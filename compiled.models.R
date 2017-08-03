@@ -605,9 +605,9 @@ return.folds <- function(method, data, folds, ...) {
   return(df)
 }
 
-# Graph -------------------------------------------------------------------
+# Data --------------------------------------------------------------------
 
-# Regular data results (unstable)
+# Regular data results (excludes GLM)
 svm.data.folds <- return.folds(svm.fold, data, data.folds, suzuki = F)
 cube.data.folds <- return.folds(cube.fold, data, data.folds, suzuki = F)
 rf.data.folds <- return.folds(rf.fold, data, data.folds, suzuki = F)
@@ -624,6 +624,11 @@ pls.suz.folds <- return.folds(pls.fold, suz, suz.folds, suzuki = T)
 
 suz.results <- rbind(svm.suz.folds, glm.suz.folds, cube.suz.folds, 
                      rf.suz.folds, pls.suz.folds)
+
+# Graphs ------------------------------------------------------------------
+
+
+#     R-squared -----------------------------------------------------------
 
 ggplot(data.results, aes(x = fold, y = rsquared, color = model)) + 
   geom_line(size = 1) + 
@@ -656,6 +661,7 @@ ggplot(results.comp, aes(x = fold, y = rsquared, color = model)) +
   facet_wrap(~Source) + 
   labs(title = "R-Squared by Fold", x = "Fold", y = "R-squared", color = "Model")
 
+# Messing with Different Orientations
 temp <- suz.results
 temp$fold <- as.factor(temp$fold)
 ggplot(temp, aes(x = model, y = rsquared, color = fold, group = fold)) + 
@@ -669,3 +675,11 @@ ggplot(temp, aes(x = model, y = rsquared, color = fold, group = fold)) +
   geom_line(size = 1) + 
   theme_bw() + 
   labs(title = "R-squared by Model - Data", x = "Fold", y = "R-squared")
+
+#     RMSE ----------------------------------------------------------------
+
+ggplot(results.comp, aes(x = fold, y = rmse, color = model)) + 
+  geom_line(size = 1) + 
+  theme_bw() + 
+  facet_wrap(~Source) + 
+  labs(title = "RMSE by Fold", x = "Fold", y = "R-squared", color = "Model")
