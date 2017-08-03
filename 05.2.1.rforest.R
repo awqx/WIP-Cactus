@@ -164,6 +164,10 @@ rf.abc.trn <- rbind(temp.a, temp.b, temp.c,
 defaultSummary(rf.abc.tst) # 0.700
 defaultSummary(rf.abc.trn) # 0.960
 
+# Saving Data -------------------------------------------------------------
+
+saveRDS(rf.beta, "./models/rforest/rf.beta.RDS")
+
 # Graphs ------------------------------------------------------------------
 
 dir.create("./graphs")
