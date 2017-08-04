@@ -135,3 +135,34 @@ ggplot(pls.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
 
 # Saving Models -----------------------------------------------------------
 
+# External Validation -----------------------------------------------------
+
+ext.val <- readRDS("./external validation set new.RDS") %>%
+  select(-guest:-host) %>%
+  select(-data.source) 
+
+ext.val.a <- ext.val %>% filter(alpha > 0) 
+ext.val.b <- ext.val %>% filter(beta > 0)
+ext.val.c <- ext.val %>% filter(gamma > 0) 
+
+ev.a <-  predict(pls.alpha, ncomp = 5, newdata = ext.val.a) %>%
+  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2)
+
+ev.b <-  predict(pls.beta, ncomp = 5, newdata = ext.val.b) %>%
+  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2)
+
+ev.c <-  predict(pls.gamma, ncomp = 5, newdata = ext.val.c) %>%
+  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2)
+
+temp.a <- ev.a %>% mutate(cd.type = "alpha")
+temp.b <- ev.b %>% mutate(cd.type = "beta")
+temp.c <- ev.c %>% mutate(cd.type = "gamma")
+# temp.a <- temp.a[-2, ]
+ev.abc <- rbind(temp.a, temp.b, temp.c) %>%
+  mutate(resid = pred - obs)
+# Prearing copy for compilation
+ev.pls <- ev.abc %>% select(-resid) %>%
+  mutate(Model = "PLS")

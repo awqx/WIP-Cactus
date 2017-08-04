@@ -29,14 +29,14 @@ rf <- randomForest(x = trn.x, y = trn.y,
 rf.tst.df <- predict(rf, tst.x) %>%
   cbind(tst.y) %>% 
   data.frame() %>%
-  rename(., pred = `.`, obs = tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = tst.y) %>%
   mutate(tst.resid = obs - pred)
 
 # Training Data
 rf.trn.df <- predict(rf, trn.x) %>%
   cbind(trn.y) %>% 
   data.frame() %>%
-  rename(., pred = `.`, obs = trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = trn.y) %>%
   mutate(trn.resid = obs - pred)
 
 defaultSummary(rf.tst.df) # 0.680
@@ -62,14 +62,14 @@ rf.alpha <- randomForest(x = a.trn.x, y = a.trn.y,
 rf.tst.a <- predict(rf.alpha, a.tst.x) %>%
   cbind(a.tst.y) %>% 
   data.frame() %>%
-  rename(., pred = `.`, obs = a.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = a.tst.y) %>%
   mutate(tst.resid = obs - pred)
 
 # Training Data
 rf.trn.a <- predict(rf.alpha, a.trn.x) %>%
   cbind(a.trn.y) %>% 
   data.frame() %>%
-  rename(., pred = `.`, obs = a.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = a.trn.y) %>%
   mutate(trn.resid = obs - pred)
 
 defaultSummary(rf.tst.a) # 0.541
@@ -95,14 +95,14 @@ rf.beta <- randomForest(x = b.trn.x, y = b.trn.y,
 rf.tst.b <- predict(rf.beta, b.tst.x) %>%
   cbind(b.tst.y) %>% 
   data.frame() %>%
-  rename(., pred = `.`, obs = b.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = b.tst.y) %>%
   mutate(tst.resid = obs - pred)
 
 # Training Data
 rf.trn.b <- predict(rf.beta, b.trn.x) %>%
   cbind(b.trn.y) %>% 
   data.frame() %>%
-  rename(., pred = `.`, obs = b.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
   mutate(trn.resid = obs - pred)
 
 defaultSummary(rf.tst.b) # 0.750
@@ -128,14 +128,14 @@ rf.gamma <- randomForest(x = c.trn.x, y = c.trn.y,
 rf.tst.c <- predict(rf.gamma, c.tst.x) %>%
   cbind(c.tst.y) %>% 
   data.frame() %>%
-  rename(., pred = `.`, obs = c.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = c.tst.y) %>%
   mutate(tst.resid = obs - pred)
 
 # Training Data
 rf.trn.c <- predict(rf.gamma, c.trn.x) %>%
   cbind(c.trn.y) %>% 
   data.frame() %>%
-  rename(., pred = `.`, obs = c.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = c.trn.y) %>%
   mutate(trn.resid = obs - pred)
 
 defaultSummary(rf.tst.c) # 0.634
@@ -184,7 +184,7 @@ rf.tst.df %>% ggplot(., aes(x = obs, y = pred)) +
   labs(x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest on Testing Data")
-ggsave("./graphs/rforest/2017-07-28 rf test.png")
+# ggsave("./graphs/rforest/2017-07-28 rf test.png")
 
 ggplot(rf.tst.a, aes(x = obs, y = pred)) +
   geom_point() + 
@@ -194,7 +194,7 @@ ggplot(rf.tst.a, aes(x = obs, y = pred)) +
   labs(x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest - Alpha CD")
-ggsave("./graphs/rforest/2017-07-28 rf alphacd tst.png")
+# ggsave("./graphs/rforest/2017-07-28 rf alphacd tst.png")
 
 ggplot(rf.tst.b, aes(x = obs, y = pred)) +
   geom_point() + 
@@ -204,7 +204,7 @@ ggplot(rf.tst.b, aes(x = obs, y = pred)) +
   labs(x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest - Beta CD")
-ggsave("./graphs/rforest/2017-07-28 rf betacd tst.png")
+# ggsave("./graphs/rforest/2017-07-28 rf betacd tst.png")
 
 ggplot(rf.tst.c, aes(x = obs, y = pred)) +
   geom_point() + 
@@ -214,7 +214,7 @@ ggplot(rf.tst.c, aes(x = obs, y = pred)) +
   labs(x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest - Gamma CD")
-ggsave("./graphs/rforest/2017-07-28 rf gammacd tst.png")
+# ggsave("./graphs/rforest/2017-07-28 rf gammacd tst.png")
 
 ggplot(rf.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
   geom_point() + 
@@ -225,7 +225,7 @@ ggplot(rf.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest - Compiled CD", 
        color = "Cyclodextrin")
-ggsave("./graphs/rforest/2017-07-28 rf compiled cd tst.png")
+# ggsave("./graphs/rforest/2017-07-28 rf compiled cd tst.png")
 
 
 #     Training Data -------------------------------------------------------
@@ -239,7 +239,7 @@ rf.trn.df %>% ggplot(., aes(x = obs, y = pred)) +
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest on Training Data", 
        color = "Cyclodextrin")
-ggsave("./graphs/rforest/2017-07-28 rf trn.png")
+# ggsave("./graphs/rforest/2017-07-28 rf trn.png")
 
 ggplot(rf.abc.trn, aes(x = obs, y = pred, color = cd.type)) +
   geom_point() + 
@@ -250,7 +250,7 @@ ggplot(rf.abc.trn, aes(x = obs, y = pred, color = cd.type)) +
        y = "Predicted DelG, kJ/mol", 
        title = "Random Forest - Compiled CD, Training Data", 
        color = "Cyclodextrin")
-ggsave("./graphs/rforest/2017-07-28 rf compiled cd trn.png")
+# ggsave("./graphs/rforest/2017-07-28 rf compiled cd trn.png")
 
 #     Residuals -----------------------------------------------------------
 
@@ -263,7 +263,7 @@ ggplot(rf.abc.tst, aes(x = obs, y = tst.resid, color = cd.type)) +
        y = "Residuals, kJ/mol", 
        title = "Random Forest Residuals on Testing Data", 
        color = "Cyclodextrin")
-ggsave("./graphs/rforest/2017-07-28 rf tst resid.png")
+# ggsave("./graphs/rforest/2017-07-28 rf tst resid.png")
 
 rf.abc.trn %>% ggplot(., aes(x = obs, y = trn.resid, color = cd.type)) + 
   geom_point() + 
@@ -273,7 +273,7 @@ rf.abc.trn %>% ggplot(., aes(x = obs, y = trn.resid, color = cd.type)) +
   labs(x = "Observed DelG, kJ/mol", 
        y = "Residuals, kJ/mol", 
        title = "Random Forest Residuals on Training Data")
-ggsave("./graphs/rforest/2017-07-13 rforest trn resid.png")
+# ggsave("./graphs/rforest/2017-07-13 rforest trn resid.png")
 
 #####
 # External Validation -----------------------------------------------------
@@ -288,15 +288,15 @@ ext.val.c <- ext.val %>% filter(gamma > 0)
 
 ev.a <-  predict(rf.alpha, ext.val.a[ , -1]) %>%
   cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 ev.b <-  predict(rf.beta, ext.val.b[ , -1]) %>%
   cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 ev.c <-  predict(rf.gamma, ext.val.c[ , -1]) %>%
   cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 temp.a <- ev.a %>% mutate(cd.type = "alpha")
 temp.b <- ev.b %>% mutate(cd.type = "beta")
@@ -315,7 +315,10 @@ ggplot(ev.abc, aes(x = obs, y = pred, color = cd.type)) +
        y = "Predicted DelG, kJ/mol", 
        x = "Observed DelG, kJ/mol", 
        color = "Cyclodextrin")
-ggsave("./graphs/rforest/2017-07-28 rf extval.png")
+# ggsave("./graphs/rforest/2017-07-28 rf extval.png")
+
+ev.rf <- ev.abc %>% mutate(Model = "Random Forest") %>%
+  select(-resid)
 
 # Variable Analysis -------------------------------------------------------
 

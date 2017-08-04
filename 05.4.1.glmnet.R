@@ -442,3 +442,5 @@ ggplot(ev.abc, aes(x = obs, y = pred, color = cd.type)) +
   labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        title = "GLMnet External Validation", color = "Cyclodextrin")
 ggsave("./graphs/glmnet/2017-07-28 glm extval.png")
+
+ev.glm <- ev.abc %>% mutate(Model = "GLMnet")

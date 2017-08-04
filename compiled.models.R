@@ -650,8 +650,9 @@ ggplot(suz.results, aes(x = fold, y = rsquared, color = model)) +
 
 results.comp <- rbind(data.results %>% mutate(Source = "Rekharsky and Inoue/Suzuki"), 
                       suz.results %>% mutate(Source = "Suzuki"))
+results.comp$fold <- as.factor(results.comp$fold)
 
-ggplot(results.comp, aes(x = fold, y = rsquared, color = model)) + 
+ggplot(results.comp, aes(x = fold, y = rsquared, color = model, group = model)) + 
   geom_line(size = 1) + 
   # scale_x_discrete(expand=c(0, 1)) +
   # scale_colour_discrete(guide = 'none') +
@@ -660,6 +661,7 @@ ggplot(results.comp, aes(x = fold, y = rsquared, color = model)) +
   theme_bw() + 
   facet_wrap(~Source) + 
   labs(title = "R-Squared by Fold", x = "Fold", y = "R-squared", color = "Model")
+ggsave("./graphs/compiled.png")
 
 # Messing with Different Orientations
 temp <- suz.results
@@ -678,8 +680,23 @@ ggplot(temp, aes(x = model, y = rsquared, color = fold, group = fold)) +
 
 #     RMSE ----------------------------------------------------------------
 
-ggplot(results.comp, aes(x = fold, y = rmse, color = model)) + 
+ggplot(results.comp, aes(x = fold, y = rmse, color = model, group = model)) + 
   geom_line(size = 1) + 
   theme_bw() + 
   facet_wrap(~Source) + 
   labs(title = "RMSE by Fold", x = "Fold", y = "R-squared", color = "Model")
+ggsave("./graphs/compiled rmse.png")
+
+# External Validation Compilation -----------------------------------------
+
+View(ev.glm)
+ev.comp <- rbind(ev.glm, ev.svm, ev.rf, ev.cube, ev.pls)
+ggplot(ev.comp, aes(x = obs, y = pred, color = cd.type)) + 
+  geom_point() + 
+  theme_bw() + 
+  facet_wrap(~Model) + 
+  geom_abline(intercept = 0, slope = 1) + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
+  labs(title = "External Validation", 
+       x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       color = "Cyclodextrin")

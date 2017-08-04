@@ -42,13 +42,13 @@ svm.all <- svm(x = trn.x,
 svm.all.tst <- predict(svm.all, tst.x) %>%
   cbind(tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = tst.y) %>%
   mutate(resid = obs - pred)
 
 svm.all.trn <- predict(svm.all, trn.x) %>%
   cbind(trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = trn.y) %>%
   mutate(resid = obs - pred)
 
 defaultSummary(svm.all.tst) # 0.470
@@ -76,12 +76,12 @@ svm.alpha <- svm(x = a.trn.x,
 
 svm.a.tst <- predict(svm.alpha, a.tst.x) %>%
   cbind(a.tst.y) %>% data.frame() %>%
-  rename(., pred = `.`, obs = a.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = a.tst.y) %>%
   mutate(resid = obs - pred)
 
 svm.a.trn <- predict(svm.alpha, a.trn.x) %>%
   cbind(a.trn.y) %>% data.frame() %>%
-  rename(., pred = `.`, obs = a.trn.y)%>%
+  dplyr::rename(., pred = `.`, obs = a.trn.y)%>%
   mutate(resid = obs - pred)
 
 defaultSummary(svm.a.tst) # 0.607
@@ -111,11 +111,11 @@ svm.beta <- svm(x = b.trn.x,
 
 svm.b.tst <- predict(svm.beta, b.tst.x) %>%
   cbind(b.tst.y) %>% data.frame() %>%
-  rename(., pred = `.`, obs = b.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = b.tst.y) %>%
   mutate(resid = obs - pred)
 svm.b.trn <- predict(svm.beta, b.trn.x) %>%
   cbind(b.trn.y) %>% data.frame() %>%
-  rename(., pred = `.`, obs = b.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
   mutate(resid = obs - pred)
 defaultSummary(svm.b.tst) # 0.634
 defaultSummary(svm.b.trn) # 0.998
@@ -144,12 +144,12 @@ svm.gamma <- svm(x = c.trn.x,
 
 svm.c.tst <- predict(svm.gamma, c.tst.x) %>%
   cbind(c.tst.y) %>% data.frame() %>%
-  rename(., pred = `.`, obs = c.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = c.tst.y) %>%
   mutate(resid = obs - pred)
 
 svm.c.trn <- predict(svm.gamma, c.trn.x) %>%
   cbind(c.trn.y) %>% data.frame() %>%
-  rename(., pred = `.`, obs = c.trn.y)%>%
+  dplyr::rename(., pred = `.`, obs = c.trn.y)%>%
   mutate(resid = obs - pred)
 
 defaultSummary(svm.c.tst) # 0.214
@@ -189,13 +189,13 @@ rbf.all <- svm(x = trn.x,
 rbf.all.tst <- predict(rbf.all, tst.x) %>%
   cbind(tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = tst.y) %>%
   mutate(resid = obs - pred)
 
 rbf.all.trn <- predict(rbf.all, trn.x) %>%
   cbind(trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = trn.y) %>%
   mutate(resid = obs - pred)
 
 defaultSummary(rbf.all.tst) # 0.567
@@ -212,13 +212,13 @@ rbf.alpha <- svm(x = a.trn.x,
 rbf.a.tst <- predict(rbf.alpha, a.tst.x) %>%
   cbind(a.tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = a.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = a.tst.y) %>%
   mutate(resid = obs - pred)
 
 rbf.a.trn <- predict(rbf.alpha, a.trn.x) %>%
   cbind(a.trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = a.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = a.trn.y) %>%
   mutate(resid = obs - pred)
 
 defaultSummary(rbf.a.tst) # 0.564
@@ -236,13 +236,13 @@ rbf.beta <- svm(x = b.trn.x,
 rbf.b.tst <- predict(rbf.beta, b.tst.x) %>%
   cbind(b.tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = b.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = b.tst.y) %>%
   mutate(resid = obs - pred)
 
 rbf.b.trn <- predict(rbf.beta, b.trn.x) %>%
   cbind(b.trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = b.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
   mutate(resid = obs - pred)
 
 defaultSummary(rbf.b.tst) # 0.735
@@ -259,13 +259,13 @@ rbf.gamma <- svm(x = c.trn.x,
 rbf.c.tst <- predict(rbf.gamma, c.tst.x) %>%
   cbind(c.tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = c.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = c.tst.y) %>%
   mutate(resid = obs - pred)
 
 rbf.c.trn <- predict(rbf.gamma, c.trn.x) %>%
   cbind(c.trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = c.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = c.trn.y) %>%
   mutate(resid = obs - pred)
 
 defaultSummary(rbf.c.tst) # 0.279
@@ -304,13 +304,13 @@ sig.all <- svm(x = trn.x,
 sig.all.tst <- predict(sig.all, tst.x) %>%
   cbind(tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = tst.y) %>%
   mutate(resid = obs - pred)
 
 sig.all.trn <- predict(sig.all, trn.x) %>%
   cbind(trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = trn.y) %>%
   mutate(resid = obs - pred)
 
 defaultSummary(sig.all.tst) # 0.470
@@ -327,13 +327,13 @@ sig.alpha <- svm(x = a.trn.x,
 sig.a.tst <- predict(sig.alpha, a.tst.x) %>%
   cbind(a.tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = a.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = a.tst.y) %>%
   mutate(resid = obs - pred)
 
 sig.a.trn <- predict(sig.alpha, a.trn.x) %>%
   cbind(a.trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = a.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = a.trn.y) %>%
   mutate(resid = obs - pred)
 
 defaultSummary(sig.a.tst) # 0.420
@@ -351,13 +351,13 @@ sig.beta <- svm(x = b.trn.x,
 sig.b.tst <- predict(sig.beta, b.tst.x) %>%
   cbind(b.tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = b.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = b.tst.y) %>%
   mutate(resid = obs - pred)
 
 sig.b.trn <- predict(sig.beta, b.trn.x) %>%
   cbind(b.trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = b.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
   mutate(resid = obs - pred)
 
 defaultSummary(sig.b.tst) # 0.6997
@@ -375,13 +375,13 @@ sig.gamma <- svm(x = c.trn.x,
 sig.c.tst <- predict(sig.gamma, c.tst.x) %>%
   cbind(c.tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = c.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = c.tst.y) %>%
   mutate(resid = obs - pred)
 
 sig.c.trn <- predict(sig.gamma, c.trn.x) %>%
   cbind(c.trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = c.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = c.trn.y) %>%
   mutate(resid = obs - pred)
 
 defaultSummary(sig.c.tst) # 0.222
@@ -731,15 +731,15 @@ ext.val.c <- ext.val %>% filter(gamma > 0)
 
 ev.a <-  predict(svm.alpha, ext.val.a[ , -1]) %>%
   cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 ev.b <-  predict(svm.beta, ext.val.b[ , -1]) %>%
   cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 ev.c <-  predict(svm.gamma, ext.val.c[ , -1]) %>%
   cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 temp.a <- ev.a %>% mutate(cd.type = "alpha")
 temp.b <- ev.b %>% mutate(cd.type = "beta")
@@ -747,18 +747,22 @@ temp.c <- ev.c %>% mutate(cd.type = "gamma")
 # temp.a <- temp.a[-2, ]
 ev.abc.poly <- rbind(temp.a, temp.b, temp.c) %>%
   mutate(resid = pred - obs)
+# Saving another copy for compiling
+ev.svm <- ev.abc.poly %>%
+  select(-resid) %>%
+  mutate(Model = "SVM")
 
 ev.a <-  predict(rbf.alpha, ext.val.a[ , -1]) %>%
   cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 ev.b <-  predict(rbf.beta, ext.val.b[ , -1]) %>%
   cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 ev.c <-  predict(rbf.gamma, ext.val.c[ , -1]) %>%
   cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 temp.a <- ev.a %>% mutate(cd.type = "alpha")
 temp.b <- ev.b %>% mutate(cd.type = "beta")
@@ -769,15 +773,15 @@ ev.abc.rbf <- rbind(temp.a, temp.b, temp.c) %>%
 
 ev.a <-  predict(sig.alpha, ext.val.a[ , -1]) %>%
   cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 ev.b <-  predict(sig.beta, ext.val.b[ , -1]) %>%
   cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 ev.c <-  predict(sig.gamma, ext.val.c[ , -1]) %>%
   cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2)
+  dplyr::rename(., pred = `.`, obs = V2)
 
 temp.a <- ev.a %>% mutate(cd.type = "alpha")
 temp.b <- ev.b %>% mutate(cd.type = "beta")
@@ -859,13 +863,13 @@ svm.all <- svm(x = trn.x,
 svm.all.tst <- predict(svm.all, tst.x) %>%
   cbind(tst.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = tst.y) %>%
   mutate(resid = obs - pred)
 
 svm.all.trn <- predict(svm.all, trn.x) %>%
   cbind(trn.y) %>%
   data.frame() %>%
-  rename(., pred = `.`, obs = trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = trn.y) %>%
   mutate(resid = obs - pred)
 
 defaultSummary(svm.all.tst) # 0.807
@@ -893,12 +897,12 @@ svm.alpha <- svm(x = a.trn.x,
 
 svm.a.tst <- predict(svm.alpha, a.tst.x) %>%
   cbind(a.tst.y) %>% data.frame() %>%
-  rename(., pred = `.`, obs = a.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = a.tst.y) %>%
   mutate(resid = obs - pred)
 
 svm.a.trn <- predict(svm.alpha, a.trn.x) %>%
   cbind(a.trn.y) %>% data.frame() %>%
-  rename(., pred = `.`, obs = a.trn.y)%>%
+  dplyr::rename(., pred = `.`, obs = a.trn.y)%>%
   mutate(resid = obs - pred)
 
 defaultSummary(svm.a.tst) # 0.796
@@ -928,11 +932,11 @@ svm.beta <- svm(x = b.trn.x,
 
 svm.b.tst <- predict(svm.beta, b.tst.x) %>%
   cbind(b.tst.y) %>% data.frame() %>%
-  rename(., pred = `.`, obs = b.tst.y) %>%
+  dplyr::rename(., pred = `.`, obs = b.tst.y) %>%
   mutate(resid = obs - pred)
 svm.b.trn <- predict(svm.beta, b.trn.x) %>%
   cbind(b.trn.y) %>% data.frame() %>%
-  rename(., pred = `.`, obs = b.trn.y) %>%
+  dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
   mutate(resid = obs - pred)
 defaultSummary(svm.b.tst) # 0.853
 defaultSummary(svm.b.trn) # 0.9997
@@ -970,12 +974,12 @@ ext.val.c <- ext.val %>% filter(gamma > 0)
 
 ev.a <-  predict(svm.alpha, ext.val.a[ , -1]) %>%
   cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2) %>% 
+  dplyr::rename(., pred = `.`, obs = V2) %>% 
   mutate(cd.type = "alpha")
 
 ev.b <-  predict(svm.beta, ext.val.b[ , -1]) %>%
   cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  rename(., pred = `.`, obs = V2) %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
   mutate(cd.type = "beta")
 
 ev.abc.poly <- rbind(ev.a, ev.b) %>%
