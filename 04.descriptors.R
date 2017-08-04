@@ -1,4 +1,7 @@
 install.packages("rcdk")
+install.packages("rJava")
+source("http://bioconductor.org/biocLite.R") # Sources the biocLite.R installation script. 
+biocLite("ChemmineR")
 library(rcdk)
 library(tidyverse)
 
@@ -90,8 +93,8 @@ write.csv(gamma.padel, "./molecules/descriptors/gamma.padel.csv")
 
 # Rcdk Descriptors --------------------------------------------------------
 
-mol <- load.molecules(c("C:/Users/Wei Xin/Documents/SREP LAB/Rekharsky and Inoue/Cactus/AlphaCD/2-butanol.SDF", 
-                        "C:/Users/Wei Xin/Documents/SREP LAB/Rekharsky and Inoue/Cactus/AlphaCD/benzene.SDF"))
+mol <- load.molecules(c("./molecules/alphaCD/toluene.SDF", 
+                        "./molecules/alphaCD/quinoline.SDF"))
 view.molecule.2d(mol)
 mol2 <- get.murcko.fragments(mol) # works
 get.bonds(mol)
