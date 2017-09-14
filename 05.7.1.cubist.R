@@ -247,6 +247,9 @@ temp.c <- ev.c %>% mutate(cd.type = "gamma")
 # temp.a <- temp.a[-2, ]
 ev.abc <- rbind(temp.a, temp.b, temp.c) %>%
   mutate(resid = pred - obs)
+# Prearing copy for compilation
+ev.cube <- ev.abc %>% select(-resid) %>%
+  mutate(Model = "Cubist")
 
 defaultSummary(ev.abc) # 0.384 normally, 0.658 without outlier
 ggplot(ev.abc, aes(y = pred, x = obs, color = cd.type)) + 
