@@ -214,13 +214,13 @@ ri.squeaky.clean <- ri.squeaky.clean %>%
 # 273 unique
 
 #     Save Output ---------------------------------------------------------
-# saveRDS(ri.clean, file = "./bound/02.ri.clean.RDS")
-# saveRDS(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RDS")
+# # saveRDS(ri.clean, file = "./bound/02.ri.clean.RDS")
+# # saveRDS(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RDS")
 # save(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RData")
 
-saveRDS(ri.clean, file = "./bound/02.2.ri.clean.RDS")
-saveRDS(ri.squeaky.clean, file = "./bound/02.2.ri.squeaky.clean.RDS")
-save(ri.squeaky.clean, file = "./bound/02.2.ri.squeaky.clean.RData")
+# saveRDS(ri.clean, file = "./bound/02.2.ri.clean.RDS")
+# saveRDS(ri.squeaky.clean, file = "./bound/02.2.ri.squeaky.clean.RDS")
+# save(ri.squeaky.clean, file = "./bound/02.2.ri.squeaky.clean.RData")
 
 #####
 # Suzuki ------------------------------------------------------------------
@@ -266,8 +266,8 @@ suz.clean <- rbind(suz.clean.dg.alpha, suz.clean.dg.beta)
 # Unique guests: 218
 
 #     Save Output ---------------------------------------------------------
-save(suz.clean, file = "./bound/02.suz.clean.RData")
-saveRDS(suz.clean, file = "./bound/02.suz.clean.RDS")
+# save(suz.clean, file = "./bound/02.suz.clean.RData")
+# saveRDS(suz.clean, file = "./bound/02.suz.clean.RDS")
 
 #####
 # Combining Datasets ------------------------------------------------------
@@ -305,9 +305,9 @@ comb.b <- comb.b[ , list(host = host, DelG = mean(DelG),
 comb.dg <- rbind(comb.a, comb.b, ri.c)
 comb.dg.nodup <- comb.dg[!duplicated(comb.dg), ]
 suz.df <- rbind(suz.a, suz.b)
-saveRDS(comb.dg, "./bound/combined ri and suzuki.RDS")
-saveRDS(comb.dg.nodup, "./bound/combined data.RDS")
-saveRDS(suz.df, "./bound/suzuki only.RDS")
+# saveRDS(comb.dg, "./bound/combined ri and suzuki.RDS")
+# saveRDS(comb.dg.nodup, "./bound/combined data.RDS")
+# saveRDS(suz.df, "./bound/suzuki only.RDS")
 
 # Information about Data
 # Total: 615
