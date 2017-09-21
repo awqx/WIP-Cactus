@@ -166,7 +166,12 @@ defaultSummary(rf.abc.trn) # 0.960
 
 # Saving Data -------------------------------------------------------------
 
+saveRDS(rf.alpha, "./models/rforest/rf.alpha.RDS")
 saveRDS(rf.beta, "./models/rforest/rf.beta.RDS")
+saveRDS(rf.gamma, "./models/rforest/rf.gamma.RDS")
+
+saveRDS(rf.abc.tst, "./models/rforest/rf.results.RDS")
+saveRDS(rf.abc.trn, "./models/rforest/rf.trn.results.RDS")
 
 # Graphs ------------------------------------------------------------------
 

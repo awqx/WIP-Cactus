@@ -7,7 +7,7 @@ library(tidyverse)
 # Loading Data ------------------------------------------------------------
 
 # setwd("~/SREP LAB/qsar")
-dir.create("./graphs/glmnet")
+# dir.create("./graphs/glmnet")
 
 df.raw <- readRDS("./padel.pp.new.RDS")
 df <- df.raw %>% select(-guest:-host) %>%
@@ -202,7 +202,7 @@ trn.y <- mat[trn.ind, 1]
 tst.x <- mat[-trn.ind, -1]
 tst.y <- mat[-trn.ind, 1]
 
-dir.create("./models/glmnet")
+# dir.create("./models/glmnet")
 
 # All Predictors ----------------------------------------------------------
 
@@ -249,7 +249,6 @@ glm.alpha.trn <- predict.glmnet(glm.alpha, a.trn.x,
   dplyr::rename(pred = X1, obs = a.trn.y)
 
 defaultSummary(glm.alpha.df) # 0.629
-saveRDS(glm.alpha, "./models/glmnet/glm.alpha.RDS")
 
 #     Beta-CD -------------------------------------------------------------
 
@@ -277,7 +276,6 @@ glm.beta.trn <- predict.glmnet(glm.beta, b.trn.x,
   dplyr::rename(pred = X1, obs = b.trn.y)
 
 defaultSummary(glm.beta.df) # 0.718
-saveRDS(glm.beta, "./models/glmnet/glm.beta.RDS")
 
 #     Gamma-CD ------------------------------------------------------------
 
@@ -305,7 +303,6 @@ glm.gamma.trn <- predict.glmnet(glm.gamma, c.trn.x,
   dplyr::rename(pred = X1, obs = c.trn.y)
 
 defaultSummary(glm.gamma.df) # 0.304
-saveRDS(glm.gamma, "./models/glmnet/glm.gamma.RDS")
 
 #     Compiled CDs --------------------------------------------------------
 
@@ -318,7 +315,7 @@ temp.c <- glm.gamma.df %>%
 glm.abc.tst <- rbind(temp.a, temp.b, temp.c, 
                      make.row.names = F) %>%
   mutate(residual = pred - obs)
-defaultSummary(glm.abc.tst)
+defaultSummary(glm.abc.tst) # 0.708
 
 temp.a <- glm.alpha.trn %>% 
   mutate(cd.type = rep("alpha", length(glm.alpha.trn$pred)))
@@ -329,7 +326,16 @@ temp.c <- glm.gamma.trn %>%
 glm.abc.trn <- rbind(temp.a, temp.b, temp.c, 
                      make.row.names = F) %>%
   mutate(residual = pred - obs)
-defaultSummary(glm.abc.trn)
+defaultSummary(glm.abc.trn) # 771
+
+# Saving Data -------------------------------------------------------------
+
+saveRDS(glm.alpha, "./models/glmnet/glm.alpha.RDS")
+saveRDS(glm.beta, "./models/glmnet/glm.beta.RDS")
+saveRDS(glm.gamma, "./models/glmnet/glm.gamma.RDS")
+
+saveRDS(glm.abc.tst, "./models/glmnet/glm.results.RDS")
+saveRDS(glm.abc.trn, "./models/glmnet/glm.trn.results.RDS")
 
 # Graphs ------------------------------------------------------------------
 

@@ -6,7 +6,7 @@ library(tidyverse)
 # Loading Data ------------------------------------------------------------
 
 # setwd("~/SREP LAB/qsar")
-dir.create("./models/pls")
+# dir.create("./models/pls")
 df.raw <- readRDS("./padel.pp.new.RDS")
 df <- df.raw %>% select(-guest, -host, -data.source)
 
@@ -63,17 +63,17 @@ a.trn <- alpha[trn.ind, ]
 a.tst <- alpha[-trn.ind, ]
 
 pls.alpha <- plsr(DelG ~ ., 
-                 ncomp = 11, 
+                 ncomp = 4, 
                  data = a.trn, 
                  validation = "LOO", 
                  method = "oscorespls", 
                  seed = 10)
 
-pls.tst.a <- predict(pls.alpha, ncomp = 11, newdata = a.tst) %>%
+pls.tst.a <- predict(pls.alpha, ncomp = 4, newdata = a.tst) %>%
   cbind(a.tst[ , 1]) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = V2)
-defaultSummary(pls.tst.a) # R-squared = 0.657
+defaultSummary(pls.tst.a) # R-squared = 0.566
 
 #     Beta-CD -------------------------------------------------------------
 
@@ -84,17 +84,17 @@ b.trn <- beta[trn.ind, ]
 b.tst <- beta[-trn.ind, ]
 
 pls.beta <- plsr(DelG ~ ., 
-            ncomp = 11, 
+            ncomp = 4, 
             data = b.trn, 
             validation = "LOO", 
             method = "oscorespls", 
             seed = 10)
 
-pls.tst.b <- predict(pls.beta, ncomp = 11, newdata = b.tst) %>%
+pls.tst.b <- predict(pls.beta, ncomp = 4, newdata = b.tst) %>%
   cbind(b.tst[ , 1]) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = V2)
-defaultSummary(pls.tst.b) # R-squared = 0.657
+defaultSummary(pls.tst.b) # R-squared = 0.755
 
 saveRDS(pls.beta, "./models/pls/pls.beta.RDS")
 
@@ -117,7 +117,7 @@ pls.tst.c <- predict(pls.gamma, ncomp = 5, newdata = c.tst) %>%
   cbind(c.tst[ , 1]) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = V2)
-defaultSummary(pls.tst.c) # R-squared = 0.657
+defaultSummary(pls.tst.c) # R-squared = 0.319
 
 #     Compiled-CD ---------------------------------------------------------
 
@@ -134,6 +134,12 @@ ggplot(pls.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
   geom_abline(intercept = 0, slope = 1)
 
 # Saving Models -----------------------------------------------------------
+
+saveRDS(pls.alpha, "./models/pls/pls.alpha.RDS")
+saveRDS(pls.beta, "./models/pls/pls.beta2.RDS")
+saveRDS(pls.gamma, "./models/pls/pls.gamma.RDS")
+
+saveRDS(pls.abc.tst, "./models/pls/pls.results.RDS")
 
 # External Validation -----------------------------------------------------
 
