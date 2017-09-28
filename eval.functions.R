@@ -97,7 +97,8 @@ cv.cube <- function(data, nfolds) {
   results <- c(rep(0.0, nfolds))
   
   ctrl <- cubistControl(
-    seed = 10
+    seed = 10, 
+    sample = 75
   )
   
   for(i in 1:nfolds) {
@@ -108,7 +109,10 @@ cv.cube <- function(data, nfolds) {
     tst.x <- data[fold, -1]
     tst.y <- data[fold, 1]
     
-    cube <- cubist(x = trn.x, y = trn.y, control = ctrl)
+    cube <- cubist(x = trn.x, 
+                   y = trn.y, 
+                   control = ctrl, 
+                   committees = 90)
     cube.df <- predict(cube, tst.x) %>%
       cbind(tst.y) %>%
       data.frame() 
@@ -122,3 +126,8 @@ cv.cube <- function(data, nfolds) {
   
   return(sum(results)/nfolds)
 }
+
+tic()
+cv.cube(mat, 10)
+toc()
+

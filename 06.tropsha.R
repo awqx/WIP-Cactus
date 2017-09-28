@@ -5,63 +5,7 @@
 # Set working directory as needed
 # setwd("~/SREP LAB/qsar")
 
-# Libraries and Packages --------------------------------------------------
-
-library(tidyverse)
-library(caret)
-library(stats)
-
-# Functions ---------------------------------------------------------------
-
-# Requirements: results is a datframe w/ calculated values labeled as pred 
-# and observed values listed as obs
-find.k <- function(results) {
-  top <- sum(results$pred * results$obs)
-  bottom <- sum(results$obs * results$obs)
-  return (top/bottom)
-}
-
-# Equation writeen in Xu2015 unclear
-find.kprime <- function(results) {
-  top <- sum(results$pred * results$obs)
-  bottom <- sum(results$pred ^ 2)
-  return (top/bottom)
-}
-
-find.q2.f1 <- function(results) {
-  top <- (results$obs - results$pred)^2 %>% sum()
-  bottom <- (results$obs - mean(results$pred))^2 %>% sum()
-  return (1 - (top/bottom))
-}
-
-# Uses caret::defaultSummary
-find.r2 <- function(results) {
-  return(defaultSummary(results)[2])
-}
-
-find.r20 <- function(results) {
-  ybarr0 <- find.k(results) * results$obs
-  top <- (results$pred - ybarr0)^2 %>% sum()
-  bottom <- (results$pred - mean(results$pred))^2 %>% sum()
-  return(1 - (top/bottom))
-}
-
-# May be wrong due to reasons specified in find.kprime
-find.r20prime <- function(results) {
-  yr0 <- find.kprime(results) * results$pred
-  top <- (results$obs - yr0)^2 %>% sum()
-  bottom <- (results$obs - mean(results$obs))^2 %>% sum()
-  return(1 - (top/bottom))
-}
-
-# diff.r2r20 <- function(results) {
-#   ybarr0 <- find.k(results) * results$obs
-#   top <- (results$obs - ybarr0)^2 %>% sum()
-#   bottom <- (results$obs - mean(results$obs))^2 %>% sum()
-#   r20 <- 1 - (top/bottom)
-#   r2 <- defaultSummary(results)[2]
-#   return(r2-r20)
-# }
+source("./eval.functions.R")
 
 # Importing Models' Results -----------------------------------------------
 
@@ -95,6 +39,7 @@ find.q2.f1(glm) # 0.694
 find.q2.f1(pls) # 0.683
 
 # (R2-R20-prime)/R2 < 0.1
+proc.time()
 (find.r2(cube) - find.r20prime(cube))/find.r2(cube) # 0.040
 (find.r2(svm) - find.r20prime(svm))/find.r2(svm)  # 0.020
 (find.r2(rf) - find.r20prime(rf))/find.r2(rf)  # 0.032
@@ -107,3 +52,13 @@ abs(find.r20(svm) - find.r20prime(svm)) # 0.080
 abs(find.r20(rf) - find.r20prime(rf)) #0.312
 abs(find.r20(glm) - find.r20prime(glm)) # 0.187
 abs(find.r20(pls) - find.r20prime(pls)) #0.113
+
+
+# Q2 ----------------------------------------------------------------------
+
+# On one hand, Xu 2015 provides a single equation for evaluating Q^2
+# On the other hand, it seems to be more standard to actually create and 
+# evaluate models. 
+# 10 fold CV used on the training set only
+# Data changes betweem different CV methods: sparse, df, or mat
+
