@@ -64,9 +64,13 @@ cv.svm <- function(data, nfolds) {
   set.seed(10)
   fold.list <- createFolds(y = data[ , 2], k = nfolds)
   results <- c(rep(0.0, nfolds))
+  times <- c(rep(0.0, nfolds))
   # Cross-validation using k-fold cross-validation
+  
+  tic.clearlog()
   for (i in 1:nfolds)
   {
+    tic()
     fold <- fold.list[[i]]
     train <- data[-fold, ]
     tst <- data[fold, ]
@@ -88,7 +92,12 @@ cv.svm <- function(data, nfolds) {
     colnames(svm.df)[2] <- "obs"
     R2 <- defaultSummary(svm.df)[2] 
     results[i] <- R2
+    toc(log = T, quiet = T)
+    times[i] <- toc.outmsg(tic = 1, toc = 1, "done")
   }
+  return(data.frame(
+    rsquared = results, 
+    time = unlist(tic.log(format = T))))
 }
 
 cv.cube <- function(data, nfolds) {
@@ -127,7 +136,5 @@ cv.cube <- function(data, nfolds) {
   return(sum(results)/nfolds)
 }
 
-tic()
-cv.cube(mat, 10)
-toc()
+cv.svm(df, 3)
 
