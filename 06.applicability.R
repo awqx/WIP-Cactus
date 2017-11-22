@@ -124,3 +124,35 @@ samp <- rbind(tst, samp)
 samp.stand <- standardize(samp, trn.sdevs)
 samp.dmn <- domain(samp.stand)
 # OK, confirmed that "outside" the applicability domain can exist, which is reassuring
+
+#     Removing Binary Data ------------------------------------------------
+
+# Possibility that large number of binary fingerprints skews many guests
+# to be inside the applicability domain
+#
+# Solution 1: Remove the binary guests
+df.binary <- sapply(df, unique) %>% sapply(., length) %>% data.frame()
+df.binary$guest <- row.names(df.binary)
+binary.pred <- df.binary %>% filter(df.binary$. < 3) %>% select(., guest) %>% as.list()
+
+df.nobin <- df[ , !(colnames(df) %in% unlist(binary.pred))]
+
+set.seed(25)
+trn.ind <- sample(x = 1:nrow(df.nobin), size = round(0.7 * nrow(df.nobin)))
+trn <- df[trn.ind, ]
+tst <- df[-trn.ind, ]
+trn.desc <- trn[ , -1]
+trn.sdevs <- lapply(trn.desc, find.sd.desc) %>% unlist() %>% as.vector()
+trn.stand <- standardize(trn, trn.sdevs)
+trn.dmn <- domain(trn.stand) # All inside
+
+# Test Set
+tst.stand <- standardize(tst, trn.sdevs)
+tst.dmn <- domain(tst.stand) # All inside
+
+# Testing to see if "outside" even exists
+samp <- c(rep(7, 712))
+samp <- rbind(tst, samp)
+samp.stand <- standardize(samp, trn.sdevs)
+samp.dmn <- domain(samp.stand)
+View(samp.dmn)
