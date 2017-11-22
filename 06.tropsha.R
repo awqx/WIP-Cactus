@@ -5,7 +5,7 @@
 # Set working directory as needed
 # setwd("~/SREP LAB/qsar")
 
-source("./eval.functions.R")
+source("./model.code/eval.functions.R")
 
 # Importing Models' Results -----------------------------------------------
 
@@ -62,3 +62,4 @@ abs(find.r20(pls) - find.r20prime(pls)) #0.113
 # 10 fold CV used on the training set only
 # Data changes betweem different CV methods: sparse, df, or mat
 
+View(cube)

@@ -6,6 +6,7 @@
 # Libraries and Packages --------------------------------------------------
 
 # install.packages("tictoc")
+library(e1071)
 library(tictoc)
 library(tidyverse)
 library(caret)

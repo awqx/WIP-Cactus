@@ -169,8 +169,8 @@ temp.b <- svm.b.trn %>% mutate(cd.type = "beta")
 temp.c <- svm.c.trn %>% mutate(cd.type = "gamma")
 poly.abc.trn <- rbind(temp.a, temp.b, temp.c, make.row.names = F) 
 
-defaultSummary(svm.abc.tst) # 0.614
-defaultSummary(svm.abc.trn) # 0.997
+defaultSummary(poly.abc.tst) # 0.614
+defaultSummary(poly.abc.trn) # 0.997
 
 saveRDS(poly.abc.tst, "./models/svm/polysvm.tst.results.RDS")
 saveRDS(poly.abc.trn, "./models/svm/polysvm.trn.results.RDS")
@@ -468,6 +468,14 @@ ggplot(poly.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
        color = "Cyclodextrin")
 ggsave("./graphs/svm/2017-07-28 polysvm compiled.png")
 
+ggplot(poly.abc.tst, aes(x = pred, y = obs, color = cd.type)) +
+  geom_point() + 
+  coord_fixed() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  geom_abline(slope = 1, intercept = defaultSummary(poly.abc.tst)[1]) + 
+  geom_abline(slope = 1, intercept = -defaultSummary(poly.abc.tst)[1]) + 
+  coord_fixed() + 
+  theme_bw()
 #         Training Set ----------------------------------------------------
 
 ggplot(svm.all.trn, aes(x = obs, y = pred)) + 
