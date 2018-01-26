@@ -18,6 +18,27 @@ convert.delg.kd <- function(delg) {
   # exp(n) = e^n
   return (exp(delg / (8.314 * 298)))
 }
+
+# These are dimensionless constants used by Vulic:
+#   alpha = Cpro,0 / Cpep,T (guest / total host (peptide))
+#   beta = L^2 * koff / D 
+#   gamma = kon * Cpro,0 / koff
+
+# Regime 1 calculations
+#   for cases when gamma << 1 or ~ 1
+regime1 <- function(gamma, alpha, L, D) {
+  return(L^2*(1 + gamma/alpha)/D)
+}
+
+# Regime 2 calculations
+#   for gamma >> 1; or, a large fraction of peptide initially bound
+#   This one is more complicated b/c the timeframe/calculations actually change
+#   as the concentration gradually drops, and the time frame calculation shifts
+#   to regime 1
+
+# Regime 3 (slow unbinding)
+#   for cases where unbinding is slow compared to diffusion, or beta << 1 or 1/koff >> L^2/D
+
 # Preliminary Trial -------------------------------------------------------
 
 glm <- readRDS("./models/glmnet/glm.results.RDS")
@@ -105,3 +126,80 @@ diff2 <- tran.cylindrical (C = diff1.1, D.r = D, D.theta = D,
                            C.theta.up = 1, C.theta.down = 1, 
                            C.z.up = 1, C.z.down = 1,
                            r = r, theta = theta, z = z )
+
+# deSolve Trial -----------------------------------------------------------
+
+# Following the Soetart documentation
+# library(deSolve)
+Aphid <- function(t, APHIDS, parameters) {
+  deltax <- c(0.5, rep(1, numboxes -1), 0.5)
+  Flux <- -D*diff(c(0,APHIDS, 0)) / deltax
+  dAPHIDS <- -diff(Flux) / delx + APHIDS * r
+  
+  # the return value
+  list(dAPHIDS)
+}
+
+D <- 0.3 # m2/day diffusion rate
+r <- 0.01 # /day net growth rate
+delx <- 1 # thickness of boxes
+numboxes <- 60 
+# distance of boxes on plant, m, 1 m intervals)
+Distance <- seq(from = 0.5, by = delx, length.out = numboxes)
+
+# Initial conditions # ind/m2
+APHIDS <- rep(0, times = numboxes)
+APHIDS[30:31] <- 1
+state <- c(APHIDS = APHIDS) # initialize state variables
+
+# the model is run for 200 days, producing output every day
+times <- seq(0,200, by = 1)
+out <- ode.1D(state, times, Aphid, parms = 0, nspec = 1, names = "Aphid")
+image(out, method = "filled.contour", grid = Distance, 
+      xlab = "Time, days", ylab = "Distance on plant, m", 
+      main = "Aphid density")
+
+data <- cbind(dist = c(0, 10, 20, 30, 40, 50, 60), 
+              Aphid = c(0, 0.1, 0.25, 0.5, 0.25, 0.1, 0))
+par(mfrow = c(1,2))
+matplot.1D(out, grid = Distance, type = "l", mfrow = NULL, 
+           subset = time %in% seq(0, 200, by = 10), 
+           obs = data, obspar = list(pch = 18, cex = 2, col = "red"))
+plot.1D(out, grid = Distance, type = "l", mfrow = NULL, subset = time == 100, 
+        obs = data, obspar = list(pch = 18, cex = 2, col = "red"))
+
+
+# deSolve and Fu, von Recum -----------------------------------------------
+
+# Let's start by trying to model concentratino of free ligand in 
+# the hydrogel
+# total concentration of Beta-CD = Ct; free CD = Cc; bound CD = Clc
+# Binding rate = Rb
+# height of cyclodextrin 0<z<smalldelta
+# Rb = Kon*Cl*Cc-KoffClc = Kon*Clc*(Ct-Clc)-KoffClc
+# partialCl/partialt = D*secondpartialCl/secondpartialz^2-Rb
+# partialClc/partialt = Rb
+
+Hydrogel <- function(t, CONC, parameters){
+  deltac <- c(0.5, rep(1, numboxes - 1), 0.5)
+  Flux <- D*diff(c(0, CONC, 0)) / deltac
+  dCONC <- diff(Flux) / delx - Rb
+  
+  list(dCONC)
+}
+# Model parameters
+D <- 0.2 # Diffusion rate
+Rb <- 0.1 # net binding rate
+delx <- 1 # thickness of boxes
+numboxes <- 50
+Distance <- seq(from = 0.5, by = delx, length.out = numboxes) # for image(out)
+
+# Initial conditions
+CONC <- rep(0.1, # concentration at equilibrium
+            times = numboxes)
+state <- c(CONC = CONC)
+
+times <- seq(0, 20, by = 1)
+out <- ode.1D(state, times, Hydrogel, parms = 0, nspec = 1, 
+              names = "Hydrogel")
+
