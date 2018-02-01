@@ -168,7 +168,6 @@ matplot.1D(out, grid = Distance, type = "l", mfrow = NULL,
 plot.1D(out, grid = Distance, type = "l", mfrow = NULL, subset = time == 100, 
         obs = data, obspar = list(pch = 18, cex = 2, col = "red"))
 
-
 # deSolve and Fu, von Recum -----------------------------------------------
 
 # Let's start by trying to model concentratino of free ligand in 
@@ -183,23 +182,73 @@ plot.1D(out, grid = Distance, type = "l", mfrow = NULL, subset = time == 100,
 Hydrogel <- function(t, CONC, parameters){
   deltac <- c(0.5, rep(1, numboxes - 1), 0.5)
   Flux <- D*diff(c(0, CONC, 0)) / deltac
+  Rb <- k1*CONC*(cd.total - COMP) - k2*COMP
+  dCOMP <- Rb
   dCONC <- diff(Flux) / delx - Rb
   
   list(dCONC)
 }
 # Model parameters
 D <- 0.2 # Diffusion rate
-Rb <- 0.1 # net binding rate
+k1 <- 1.01218 # kon, or koff^-1
+k2 <- 0.98796 # koff, or kon^-1
+cd.total <- 0.4
 delx <- 1 # thickness of boxes
 numboxes <- 50
 Distance <- seq(from = 0.5, by = delx, length.out = numboxes) # for image(out)
 
 # Initial conditions
-CONC <- rep(0.1, # concentration at equilibrium
+CONC <- rep(0.5, # concentration  of ligand/drug at equilibrium
+            times = numboxes)
+COMP <- rep(0.5, # concentration of complexes @ equilibrium
             times = numboxes)
 state <- c(CONC = CONC)
 
 times <- seq(0, 20, by = 1)
 out <- ode.1D(state, times, Hydrogel, parms = 0, nspec = 1, 
               names = "Hydrogel")
+image(out, grid = Distance)
 
+hydrogel.mod <- function(t, state, parms, N, rr, ri, dr, dri) {
+  with (as.list(parms), 
+        {
+          DRUG <- state[1:N] # ligand/drug concentration
+          CD <- state[(N+1):(2*N)] # complexed CD
+          
+          # Fluxes due to diffusion
+          # Only a flux for drug b/c CD remains stationary
+          FluxDrug <- D * diff(c(DRUG[1], DRUG, DRUG[N])) / dri
+          
+          # Rb = net binding rate
+          Rb <- k1 * DRUG * (cd.total - CD) - k2 * CD
+          
+          dDRUG <- diff(ri * FluxDrug)/rr/dr - Rb
+          dCD <- Rb
+          
+          return(list(c(dDRUG, dCD)))
+        })
+}
+
+R <- 20 # radius of surface
+N <- 100 # number of layers
+dr <- R/N # thickness of each layer
+r <- seq(dr/2, by = dr, len = N) # distance of center to mid-layer
+ri <- seq (0, by = dr, len = N+1) # distance to layer interface
+dri <- dr # dispersion distances
+parms <- c(D = 0.05, k1 = 0.5, k2 = 2, cd.total = 1)
+
+# Distance <- seq(from = 0.5, by = delx, length.out = numboxes)
+
+state <- rep(0, 2 * N)
+state[1] <- state[N+1] <- 0.1
+
+times <- seq(0, 10, by = 1)
+
+out <- ode.1D(y = state, times = times, func = hydrogel.mod, parms = parms, nspec = 2, names = c("DRUG", "CD"), 
+              N = N, rr = r, ri = ri, dr = dr, dri = dri)
+
+DRUG  <- out[, 2:9]
+
+filled.contour(x = times, y = c(1:8), DRUG, color = topo.colors,
+               xlab = "time, days", ylab = "Distance",
+               main = "Drug concentration")
