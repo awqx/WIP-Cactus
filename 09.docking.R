@@ -1,5 +1,5 @@
 # Importing data from PyRx and comparing with experimental results
-# setwd("~/SREP LAB/docking")
+# setwd("~/docking")
 
 # Libraries and Packages --------------------------------------------------
 
@@ -19,7 +19,11 @@ kcal.to.kj <- function(kcal)
 # Data Cleaning -----------------------------------------------------------
 
 # Experimental data
-df <- readRDS("~/SREP LAB/qsar/padel.pp.new.RDS") %>%
+# Of course, paths will be different for any machine
+df <- readRDS(
+  # "~/SREP LAB/qsar/padel.pp.new.RDS"
+  "~/padel.pp.new.RDS"
+  ) %>%
   select(guest:DelG)
     # Sorting into alpha, beta, and gamma-cd
 a.df <- df %>% filter(host == "alpha") %>% select(-host)
@@ -29,7 +33,7 @@ c.df <- df %>% filter(host == "gamma") %>% select(-host)
 # PyRx docking data
     # Alpha
     # Because PyRx crashes so much, the results are split in several files
-
+setwd("~/SREP LAB/docking")
 a.1 <- read.csv("./results/2017-12-22 alpha-cd docking affinity 1.csv")
 a.2 <- read.csv("./results/2017-12-22 alpha-cd docking affinity 2.csv")
 a.docking <- rbind(a.1, a.2) %>%
@@ -130,3 +134,25 @@ ggplot(all.data, aes(x = obs, y = pred, color = host)) +
   labs(x = "Experimental DelG", y = "PyRx (Docking) DelG", 
        title = "Cyclodextrin Docking Calculations")
 ggsave("./graphs/2017-12-22 cd docking.png")
+
+# Creating a thematically consistent graph for a poster
+font_import(pattern = "[B/b]ahnschrift")
+loadfonts(device = "win")
+
+theme.2018 <- theme(
+  plot.background = element_rect(fill = "#EFF0F5", color = NA), 
+  panel.grid.major = element_line(color = "lightgray"),
+  panel.background = element_rect(fill = "white", color = "lightgray"), 
+  legend.background = element_rect(fill = "#EFF0F5"),
+  legend.key = element_rect(fill = "#EFF0F5", color = NA),
+  text = element_text(size = 16, family = "Bahnschrift")
+)
+ggplot(all.data, aes(x = obs, y = pred, color = host)) +
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0, color = "maroon") +
+  theme.2018 + 
+  coord_fixed(xlim = c(-45,5), ylim = c(-45, 5)) +
+  labs(x = "Experimental DelG", y = "PyRx (Docking) DelG", 
+       title = "Docking Calculations",
+       color = "CD Type")
+ggsave("./graphs/2018-02-10 cd docking.png", scale = 1, dpi = 600)
