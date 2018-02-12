@@ -468,17 +468,6 @@ ggplot(poly.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
        color = "Cyclodextrin")
 ggsave("./graphs/svm/2017-07-28 polysvm compiled.png")
 
-# ggplot(poly.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
-#   geom_point() + 
-#   geom_abline(slope = 1, intercept = 0) + 
-#   theme.2018 + 
-#   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-#   labs(title = "Polynomial SVM - Compiled CD Types", 
-#        x = "Observed DelG, kJ/mol", 
-#        y = "Predicted DelG, kJ/mol", 
-#        color = "CD Type")
-# ggsave("./graphs/svm/2018-02-11 polysvm compiled.png", dpi = 600)
-
 ggplot(poly.abc.tst, aes(x = pred, y = obs, color = cd.type)) +
   geom_point() + 
   coord_fixed() + 

@@ -1,5 +1,5 @@
 # Importing data from PyRx and comparing with experimental results
-# setwd("~/docking")
+# setwd("~/SREP LAB/docking")
 
 # Libraries and Packages --------------------------------------------------
 
@@ -94,6 +94,7 @@ b.temp <- b.data %>% mutate(host = "beta")
 c.temp <- c.data %>% mutate(host = "gamma")
 all.data <- rbind(a.temp, b.temp, c.temp) %>% group_by(host)
 defaultSummary(as.data.frame(all.data)) #R2 = 0.1759711
+saveRDS(all.data, "./docking data.RDS")
 
 # Graphs ------------------------------------------------------------------
 
@@ -134,25 +135,3 @@ ggplot(all.data, aes(x = obs, y = pred, color = host)) +
   labs(x = "Experimental DelG", y = "PyRx (Docking) DelG", 
        title = "Cyclodextrin Docking Calculations")
 ggsave("./graphs/2017-12-22 cd docking.png")
-
-# Creating a thematically consistent graph for a poster
-font_import(pattern = "[B/b]ahnschrift")
-loadfonts(device = "win")
-
-theme.2018 <- theme(
-  plot.background = element_rect(fill = "#EFF0F5", color = NA), 
-  panel.grid.major = element_line(color = "lightgray"),
-  panel.background = element_rect(fill = "white", color = "lightgray"), 
-  legend.background = element_rect(fill = "#EFF0F5"),
-  legend.key = element_rect(fill = "#EFF0F5", color = NA),
-  text = element_text(size = 16, family = "Bahnschrift")
-)
-ggplot(all.data, aes(x = obs, y = pred, color = host)) +
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0, color = "maroon") +
-  theme.2018 + 
-  coord_fixed(xlim = c(-45,5), ylim = c(-45, 5)) +
-  labs(x = "Experimental DelG", y = "PyRx (Docking) DelG", 
-       title = "Docking Calculations",
-       color = "CD Type")
-ggsave("./graphs/2018-02-10 cd docking.png", scale = 1, dpi = 600)
