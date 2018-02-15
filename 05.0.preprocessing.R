@@ -8,7 +8,7 @@ library(tidyverse)
 
 # Pre-processing and cleaning ---------------------------------------------
 
-setwd("~/SREP LAB/qsar")
+# setwd("~/SREP LAB/qsar")
 padel <- readRDS("./molecules/descriptors/all.padel.RDS") # prev: 04.all.padel
 # Removing predictors with near zero variance - 1302 predictors
 zero.pred <- nearZeroVar(padel)
@@ -38,7 +38,7 @@ padel.temp <- do.call(data.frame,lapply(padel.split2,
                                         function(x) replace(x, is.infinite(x),NA)))
 pp.settings <- preProcess(padel.temp, na.remove = T, 
                           method = c("knnImpute", "center", "scale"))
-saveRDS(pp.settings, "preprocess.settings.RDS")
+saveRDS(pp.settings, "./preprocess.settings.RDS")
 padel.pp <- predict(pp.settings, padel.temp)
 
 # padel.pp1 <- preProcess(padel.pp, method = "BoxCox") %>%
