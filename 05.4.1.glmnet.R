@@ -15,7 +15,7 @@ df <- df.raw %>% select(-guest:-host) %>%
 # mat <- sparse.model.matrix(~., df)
 mat <- as.matrix(df)
 
-set.seed(25)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(mat), 
                   size = round(0.7 * nrow(mat)))
 trn.x <- mat[trn.ind, -1]
@@ -44,7 +44,7 @@ defaultSummary(glm.df) # 0.505
 
 alpha <- df %>% filter(alpha > 0) %>%
   as.matrix()
-set.seed(25)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(alpha), 
                   size = round(0.7 * nrow(alpha)))
 a.trn.x <- alpha[trn.ind, -1]
@@ -52,23 +52,29 @@ a.trn.y <- alpha[trn.ind, 1]
 a.tst.x <- alpha[-trn.ind, -1]
 a.tst.y <- alpha[-trn.ind, 1]
 
-glm.alpha <- glmnet(x = a.trn.x, y = a.trn.y, 
+glm.a <- glmnet(x = a.trn.x, y = a.trn.y, 
                     dfmax = 32, 
                     alpha = 1, 
                     family = "mgaussian")
-glm.alpha.df <- predict.glmnet(glm.alpha, a.tst.x, 
-                         s = tail(glm.alpha$lambda, n = 1)) %>%
+glm.a.tst <- predict.glmnet(glm., a.tst.x, 
+                         s = tail(glm.a$lambda, n = 1)) %>%
   cbind(a.tst.y) %>% data.frame() %>%
   dplyr::rename(., pred = X1, obs = a.tst.y)  %>%
   mutate(resid = pred - obs)
+glm.a.trn <- predict.glmnet(glm.a, a.trn.x, 
+                               s = tail(glm.a$lambda, n = 1)) %>%
+  cbind(a.trn.y) %>% data.frame() %>%
+  dplyr::rename(., pred = X1, obs = a.trn.y)  %>%
+  mutate(resid = pred - obs)
 
-defaultSummary(glm.alpha.df) # 0.473
+defaultSummary(glm.a.tst) # 0.473
+defaultSummary(glm.a.trn) # 0.725
 
 #     Beta-CD -------------------------------------------------------------
 
 beta <- df %>% filter(beta > 0) %>%
   as.matrix()
-set.seed(25)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(beta), 
                   size = round(0.7 * nrow(beta)))
 b.trn.x <- beta[trn.ind, -1]
@@ -76,23 +82,29 @@ b.trn.y <- beta[trn.ind, 1]
 b.tst.x <- beta[-trn.ind, -1]
 b.tst.y <- beta[-trn.ind, 1]
 
-glm.beta <- glmnet(x = b.trn.x, y = b.trn.y, 
-                    dfmax = 32, 
-                    alpha = 1, 
-                    family = "mgaussian")
-glm.beta.df <- predict.glmnet(glm.beta, b.tst.x, 
-                               s = tail(glm.beta$lambda, n = 1)) %>%
+glm.b <- glmnet(x = b.trn.x, y = b.trn.y, 
+                dfmax = 32, 
+                alpha = 1, 
+                family = "mgaussian")
+glm.b.tst <- predict.glmnet(glm.b, b.tst.x, 
+                            s = tail(glm.b$lambda, n = 1)) %>%
   cbind(b.tst.y) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = b.tst.y) %>%
+  dplyr::rename(., pred = X1, obs = b.tst.y)  %>%
+  mutate(resid = pred - obs)
+glm.b.trn <- predict.glmnet(glm.b, b.trn.x, 
+                            s = tail(glm.b$lambda, n = 1)) %>%
+  cbind(b.trn.y) %>% data.frame() %>%
+  dplyr::rename(., pred = X1, obs = b.trn.y)  %>%
   mutate(resid = pred - obs)
 
-defaultSummary(glm.beta.df) # 0.718
+defaultSummary(glm.b.tst) # 0.744
+defaultSummary(glm.b.trn) # 0.774
 
 #     Gamma-CD ------------------------------------------------------------
 
 gamma <- df %>% filter(gamma > 0) %>%
   as.matrix()
-set.seed(25)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(gamma), 
                   size = round(0.7 * nrow(gamma)))
 c.trn.x <- gamma[trn.ind, -1]
@@ -100,30 +112,58 @@ c.trn.y <- gamma[trn.ind, 1]
 c.tst.x <- gamma[-trn.ind, -1]
 c.tst.y <- gamma[-trn.ind, 1]
 
-glm.gamma <- glmnet(x = c.trn.x, y = c.trn.y, 
-                   dfmax = 32, 
-                   alpha = 1, 
-                   family = "mgaussian")
-glm.gamma.df <- predict.glmnet(glm.gamma, c.tst.x, 
-                              s = tail(glm.gamma$lambda, n = 1)) %>%
+glm.c <- glmnet(x = c.trn.x, y = c.trn.y, 
+                dfmax = 32, 
+                alpha = 1, 
+                family = "mgaussian")
+glm.c.tst <- predict.glmnet(glm.c, c.tst.x, 
+                            s = tail(glm.c$lambda, n = 1)) %>%
   cbind(c.tst.y) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = c.tst.y) %>%
+  dplyr::rename(., pred = X1, obs = c.tst.y)  %>%
+  mutate(resid = pred - obs)
+glm.c.trn <- predict.glmnet(glm.c, c.trn.x, 
+                            s = tail(glm.c$lambda, n = 1)) %>%
+  cbind(c.trn.y) %>% data.frame() %>%
+  dplyr::rename(., pred = X1, obs = c.trn.y)  %>%
   mutate(resid = pred - obs)
 
-defaultSummary(glm.gamma.df) # 0.345
+defaultSummary(glm.c.tst) # 0.769
+defaultSummary(glm.c.trn) # 0.9997
 
 #     Compiled CDs --------------------------------------------------------
 
-temp.a <- glm.alpha.df %>% 
-  mutate(cd.type = rep("alpha", length(glm.alpha.df$pred)))
-temp.b <- glm.beta.df %>% 
-  mutate(cd.type = rep("beta", length(glm.beta.df$pred)))
-temp.c <- glm.gamma.df %>% 
-  mutate(cd.type = rep("gamma", length(glm.gamma.df$pred)))
+temp.a <- glm.a.tst %>% 
+  mutate(cd.type = "alpha")
+temp.b <- glm.b.tst %>% 
+  mutate(cd.type = "beta")
+temp.c <- glm.c.tst %>% 
+  mutate(cd.type = "gamma")
 glm.abc.tst <- rbind(temp.a, temp.b, temp.c, 
                      make.row.names = F) %>%
   mutate(residual = pred - obs)
-defaultSummary(glm.abc.tst)
+
+temp.a <- glm.a.trn %>% 
+  mutate(cd.type = "alpha")
+temp.b <- glm.b.trn %>% 
+  mutate(cd.type = "beta")
+temp.c <- glm.c.trn %>% 
+  mutate(cd.type = "gamma")
+glm.abc.trn <- rbind(temp.a, temp.b, temp.c, 
+                     make.row.names = F) %>%
+  mutate(residual = pred - obs)
+
+defaultSummary(glm.abc.tst) # 0.625
+defaultSummary(glm.abc.trn) # 0.788
+
+# Saving Models -----------------------------------------------------------
+
+dir.create("./models/glmnet")
+saveRDS(glm.a, "./models/glmnet/glm.alpha.RDS")
+saveRDS(glm.b, "./models/glmnet/glm.beta.RDS")
+saveRDS(glm.c, "./models/glmnet/glm.gamma.RDS")
+
+saveRDS(glm.abc.tst, "./models/glmnet/glmnet.tst.results.RDS")
+saveRDS(glm.abc.trn, "./models/glmnet/glmnet.trn.results.RDS")
 
 # Graphs ------------------------------------------------------------------
 

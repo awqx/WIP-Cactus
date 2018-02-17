@@ -12,7 +12,7 @@ df <- readRDS("./padel.pp.new.RDS") %>%
   select(-data.source)
 mat <- df %>% as.matrix()
 
-set.seed(2)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(mat), size = round(0.7 * nrow(mat)))
 trn <- mat[trn.ind, ]
 trn.x <- mat[trn.ind, -1]
@@ -46,7 +46,7 @@ defaultSummary(rf.trn.df) # 0.950
 
 alpha <- df %>% filter(alpha > 0) %>% as.matrix()
 
-set.seed(2)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(alpha), size = round(0.7 * nrow(alpha)))
 a.trn.x <- alpha[trn.ind, -1]
 a.trn.y <- alpha[trn.ind, 1]
@@ -72,14 +72,14 @@ rf.trn.a <- predict(rf.alpha, a.trn.x) %>%
   dplyr::rename(., pred = `.`, obs = a.trn.y) %>%
   mutate(trn.resid = obs - pred)
 
-defaultSummary(rf.tst.a) # 0.541
-defaultSummary(rf.trn.a) # 0.957
+defaultSummary(rf.tst.a) # 0.644
+defaultSummary(rf.trn.a) # 0.955
 
 #     Beta-CD -------------------------------------------------------------
 
 beta <- df %>% filter(beta > 0) %>% as.matrix()
 
-set.seed(2)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(beta), size = round(0.7 * nrow(beta)))
 b.trn.x <- beta[trn.ind, -1]
 b.trn.y <- beta[trn.ind, 1]
@@ -105,14 +105,14 @@ rf.trn.b <- predict(rf.beta, b.trn.x) %>%
   dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
   mutate(trn.resid = obs - pred)
 
-defaultSummary(rf.tst.b) # 0.750
-defaultSummary(rf.trn.b) # 0.959
+defaultSummary(rf.tst.b) # 0.697
+defaultSummary(rf.trn.b) # 0.960
 
 #     Gamma-CD ------------------------------------------------------------
 
 gamma <- df %>% filter(gamma > 0) %>% as.matrix()
 
-set.seed(2)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(gamma), size = round(0.7 * nrow(gamma)))
 c.trn.x <- gamma[trn.ind, -1]
 c.trn.y <- gamma[trn.ind, 1]
@@ -138,8 +138,8 @@ rf.trn.c <- predict(rf.gamma, c.trn.x) %>%
   dplyr::rename(., pred = `.`, obs = c.trn.y) %>%
   mutate(trn.resid = obs - pred)
 
-defaultSummary(rf.tst.c) # 0.634
-defaultSummary(rf.trn.c) # 0.980
+defaultSummary(rf.tst.c) # 0.270
+defaultSummary(rf.trn.c) # 0.965
 
 #     Compiled CDs --------------------------------------------------------
 
@@ -161,11 +161,12 @@ temp.c <- rf.trn.c %>%
 rf.abc.trn <- rbind(temp.a, temp.b, temp.c, 
                     make.row.names = F)
 
-defaultSummary(rf.abc.tst) # 0.700
-defaultSummary(rf.abc.trn) # 0.960
+defaultSummary(rf.abc.tst) # 0.680
+defaultSummary(rf.abc.trn) # 0.958
 
 # Saving Data -------------------------------------------------------------
 
+dir.create("./models/rforest")
 saveRDS(rf.alpha, "./models/rforest/rf.alpha.RDS")
 saveRDS(rf.beta, "./models/rforest/rf.beta.RDS")
 saveRDS(rf.gamma, "./models/rforest/rf.gamma.RDS")
@@ -175,7 +176,6 @@ saveRDS(rf.abc.trn, "./models/rforest/rf.trn.results.RDS")
 
 # Graphs ------------------------------------------------------------------
 
-dir.create("./graphs")
 dir.create("./graphs/rforest")
 
 #     Test Data -----------------------------------------------------------

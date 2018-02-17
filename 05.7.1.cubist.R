@@ -7,14 +7,12 @@ library(tidyverse)
 # Loading Data ------------------------------------------------------------
 
 # setwd("~/SREP LAB/qsar")
-dir.create("./models/cubist")
-
 df.raw <- readRDS("./padel.pp.new.RDS")
 df <- df.raw %>% select(-guest:-host) %>%
   select(-data.source)
 mat <- as.matrix(df)
 
-set.seed(12)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(mat), 
                   size = round(0.7 * nrow(mat)))
 trn.x <- mat[trn.ind, -1]
@@ -25,7 +23,7 @@ tst.y <- mat[-trn.ind, 1]
 
 # All Predictors ----------------------------------------------------------
 ctrl <- cubistControl(
-  seed = 12, 
+  seed = 10, 
   sample = 75
 )
 
@@ -47,7 +45,7 @@ saveRDS(cube, "./models/cubist/cube.all.RDS")
 #     Alpha-CD ------------------------------------------------------------
 
 alpha <- df %>% filter(alpha > 0) %>% as.matrix()
-set.seed(12)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(alpha), 
                   size = round(0.7 * nrow(alpha)))
 a.trn.x <- alpha[trn.ind, -1]
@@ -55,25 +53,25 @@ a.trn.y <- alpha[trn.ind, 1]
 a.tst.x <- alpha[-trn.ind, -1]
 a.tst.y <- alpha[-trn.ind, 1]
 
-cube.alpha <- cubist(a.trn.x, a.trn.y, 
+cube.a <- cubist(a.trn.x, a.trn.y, 
                control = ctrl, 
                committees = 90)
-alpha.tst <- predict(cube.alpha, a.tst.x) %>%
+cube.a.tst <- predict(cube.a, a.tst.x) %>%
   cbind(a.tst.y) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = a.tst.y)
-alpha.trn <- predict(cube.alpha, a.trn.x) %>%
+cube.a.trn <- predict(cube.a, a.trn.x) %>%
   cbind(a.trn.y) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = a.trn.y)
 
-defaultSummary(alpha.tst) # 0.619
-saveRDS(cube.alpha, "./models/cubist/cube.alpha.RDS")
+defaultSummary(cube.a.tst) # 0.601
+defaultSummary(cube.a.trn) # 0.997
 
 #     Beta-CD ------------------------------------------------------------
 
 beta <- df %>% filter(beta > 0) %>% as.matrix()
-set.seed(13)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(beta), 
                   size = round(0.7 * nrow(beta)))
 b.trn.x <- beta[trn.ind, -1]
@@ -81,25 +79,25 @@ b.trn.y <- beta[trn.ind, 1]
 b.tst.x <- beta[-trn.ind, -1]
 b.tst.y <- beta[-trn.ind, 1]
 
-cube.beta <- cubist(b.trn.x, b.trn.y, 
+cube.b <- cubist(b.trn.x, b.trn.y, 
                      control = ctrl, 
                      committees = 90)
-beta.tst <- predict(cube.beta, b.tst.x) %>%
+cube.b.tst <- predict(cube.b, b.tst.x) %>%
   cbind(b.tst.y) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = b.tst.y)
-beta.trn <- predict(cube.beta, b.trn.x) %>%
+cube.b.trn <- predict(cube.b, b.trn.x) %>%
   cbind(b.trn.y) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = b.trn.y)
 
-defaultSummary(beta.tst) # 0.771
-saveRDS(cube.beta, "./models/cubist/cube.beta.RDS")
+defaultSummary(cube.b.tst) # 0.701
+defaultSummary(cube.b.trn) # 0.999
 
 # Gamma-CD ----------------------------------------------------------------
 
 gamma <- df %>% filter(gamma > 0) %>% as.matrix()
-set.seed(13)
+set.seed(10)
 trn.ind <- sample(x = 1:nrow(gamma), 
                   size = round(0.7 * nrow(gamma)))
 c.trn.x <- gamma[trn.ind, -1]
@@ -107,46 +105,54 @@ c.trn.y <- gamma[trn.ind, 1]
 c.tst.x <- gamma[-trn.ind, -1]
 c.tst.y <- gamma[-trn.ind, 1]
 
-cube.gamma <- cubist(c.trn.x, c.trn.y, 
+cube.c <- cubist(c.trn.x, c.trn.y, 
                     control = ctrl, 
-                    committees = 90)
-gamma.tst <- predict(cube.gamma, c.tst.x) %>%
+                    committees = 70)
+cube.c.tst <- predict(cube.c, c.tst.x) %>%
   cbind(c.tst.y) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = c.tst.y)
-gamma.trn <- predict(cube.gamma, c.trn.x) %>%
+cube.c.trn <- predict(cube.c, c.trn.x) %>%
   cbind(c.trn.y) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = c.trn.y)
 
-defaultSummary(gamma.tst) # 0.665
-saveRDS(cube.gamma, "./models/cubist/cube.gamma.RDS")
+defaultSummary(cube.c.tst) # 0.332
+defaultSummary(cube.c.trn) # 1.000
 
 #     Compiled CDs --------------------------------------------------------
 
-temp.a <- alpha.tst %>% 
+temp.a <- cube.a.tst %>% 
   mutate(cd.type = "alpha")
-temp.b <- beta.tst %>% 
+temp.b <- cube.b.tst %>% 
   mutate(cd.type = "beta")
-temp.c <- gamma.tst %>% 
+temp.c <- cube.c.tst %>% 
   mutate(cd.type = "gamma")
 cube.abc.tst <- rbind(temp.a, temp.b, temp.c, 
                      make.row.names = F) %>%
   mutate(residual = pred - obs)
-defaultSummary(cube.abc.tst) # 0.726 - 0.695
-saveRDS(cube.abc.tst, "./models/cubist/compiled.results.RDS")
+defaultSummary(cube.abc.tst) # 0.622
 
-temp.a <- alpha.trn %>% 
+temp.a <- cube.a.trn %>% 
   mutate(cd.type = "alpha")
-temp.b <- beta.trn %>% 
+temp.b <- cube.b.trn %>% 
   mutate(cd.type = "beta")
-temp.c <- gamma.trn %>% 
+temp.c <- cube.c.trn %>% 
   mutate(cd.type = "gamma")
 cube.abc.trn <- rbind(temp.a, temp.b, temp.c, 
                       make.row.names = F) %>%
   mutate(residual = pred - obs)
-defaultSummary(cube.abc.trn) # 0.926
-saveRDS(cube.abc.trn, "./models/cubist/compiled.results.trn.RDS")
+defaultSummary(cube.abc.trn) # 0.998
+
+# Saving Models -----------------------------------------------------------
+
+dir.create("./models/cubist")
+saveRDS(cube.a, "./models/cubist/cubist.alpha.RDS")
+saveRDS(cube.b, "./models/cubist/cubist.beta.RDS")
+saveRDS(cube.c, "./models/cubist/cubist.gamma.RDS")
+
+saveRDS(cube.abc.tst, "./models/cubist/cubist.results.RDS")
+saveRDS(cube.abc.trn, "./models/cubist/cubist.trn.results.RDS")
 
 # Graphs ------------------------------------------------------------------
 

@@ -42,12 +42,13 @@ pls.tst <- predict(pls, ncomp = 11, newdata = tst) %>%
   cbind(tst[ , 1]) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = V2)
-defaultSummary(pls.tst) # R-squared = 0.654
 
 pls.trn <- predict(pls, ncomp = 11, newdata = trn) %>%
   cbind(trn[ , 1]) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = V2)
+
+defaultSummary(pls.tst) # R-squared = 0.654
 defaultSummary(pls.trn) # R-squared = 0.758
 
 saveRDS(pls, "./models/pls/pls.all.RDS")
@@ -73,7 +74,13 @@ pls.tst.a <- predict(pls.alpha, ncomp = 4, newdata = a.tst) %>%
   cbind(a.tst[ , 1]) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = V2)
+pls.trn.a <- predict(pls.alpha, ncomp = 4, newdata = a.trn) %>%
+  cbind(a.trn[ , 1]) %>%
+  data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2)
+
 defaultSummary(pls.tst.a) # R-squared = 0.566
+defaultSummary(pls.trn.a) # 0.736
 
 #     Beta-CD -------------------------------------------------------------
 
@@ -94,9 +101,13 @@ pls.tst.b <- predict(pls.beta, ncomp = 4, newdata = b.tst) %>%
   cbind(b.tst[ , 1]) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = V2)
-defaultSummary(pls.tst.b) # R-squared = 0.755
+pls.trn.b <- predict(pls.beta, ncomp = 4, newdata = b.trn) %>%
+  cbind(b.trn[ , 1]) %>%
+  data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2)
 
-saveRDS(pls.beta, "./models/pls/pls.beta.RDS")
+defaultSummary(pls.tst.b) # R-squared = 0.755
+defaultSummary(pls.trn.b) # R-squared = 0.767
 
 # Gamma-CD ----------------------------------------------------------------
 
@@ -117,7 +128,13 @@ pls.tst.c <- predict(pls.gamma, ncomp = 5, newdata = c.tst) %>%
   cbind(c.tst[ , 1]) %>%
   data.frame() %>%
   dplyr::rename(., pred = `.`, obs = V2)
+pls.trn.c <- predict(pls.gamma, ncomp = 5, newdata = c.trn) %>%
+  cbind(c.trn[ , 1]) %>%
+  data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2)
+
 defaultSummary(pls.tst.c) # R-squared = 0.319
+defaultSummary(pls.trn.c) # R-squared = 0.998
 
 #     Compiled-CD ---------------------------------------------------------
 
@@ -127,19 +144,28 @@ temp.c <- pls.tst.c %>% mutate(cd.type = "gamma")
 pls.abc.tst <- rbind(temp.a, temp.b, temp.c, 
                      make.row.names = F) %>%
   mutate(residual = pred - obs)
-defaultSummary(glm.abc.tst) # 0.708
+defaultSummary(pls.abc.tst) # 0.684
 
-ggplot(pls.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1)
+temp.a <- pls.trn.a %>% mutate(cd.type = "alpha")
+temp.b <- pls.trn.b %>% mutate(cd.type = "beta")
+temp.c <- pls.trn.c %>% mutate(cd.type = "gamma")
+pls.abc.trn <- rbind(temp.a, temp.b, temp.c, 
+                     make.row.names = F) %>%
+  mutate(residual = pred - obs)
+
+# ggplot(pls.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
+#   geom_point() + 
+#   geom_abline(intercept = 0, slope = 1)
 
 # Saving Models -----------------------------------------------------------
 
+dir.create("./models/pls")
 saveRDS(pls.alpha, "./models/pls/pls.alpha.RDS")
-saveRDS(pls.beta, "./models/pls/pls.beta2.RDS")
+saveRDS(pls.beta, "./models/pls/pls.beta.RDS")
 saveRDS(pls.gamma, "./models/pls/pls.gamma.RDS")
 
 saveRDS(pls.abc.tst, "./models/pls/pls.results.RDS")
+saveRDS(pls.abc.trn, "./models/pls/pls.trn.results.RDS")
 
 # External Validation -----------------------------------------------------
 
