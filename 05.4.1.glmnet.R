@@ -56,7 +56,7 @@ glm.a <- glmnet(x = a.trn.x, y = a.trn.y,
                     dfmax = 32, 
                     alpha = 1, 
                     family = "mgaussian")
-glm.a.tst <- predict.glmnet(glm., a.tst.x, 
+glm.a.tst <- predict.glmnet(glm.a, a.tst.x, 
                          s = tail(glm.a$lambda, n = 1)) %>%
   cbind(a.tst.y) %>% data.frame() %>%
   dplyr::rename(., pred = X1, obs = a.tst.y)  %>%
@@ -67,7 +67,7 @@ glm.a.trn <- predict.glmnet(glm.a, a.trn.x,
   dplyr::rename(., pred = X1, obs = a.trn.y)  %>%
   mutate(resid = pred - obs)
 
-defaultSummary(glm.a.tst) # 0.473
+defaultSummary(glm.a.tst) # 0.506
 defaultSummary(glm.a.trn) # 0.725
 
 #     Beta-CD -------------------------------------------------------------
