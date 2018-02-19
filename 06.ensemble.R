@@ -75,21 +75,144 @@ ext.val.a <- ext.val %>% filter(alpha > 0)
 ext.val.b <- ext.val %>% filter(beta > 0)
 ext.val.c <- ext.val %>% filter(gamma > 0) 
 
+# Alpha-CD
+
+ctrl <- cubistControl(
+  seed = 10, 
+  sample = 75
+)
+
+ev.a.cube <- predict(cube.a, ext.val.a[ , -1]) %>%
+  cbind(ext.val.a[ , 1]) %>%
+  data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "Cubist")
+
 ev.a.glm <-  predict.glmnet(glm.a, as.matrix(ext.val.a[ , -1]), 
                         s = tail(glm.a$lambda, n = 1)) %>%
   cbind(as.matrix(ext.val.a[ , 1])) %>% data.frame() %>%
-  dplyr::rename(pred.glm = X1, obs = V2) %>%
+  dplyr::rename(pred = X1, obs = V2) %>%
   mutate(model = "GLMNet")
 
-ev.a.rf <-  predict(rf.a, ext.val.a[ , -1]) %>%
+ev.a.pls <- predict(pls.a, ncomp = 4, newdata = ext.val.a[ , -1]) %>%
+  cbind(ext.val.a[ , 1]) %>%
+  data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "PLS")
+
+ev.a.rf <-predict(rf.a, ext.val.a[ , -1]) %>%
   cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred.rf = `.`, obs = V2) %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
   mutate(model = "Random Forest")
 
-ev.a <- cbind(ev.a.glm, ev.a.rf)
+ev.a.svm <- predict(svm.a, ext.val.a[ , -1]) %>%
+  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "SVM")
+
+ev.a <- rbind(ev.a.cube, ev.a.glm, ev.a.pls, ev.a.rf, ev.a.svm)
+ev.a.avg <- ev.a %>% data.table(key = "obs")
+ev.a.avg <- ev.a.avg[ , list(pred = mean(pred)), by = "obs"]
+
+defaultSummary(ev.a.avg[ -1, ])
+
+# Beta-CD
+
+ev.b.cube <- predict(cube.b, ext.val.b[ , -1]) %>%
+  cbind(ext.val.b[ , 1]) %>%
+  data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "Cubist")
+
+ev.b.glm <-  predict.glmnet(glm.b, as.matrix(ext.val.b[ , -1]), 
+                            s = tail(glm.b$lambda, n = 1)) %>%
+  cbind(as.matrix(ext.val.b[ , 1])) %>% data.frame() %>%
+  dplyr::rename(pred = X1, obs = V2) %>%
+  mutate(model = "GLMNet")
+
+ev.b.pls <- predict(pls.b, ncomp = 4, newdata = ext.val.b[ , -1]) %>%
+  cbind(ext.val.b[ , 1]) %>%
+  data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "PLS")
+
+ev.b.rf <-predict(rf.b, ext.val.b[ , -1]) %>%
+  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "Random Forest")
+
+ev.b.svm <- predict(svm.b, ext.val.b[ , -1]) %>%
+  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "SVM")
+
+ev.b <- rbind(ev.b.cube, ev.b.glm, ev.b.pls, ev.b.rf, ev.b.svm)
+ev.b.avg <- ev.b %>% data.table(key = "obs")
+ev.b.avg <- ev.b.avg[ , list(pred = mean(pred)), by = "obs"]
+
+defaultSummary(ev.b.avg)
+
+# Gamma-CD
+ev.c.cube <- predict(cube.c, ext.val.c[ , -1]) %>%
+  cbind(ext.val.c[ , 1]) %>%
+  data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "Cubist")
+
+ev.c.glm <-  predict.glmnet(glm.c, as.matrix(ext.val.c[ , -1]), 
+                            s = tail(glm.c$lambda, n = 1)) %>%
+  cbind(as.matrix(ext.val.c[ , 1])) %>% data.frame() %>%
+  dplyr::rename(pred = X1, obs = V2) %>%
+  mutate(model = "GLMNet")
+
+ev.c.pls <- predict(pls.c, ncomp = 4, newdata = ext.val.c[ , -1]) %>%
+  cbind(ext.val.c[ , 1]) %>%
+  data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "PLS")
+
+ev.c.rf <-predict(rf.c, ext.val.c[ , -1]) %>%
+  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "Random Forest")
+
+ev.c.svm <- predict(svm.c, ext.val.c[ , -1]) %>%
+  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
+  dplyr::rename(., pred = `.`, obs = V2) %>%
+  mutate(model = "SVM")
+
+ev.c <- rbind(ev.c.cube, ev.c.glm, ev.c.pls, ev.c.rf, ev.c.svm)
+ev.c.avg <- ev.c %>% data.table(key = "obs")
+ev.c.avg <- ev.c.avg[ , list(pred = mean(pred)), by = "obs"]
+
+defaultSummary(ev.c.avg)
+
+# Combining CD
+temp.a <- ev.a.avg %>% mutate(cd.type = "alpha") 
+temp.b <- ev.b.avg %>% mutate(cd.type = "beta")
+temp.c <- ev.c.avg %>% mutate(cd.type = "gamma")
+
+ev.abc <- rbind(temp.a, temp.b, temp.c)
+defaultSummary(ev.abc)
 
 # Graphing ----------------------------------------------------------------
 
-ggplot(ev.a.glm, aes(x = obs, y = pred.glm)) +
+ggplot(ev.a, aes(x = obs, y = pred, color = model)) +
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  facet_grid(~model)
+ggplot(ev.a.avg, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0)
+
+ggplot(ev.b, aes(x = obs, y = pred, color = model)) +
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) + 
+  facet_grid(~model)
+ggplot(ev.b.avg, aes(x = obs, y = pred)) +
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) 
+
+ggplot(ev.abc, aes(x = obs, y = pred, shape = cd.type, color = cd.type)) + 
   geom_point() + 
   geom_abline(slope = 1, intercept = 0)
