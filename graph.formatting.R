@@ -1,10 +1,6 @@
 # Creating visually consistent graphs for posters, slides, etc.
 # setwd("~/SREP LAB/qsar")
-
-# Libraries and Packages --------------------------------------------------
-
-library(extrafont)
-library(tidyverse)
+source("./graph.functions.R")
 
 # Importing Data ----------------------------------------------------------
 
@@ -13,55 +9,66 @@ library(tidyverse)
 docking <- readRDS("~/SREP LAB/docking/docking data.RDS") %>% rename(cd.type = host)
 
 # Compiled a, b, c-CD data from QSARs
-setwd("~/SREP LAB/qsar/models/")
-svm <- readRDS("./svm/polysvm.tst.results.RDS") 
-rforest <- readRDS("./rforest/rf.results.RDS") 
-cubist <- readRDS("./cubist/compiled.results.RDS")
-glm <- readRDS("./glmnet/glm.results.RDS")
-pls <- readRDS("./pls/pls.results.RDS")
+cubist <- readRDS("./models/cubist/cubist.results.RDS") %>% 
+  mutate(qsar.type = "Cubist") 
+glmnet <- readRDS("./models/glmnet/glmnet.tst.results.RDS") %>%
+  mutate(qsar.type = "GLMNet") %>%
+  select(-resid)
+pls <- readRDS("./models/pls/pls.results.RDS") %>%
+  mutate(qsar.type = "PLS")
+rforest <- readRDS("./models/rforest/rf.results.RDS") %>%
+  rename(residual = tst.resid) %>%
+  mutate(qsar.type = "Random Forest")
+svm <- readRDS("./models/svm/polysvm.tst.results.RDS") %>%
+  rename(residual = resid) %>%
+  mutate(qsar.type = "SVM")
+qsar.results <- rbind(cubist, glmnet, pls, rforest, svm)
+# comparing qsar and docking
+dock.temp <- docking %>% select(obs, pred, cd.type) %>% 
+  mutate(type = "PyRx Docking") %>% data.table()
+qsar.temp <- qsar.results %>% select(obs, pred, cd.type, qsar.type) %>% 
+  rename (type = qsar.type) %>% data.table()
+all.results <- rbind(dock.temp, qsar.temp)
+all <- transform(all.results, type = factor(
+  type,
+  levels = c("PyRx Docking", "GLMnet", "PLS", "SVM", "Random Forest", "Cubist")
+))
 
 # Graphs ------------------------------------------------------------------
 
 dir.create("./graphs/2018 poster")
-setwd("~/SREP LAB/qsar/graphs/2018 poster")
-# Importing a preferred font
-font_import(pattern = "[B/b]ahnschrift")
-loadfonts(device = "win")
 
-theme.2018 <- theme(
-  plot.background = element_rect(fill = "#EFF0F5", color = NA), 
-  panel.grid.major = element_line(color = "lightgray"),
-  panel.background = element_rect(fill = "white", color = "lightgray"), 
-  legend.background = element_rect(fill = "#EFF0F5", color = NA),
-  legend.key = element_rect(fill = "#EFF0F5", color = NA),
-  text = element_text(size = 16, family = "Bahnschrift")
-)
+plot.2018(docking) + 
+  labs(title = "Docking (PyRx) predictions")
+ggsave("./graphs/2018 poster/2018-02-11 docking.png", dpi = 600)
 
-plot.2018 <- function(data) {
-  ggplot(data, aes(x = obs, y = pred, color = cd.type)) +
-    geom_point() + 
-    geom_abline(slope = 1, intercept = 0, color = "maroon") +
-    theme.2018 + 
-    coord_fixed(xlim = c(-45,5), ylim = c(-45, 5)) +
-    labs(x = "Experimental DelG", y = "PyRx (Docking) DelG", 
-         title = "Docking Calculations",
-         color = "CD Type")
-}
+plot.2018(svm) + 
+  labs(title = "SVM predictions")
+ggsave("./graphs/2018 poster/2018-02-11 svm.png", dpi = 600)
 
-plot.2018(docking)
-ggsave("./2018-02-11 docking.png", scale = 0.85, dpi = 600)
+plot.2018(rforest) + 
+  labs(title = "Random Forest predictions")
+ggsave("./graphs/2018 poster/2018-02-11 rforest.png", dpi = 600)
 
-plot.2018(svm)
-ggsave("./2018-02-11 svm.png", scale = 0.85, dpi = 600)
+plot.2018(cubist) + 
+  labs(title = "Cubist predictions")
+ggsave("./graphs/2018 poster/2018-02-11 cubist.png", dpi = 600)
 
-plot.2018(rforest)
-ggsave("./2018-02-11 rforest.png", scale = 0.85, dpi = 600)
+plot.2018(glmnet) + 
+  labs(title = "GLMNet predictions")
+ggsave("./graphs/2018 poster/2018-02-11 glm.png", dpi = 600)
 
-plot.2018(cubist)
-ggsave("./2018-02-11 cubist.png", scale = 0.85, dpi = 600)
+plot.2018(pls) + 
+  labs(title = "PLS predictions")
+ggsave("./graphs/2018 poster/2018-02-11 pls.png", dpi = 600)
 
-plot.2018(glm)
-ggsave("./2018-02-11 glm.png", scale = 0.85, dpi = 600)
+plot.2018(qsar.results) + 
+  facet_wrap(~qsar.type) + 
+  labs(title = "QSAR predictions")
+ggsave("./graphs/2018 poster/2018-02-11 qsar.png", dpi = 600)
 
-plot.2018(pls)
-ggsave("./2018-02-11 pls.png", scale = 0.85, dpi = 600)
+plot.2018(all) +
+  facet_wrap(~type) + 
+  labs(title = "Docking vs. Various QSAR Predictions") + 
+  geom_point(size = 0.5)
+ggsave("./graphs/2018 poster/2018-02-12 docking and qsar.png", dpi = 600, scale = 1.05)
