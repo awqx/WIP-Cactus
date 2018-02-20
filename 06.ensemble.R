@@ -2,17 +2,18 @@
 
 library(caret)
 library(Cubist)
+library(data.table)
 library(e1071)
 library(glmnet)
 library(kernlab)
 library(Matrix)
 library(pls)
+library(randomForest)
 library(stats)
 library(tidyverse)
 
 # Download Models ---------------------------------------------------------
 
-# setwd("~/SREP LAB/qsar/models/")
 cube.a <- readRDS("./models/cubist/cubist.alpha.RDS")
 cube.b <- readRDS("./models/cubist/cubist.beta.RDS")
 cube.c <- readRDS("./models/cubist/cubist.gamma.RDS")
@@ -71,6 +72,10 @@ ext.val <- readRDS("./external validation set new.RDS") %>%
   select(-guest:-host) %>%
   select(-data.source) 
 
+# ext.val <- readRDS("~/SREP LAB/qsar/external validation set new.RDS") %>%
+#   select(-guest:-host) %>%
+#   select(-data.source)
+
 ext.val.a <- ext.val %>% filter(alpha > 0) 
 ext.val.b <- ext.val %>% filter(beta > 0)
 ext.val.c <- ext.val %>% filter(gamma > 0) 
@@ -114,7 +119,8 @@ ev.a <- rbind(ev.a.cube, ev.a.glm, ev.a.pls, ev.a.rf, ev.a.svm)
 ev.a.avg <- ev.a %>% data.table(key = "obs")
 ev.a.avg <- ev.a.avg[ , list(pred = mean(pred)), by = "obs"]
 
-defaultSummary(ev.a.avg[ -1, ])
+defaultSummary(ev.a.avg) # 0.121
+defaultSummary(ev.a.avg[ -1, ]) # 0.531
 
 # Beta-CD
 
@@ -150,7 +156,7 @@ ev.b <- rbind(ev.b.cube, ev.b.glm, ev.b.pls, ev.b.rf, ev.b.svm)
 ev.b.avg <- ev.b %>% data.table(key = "obs")
 ev.b.avg <- ev.b.avg[ , list(pred = mean(pred)), by = "obs"]
 
-defaultSummary(ev.b.avg)
+defaultSummary(ev.b.avg) # 0.803
 
 # Gamma-CD
 ev.c.cube <- predict(cube.c, ext.val.c[ , -1]) %>%
@@ -193,7 +199,17 @@ temp.b <- ev.b.avg %>% mutate(cd.type = "beta")
 temp.c <- ev.c.avg %>% mutate(cd.type = "gamma")
 
 ev.abc <- rbind(temp.a, temp.b, temp.c)
-defaultSummary(ev.abc)
+defaultSummary(ev.abc) # 0.417
+
+# A single outlier brings down the r-squared
+# removing the first row of the alpha results...
+
+# temp.a <- ev.a.avg[-1, ] %>% mutate(cd.type = "alpha") 
+# 
+# ev.abc <- rbind(temp.a, temp.b, temp.c)
+# defaultSummary(ev.abc) # 0.723
+
+# ...gets a much higher R-squared
 
 # Graphing ----------------------------------------------------------------
 
