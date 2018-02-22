@@ -9,6 +9,7 @@ library(glmnet)
 library(pls)
 library(randomForest)
 library(stringr)
+library(tictoc)
 library(tidyverse)
 
 # Data Organization -------------------------------------------------------
@@ -612,27 +613,31 @@ return.folds <- function(method, data, folds, ...) {
 
 # Regular data results (excludes GLM)
 tic()
-svm.data.folds <- return.folds(svm.fold, data, data.folds, suzuki = F)
-toc() # 8.61 sec elapsed, 10.8 sec, 9.42 s
-
-tic()
 cube.data.folds <- return.folds(cube.fold, data, data.folds, suzuki = F)
-toc() # 409.99 s, 468.06
-
-tic()
-rf.data.folds <- return.folds(rf.fold, data, data.folds, suzuki = F)
-toc() # 626.25
-
-tic()
-pls.data.folds <- return.folds(pls.fold, data, data.folds, suzuki = F)
-toc() # 167.27 s
+toc() # 409.99 s, 468.06, 459.68 ... avg = 445.91
 
 tic()
 glm.data.folds <- return.folds(glm.fold, data, data.folds, suzuki = F)
-toc() # 4.24 s
+toc() # 4.24, 4.39 s ... 4.314
 
-data.results <- rbind(svm.data.folds, cube.data.folds, rf.data.folds, 
-                      pls.data.folds, glm.data.folds)
+tic()
+pls.data.folds <- return.folds(pls.fold, data, data.folds, suzuki = F)
+toc() # 167.27, 184.75 s ... 176.01
+
+tic()
+rf.data.folds <- return.folds(rf.fold, data, data.folds, suzuki = F)
+toc() # 626.25, 645.35 ... 635.8
+
+tic()
+svm.data.folds <- return.folds(svm.fold, data, data.folds, suzuki = F)
+toc() # 8.61 sec elapsed, 10.8 sec, 9.42 s, 9.51 ... avg = 9.59
+
+data.results <- rbind(cube.data.folds, glm.data.folds, pls.data.folds, 
+                      rf.data.folds, svm.data.folds)
+qsar.type <- c("Cubist", "GLMNet", "PLS", "Random Forest", "SVM")
+qsar.time <- c(445.91, 4.314, 176.01, 635.8, 9.59)
+times <- data.frame(temp.types, qsar.times)
+saveRDS(data.results, "./compiled folds.RDS")
 
 # Suzuki Results (stable)
 tic()
@@ -665,7 +670,6 @@ saveRDS(data.results, "./compiled/ri and suzuki results.RDS")
 
 # Graphs ------------------------------------------------------------------
 
-
 #     R-squared -----------------------------------------------------------
 
 # source("./model.code/graph.formatting.R")
@@ -676,6 +680,7 @@ ggplot(data.results, aes(x = fold, y = rsquared, color = model)) +
   labs(title = "R-squared of QSARs over different data folds", 
        x = "Fold", y = "R-squared", 
        color = "Model") 
+ggsave("./fold results.png")
 
 ggplot(data.results, aes(x = fold, y = rsquared, color = model)) + 
   geom_line(size = 1) + 
@@ -733,6 +738,17 @@ ggplot(results.comp, aes(x = fold, y = rmse, color = model, group = model)) +
   facet_wrap(~Source) + 
   labs(title = "RMSE by Fold", x = "Fold", y = "R-squared", color = "Model")
 ggsave("./graphs/compiled rmse.png")
+
+
+#     Time ----------------------------------------------------------------
+
+ggplot(times, aes(x = qsar.type, y = qsar.times, fill = qsar.type)) + 
+  geom_bar(stat = "identity") + 
+  theme.2018 + 
+  labs(title = "Calculation time between QSARs", y = "Time, seconds", 
+       x = "QSAR type")+
+  guides(fill = F)
+ggsave("./graphs/qsar calc time.png", dpi = 600)
 
 # External Validation Compilation -----------------------------------------
 

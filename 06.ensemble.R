@@ -34,23 +34,49 @@ svm.a <- readRDS("./models/svm/polysvm.alpha.RDS")
 svm.b <- readRDS("./models/svm/polysvm.beta.RDS")
 svm.c <- readRDS("./models/svm/polysvm.gamma.RDS")
 
-# Averaging Test Results --------------------------------------------------
+# Averaging Results -------------------------------------------------------
 
+# Training results
+cubist.trn <- readRDS("./models/cubist/cubist.trn.results.RDS") %>% 
+  select(pred, obs, cd.type) # %>%
+  # rename(pred.cubist = pred)
+glmnet.trn <- readRDS("./models/glmnet/glmnet.trn.results.RDS") %>% 
+  select(pred, obs, cd.type) # %>%
+  # rename(pred.glmnet = pred)
+pls.trn <- readRDS("./models/pls/pls.trn.results.RDS") %>% 
+  select(pred, obs, cd.type) # %>%
+  # rename(pred.pls = pred)
+rforest.trn <- readRDS("./models/rforest/rf.trn.results.RDS") %>% 
+  select(pred, obs, cd.type) # %>%
+  # rename(pred.rf = pred)
+svm.trn <- readRDS("./models/svm/polysvm.trn.results.RDS") %>% 
+  select(pred, obs, cd.type) # %>%
+  # rename(pred.svm = pred)
+
+trn.lst <- list(cubist.trn, glmnet.trn, pls.trn, 
+                rforest.trn, svm.trn)
+lapply(trn.lst, defaultSummary)
+
+# Test results
 cubist.tst <- readRDS("./models/cubist/cubist.results.RDS") %>% 
-  select(pred, obs, cd.type) %>%
-  rename(pred.cubist = pred)
+  select(pred, obs, cd.type) # %>%
+  # rename(pred.cubist = pred)
 glmnet.tst <- readRDS("./models/glmnet/glmnet.tst.results.RDS") %>% 
-  select(pred, obs, cd.type) %>%
-  rename(pred.glmnet = pred)
+  select(pred, obs, cd.type) # %>%
+  # rename(pred.glmnet = pred)
 pls.tst <- readRDS("./models/pls/pls.results.RDS") %>% 
-  select(pred, obs, cd.type) %>%
-  rename(pred.pls = pred)
+  select(pred, obs, cd.type) # %>%
+  # rename(pred.pls = pred)
 rforest.tst <- readRDS("./models/rforest/rf.results.RDS") %>% 
-  select(pred, obs, cd.type) %>%
-  rename(pred.rf = pred)
+  select(pred, obs, cd.type) # %>%
+  # rename(pred.rf = pred)
 svm.tst <- readRDS("./models/svm/polysvm.tst.results.RDS") %>% 
-  select(pred, obs, cd.type) %>%
-  rename(pred.svm = pred)
+  select(pred, obs, cd.type) # %>%
+  # rename(pred.svm = pred)
+
+tst.lst <- list(cubist.tst, glmnet.tst, pls.tst, 
+                rforest.tst, svm.tst)
+lapply(tst.lst, defaultSummary)
 
 # Currently, averaging the results has some errors with joining observed values
 # and repeating some observations that shouldn't be duplicates
@@ -200,6 +226,7 @@ temp.c <- ev.c.avg %>% mutate(cd.type = "gamma")
 
 ev.abc <- rbind(temp.a, temp.b, temp.c)
 defaultSummary(ev.abc) # 0.417
+saveRDS(ev.abc, "./ext val results.RDS")
 
 # A single outlier brings down the r-squared
 # removing the first row of the alpha results...
@@ -229,6 +256,12 @@ ggplot(ev.b.avg, aes(x = obs, y = pred)) +
   geom_point() + 
   geom_abline(slope = 1, intercept = 0) 
 
-ggplot(ev.abc, aes(x = obs, y = pred, shape = cd.type, color = cd.type)) + 
+ggplot(ev.abc, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
-  geom_abline(slope = 1, intercept = 0)
+  geom_abline(slope = 1, intercept = 0, color = "maroon") + 
+  theme.2018 + 
+  labs(x = "Experimental dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "QSPR ensemble results on external validation", 
+       color = "CD Type") + 
+  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5))
+ggsave("./ext val graph.png", dpi = 600)  
