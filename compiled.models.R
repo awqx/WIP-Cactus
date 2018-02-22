@@ -2,15 +2,18 @@
 
 library(caret)
 library(Cubist)
+library(directlabels)
 library(e1071)
 library(ggplot2)
 library(glmnet)
+library(pls)
 library(randomForest)
 library(stringr)
 library(tidyverse)
 
 # Data Organization -------------------------------------------------------
 
+set.seed(101)
 # setwd("~/SREP LAB/qsar")
 # Complete dataset
 data.raw <- readRDS("./padel.pp.new.RDS")
@@ -166,15 +169,15 @@ glm.fold <- function(data, folds, foldnum, suzuki) {
     b.tst <- as.matrix(b.tst)
     
     glm.alpha <- glmnet(x = a.trn[ , -1], 
-                       y = a.trn[ , 1], 
+                        y = a.trn[ , 1], 
+                        dfmax = 32, 
+                        alpha = 1, 
+                        family = "mgaussian")
+    glm.beta <- glmnet(x = b.trn[ , -1], 
+                       y = b.trn[ , 1], 
                        dfmax = 32, 
                        alpha = 1, 
                        family = "mgaussian")
-    glm.beta <- glmnet(x = b.trn[ , -1], 
-                    y = b.trn[ , 1], 
-                    dfmax = 32, 
-                    alpha = 1, 
-                    family = "mgaussian")
     
     alpha.df <- predict.glmnet(glm.alpha, a.tst[,-1],
                                s = tail(glm.alpha$lambda, n = 1)) %>%
@@ -182,7 +185,7 @@ glm.fold <- function(data, folds, foldnum, suzuki) {
     colnames(alpha.df)[1] <- "pred"
     colnames(alpha.df)[2] <- "obs"
     beta.df <- predict.glmnet(glm.beta, b.tst[,-1],
-                               s = tail(glm.beta$lambda, n = 1)) %>%
+                              s = tail(glm.beta$lambda, n = 1)) %>%
       cbind(b.tst[, 1]) %>% data.frame()
     colnames(beta.df)[1] <- "pred"
     colnames(beta.df)[2] <- "obs"
@@ -204,7 +207,7 @@ glm.fold <- function(data, folds, foldnum, suzuki) {
     b.tst <- as.matrix(b.tst)
     c.tst <- as.matrix(c.tst)
     
-    if (nrow(c.trn) < 1 || nrow(c.tst) < 1) {
+    if (nrow(c.trn) <= 1 || nrow(c.tst) <= 1) {
       
       glm.alpha <- glmnet(x = a.trn[ , -1], 
                           y = a.trn[ , 1], 
@@ -240,7 +243,7 @@ glm.fold <- function(data, folds, foldnum, suzuki) {
                          dfmax = 32, 
                          alpha = 1, 
                          family = "mgaussian")
-
+      
       glm.gamma <- glmnet(x = c.trn[ , -1], 
                           y = c.trn[ , 1], 
                           dfmax = 32, 
@@ -260,7 +263,7 @@ glm.fold <- function(data, folds, foldnum, suzuki) {
       colnames(beta.df)[2] <- "obs"
       
       gamma.df <- predict.glmnet(glm.gamma, c.tst[ , -1],
-                                s = tail(glm.gamma$lambda, n = 1)) %>%
+                                 s = tail(glm.gamma$lambda, n = 1)) %>%
         cbind(c.tst[, 1]) %>% data.frame()
       colnames(gamma.df)[1] <- "pred"
       colnames(gamma.df)[2] <- "obs"
@@ -493,11 +496,11 @@ pls.fold <- function(data, folds, foldnum, suzuki) {
                       method = "oscorespls", 
                       seed = 10)
     pls.beta <- plsr(DelG ~ ., 
-                      ncomp = 11, 
-                      data = b.trn, 
-                      validation = "LOO", 
-                      method = "oscorespls", 
-                      seed = 10)
+                     ncomp = 11, 
+                     data = b.trn, 
+                     validation = "LOO", 
+                     method = "oscorespls", 
+                     seed = 10)
     
     alpha.df <- predict(pls.alpha, ncomp = 11, newdata = a.tst) %>%
       cbind(a.tst[ , 1]) %>%
@@ -565,11 +568,11 @@ pls.fold <- function(data, folds, foldnum, suzuki) {
                        method = "oscorespls", 
                        seed = 10)
       pls.gamma <- plsr(DelG ~ ., 
-                       ncomp = 5, 
-                       data = c.trn, 
-                       validation = "LOO", 
-                       method = "oscorespls", 
-                       seed = 10)
+                        ncomp = 5, 
+                        data = c.trn, 
+                        validation = "LOO", 
+                        method = "oscorespls", 
+                        seed = 10)
       
       alpha.df <- predict(pls.alpha, ncomp = 11, newdata = a.tst) %>%
         cbind(a.tst[ , 1]) %>%
@@ -608,27 +611,71 @@ return.folds <- function(method, data, folds, ...) {
 # Data --------------------------------------------------------------------
 
 # Regular data results (excludes GLM)
+tic()
 svm.data.folds <- return.folds(svm.fold, data, data.folds, suzuki = F)
+toc() # 8.61 sec elapsed, 10.8 sec, 9.42 s
+
+tic()
 cube.data.folds <- return.folds(cube.fold, data, data.folds, suzuki = F)
+toc() # 409.99 s, 468.06
+
+tic()
 rf.data.folds <- return.folds(rf.fold, data, data.folds, suzuki = F)
+toc() # 626.25
+
+tic()
 pls.data.folds <- return.folds(pls.fold, data, data.folds, suzuki = F)
+toc() # 167.27 s
+
+tic()
+glm.data.folds <- return.folds(glm.fold, data, data.folds, suzuki = F)
+toc() # 4.24 s
 
 data.results <- rbind(svm.data.folds, cube.data.folds, rf.data.folds, 
-                      pls.data.folds)
+                      pls.data.folds, glm.data.folds)
+
 # Suzuki Results (stable)
+tic()
 svm.suz.folds <- return.folds(svm.fold, suz, suz.folds, suzuki = T)
+toc() # 5.32
+
+tic()
 glm.suz.folds <- return.folds(glm.fold, suz, suz.folds, suzuki = T)
+toc() # 2.88 s
+
+tic()
 cube.suz.folds <- return.folds(cube.fold, suz, suz.folds, suzuki = T)
+toc() # 256.34 s
+
+tic()
 rf.suz.folds <- return.folds(rf.fold, suz, suz.folds, suzuki = T)
+toc()
+
+tic()
 pls.suz.folds <- return.folds(pls.fold, suz, suz.folds, suzuki = T)
+toc()
 
 suz.results <- rbind(svm.suz.folds, glm.suz.folds, cube.suz.folds, 
                      rf.suz.folds, pls.suz.folds)
+
+# Saving data
+dir.create("./compiled")
+saveRDS(data.results, "./compiled/ri and suzuki results.RDS")
+
 
 # Graphs ------------------------------------------------------------------
 
 
 #     R-squared -----------------------------------------------------------
+
+# source("./model.code/graph.formatting.R")
+ggplot(data.results, aes(x = fold, y = rsquared, color = model)) +
+  theme.2018 + 
+  geom_line(size = 1) +
+  scale_x_continuous(breaks = seq(1,10, by = 1)) + 
+  labs(title = "R-squared of QSARs over different data folds", 
+       x = "Fold", y = "R-squared", 
+       color = "Model") 
 
 ggplot(data.results, aes(x = fold, y = rsquared, color = model)) + 
   geom_line(size = 1) + 
