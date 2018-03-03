@@ -17,7 +17,7 @@ theme.2018 <- theme(
   legend.background = element_rect(fill = "#EFF0F5", color = NA),
   legend.key = element_rect(fill = "#EFF0F5", color = NA),
   strip.background = element_rect(fill = "#EFF0F5", color = NA),
-  text = element_text(size = 20, family = "Bahnschrift")
+  text = element_text(size = 16, family = "Bahnschrift", color = "#404040")
 )
 
 plot.2018 <- function(data) {

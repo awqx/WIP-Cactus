@@ -1,5 +1,9 @@
 # Libraries and Packages --------------------------------------------------
 
+library(caret)
+library(data.table)
+library(e1071)
+library(Matrix)
 library(stringr)
 library(tidyverse)
 
@@ -166,13 +170,12 @@ fda.results <-
 # PaDEL-Descriptor --------------------------------------------------------
 
 # Loading raw data
-fda.padel1 <- read.csv("./molecules/fda/fda desc 0-3 kb.csv")
-fda.padel2 <- read.csv("./molecules/fda/fda desc 4-5 kb.csv")
-# fda.padel3 <- read.csv("./molecules/fda/fda desc 6-8 kb.csv")
-# fda.padel4 <- read.csv("./molecules/fda/fda desc 9+ kb.csv")
-fda.padel <- rbind(fda.padel1, fda.padel2)
+fda.padel1 <- read.csv("./fda/fda desc 0-3 kb.csv")
+fda.padel2 <- read.csv("./fda/fda desc 4-5 kb.csv")
+fda.padel3 <- read.csv("./fda/fda desc 6-8 kb.csv")
+fda.padel4 <- read.csv("./fda/fda desc 9+ kb.csv")
 fda.padel <- rbind(fda.padel1, fda.padel2, fda.padel3, fda.padel3)
-fda.padel <- rbind(fda.padel, fda.padel, fda.padel)
+# fda.padel <- rbind(fda.padel, fda.padel, fda.padel)
 
 # fda.alpha <- fda.padel %>% mutate(alpha = 1) %>%
 #   mutate(beta = 0) %>% mutate(gamma = 0)
@@ -181,18 +184,17 @@ fda.padel <- rbind(fda.padel, fda.padel, fda.padel)
 # fda.gamma <- fda.padel %>% mutate(alpha = 0) %>%
 #   mutate(beta = 0) %>% mutate(gamma = 1)
 
-pp.settings <- readRDS("./preprocess.settings.RDS")
-zero.pred <- readRDS("./zero.pred.RDS") %>% str_replace(., "-", ".")
-zero.pred2 <- readRDS("./zero.pred2.RDS")[1]
-too.high <- readRDS("./high.cor.RDS") %>% str_replace(., "-", ".")
+pp.settings <- readRDS("./preprocess/preprocess.settings.RDS")
+zero.pred <- readRDS("./preprocess/zero.pred.RDS") %>% str_replace(., "-", ".")
+zero.pred2 <- readRDS("./preprocess/zero.pred2.RDS")[1]
+too.high <- readRDS("./preprocess/high.cor.RDS") %>% str_replace(., "-", ".")
 
 fda.desc <- fda.padel[ , !colnames(fda.padel) %in% zero.pred]
 
 fda.desc <- fda.desc[ , -1] 
-fda.desc <- fda.desc %>% mutate(alpha = c(rep(1, nrow(fda.desc)/3), rep(0, nrow(fda.desc)/3 * 2))) %>%
-  mutate(beta = c(rep(0, nrow(fda.desc)/3), rep(1, nrow(fda.desc)/3), rep(0,nrow(fda.desc)/3))) %>%
-  mutate(gamma = c(rep(0,nrow(fda.desc)/3 * 2), rep(1, nrow(fda.desc)/3)))
-
+fda.desc <- rbind(fda.desc %>% mutate(alpha = 1, beta = 0, gamma = 0), 
+                  fda.desc %>% mutate(alpha = 0, beta = 1, gamma = 0), 
+                  fda.desc %>% mutate(alpha = 0, beta = 0, gamma = 1))
 fda.pp <- predict(pp.settings, fda.desc)
 
 fda.pp <- fda.pp[ , !colnames(fda.pp) %in% too.high]
@@ -211,99 +213,125 @@ fda.dmn <- domain(fda.stand)
 
 #     SVM -----------------------------------------------------------------
 
-svm.alpha <- readRDS("./models/svm/polysvm.alpha.RDS")
-svm.beta <- readRDS("./models/svm/polysvm.beta.RDS")
-svm.gamma <- readRDS("./models/svm/polysvm.gamma.RDS")
+svm.a <- readRDS("./models/svm/polysvm.alpha.RDS")
+svm.b <- readRDS("./models/svm/polysvm.beta.RDS")
+svm.c <- readRDS("./models/svm/polysvm.gamma.RDS")
 
-fda.alpha <- predict(svm.alpha, fda.pp)[1:830]
-fda.beta <- predict(svm.beta, fda.pp)[831:1660]
-fda.gamma <- predict(svm.gamma, fda.pp)[1661:2490]
+fda.svm.a <- predict(svm.a, fda.pp %>% filter(alpha > 0)) %>%
+  as.data.frame() %>% mutate(cd.type = "alpha")
+fda.svm.b <- predict(svm.b, fda.pp %>% filter(beta > 0)) %>%
+  as.data.frame() %>% mutate(cd.type = "beta")
+fda.svm.c <- predict(svm.c, fda.pp %>% filter(gamma > 0)) %>%
+  as.data.frame() %>% mutate(cd.type = "gamma")
 
-fda.svm <- c(fda.alpha, fda.beta, fda.gamma)
-guest <- fda.padel$Name %>% as.vector()
+guest <- fda.padel$Name %>% as.vector() %>% rep(., 3)
+fda.svm <- data.frame(guest, rbind(fda.svm.a, fda.svm.b, fda.svm.c)) %>%
+  rename(., pred = `.`)
 
-fda.svm <- data.frame(guest, fda.svm) %>%
-  dplyr::rename(., pred = fda.svm) %>%
-  mutate(cd.type = c(rep("alpha", 830), rep("beta", 830), rep("gamma", 830)))
+# Removing outliers
+fda.svm <- fda.svm[-which.max(fda.svm$pred), ]
+fda.svm <- fda.svm[-which.max(fda.svm$pred), ]
+fda.svm <- fda.svm[-which.min(fda.svm$pred), ]
+fda.svm <- fda.svm[-which.min(fda.svm$pred), ]
 
-ggplot(fda.svm, aes(x = guest, y = pred, color = cd.type, shape = cd.type)) +
+ggplot(fda.svm, aes(x = guest, y = pred, color = cd.type)) +
   geom_point(alpha = 0.6) + theme_bw() + 
   scale_x_discrete(breaks = NULL) + 
-  theme(
-    axis.ticks.x=element_blank(),
-    axis.line = element_blank(),
-    axis.text.x = element_blank(),
-    axis.title.x = element_blank()
-  ) + 
-  geom_hline(yintercept = -24, linetype = "dotted", color = "red", size = 1) +
-  geom_hline(yintercept = -20, linetype = "dotted", color = "orange", size = 1) +
+  theme.2018 +
+  # geom_hline(yintercept = -24, linetype = "dotted", color = "red", size = 1) +
+  # geom_hline(yintercept = -20, linetype = "dotted", color = "orange", size = 1) +
   labs(title = "Polynomial SVM - FDA Approved Drugs", 
        y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin", shape = "Cyclodextrin")
+       color = "CD Type", shape = "Cyclodextrin", 
+       x = NULL)
 
 
 #     Cubist --------------------------------------------------------------
 
-cube.alpha <- readRDS("./models/cubist/cube.alpha.RDS")
-cube.beta <- readRDS("./models/cubist/cube.beta.RDS")
-cube.gamma <- readRDS("./models/cubist/cube.gamma.RDS")
+cube.a <- readRDS("./models/cubist/cubist.alpha.RDS")
+cube.b <- readRDS("./models/cubist/cubist.beta.RDS")
+cube.c <- readRDS("./models/cubist/cubist.gamma.RDS")
 
-fda.alpha <- predict(cube.alpha, fda.pp)[1:830]
-fda.beta <- predict(cube.beta, fda.pp)[831:1660]
-fda.gamma <- predict(cube.gamma, fda.pp)[1661:2490]
+fda.cube.a <- predict(cube.a, fda.pp %>% filter(alpha > 0)) %>%
+  as.data.frame() %>% mutate(cd.type = "alpha")
+fda.cube.b <- predict(cube.b, fda.pp %>% filter(beta > 0)) %>%
+  as.data.frame() %>% mutate(cd.type = "beta")
+fda.cube.c <- predict(cube.c, fda.pp %>% filter(gamma > 0)) %>%
+  as.data.frame() %>% mutate(cd.type = "gamma")
 
-fda.cube <- c(fda.alpha, fda.beta, fda.gamma)
-fda.cube <- data.frame(guest, fda.cube) %>%
-  dplyr::rename(., pred = fda.cube) %>%
-  mutate(cd.type = c(rep("alpha", 830), rep("beta", 830), rep("gamma", 830)))
+fda.cube <- data.frame(guest, rbind(fda.cube.a, fda.cube.b, fda.cube.c)) %>%
+  rename(., pred = `.`)
 
-ggplot(fda.cube, aes(x = guest, y = pred, color = cd.type, shape = cd.type)) +
+ggplot(fda.cube, aes(x = guest, y = pred, color = cd.type)) +
   geom_point(alpha = 0.6) + theme_bw() + 
   scale_x_discrete(breaks = NULL) + 
-  theme(
-    axis.ticks.x=element_blank(),
-    axis.line = element_blank(),
-    axis.text.x = element_blank(),
-    axis.title.x = element_blank()
-  ) + 
-  geom_hline(yintercept = -24, linetype = "dotted", color = "red", size = 1) +
-  geom_hline(yintercept = -20, linetype = "dotted", color = "orange", size = 1) +
+  theme.2018 +
+  # geom_hline(yintercept = -24, linetype = "dotted", color = "red", size = 1) +
+  # geom_hline(yintercept = -20, linetype = "dotted", color = "orange", size = 1) +
   labs(title = "Cubist - FDA Approved Drugs", 
        y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin", shape = "Cyclodextrin")
+       color = "CD Type", shape = "Cyclodextrin", 
+       x = NULL)
+
 
 #     GLMnet --------------------------------------------------------------
 
-glm.alpha <- readRDS("./models/glmnet/glm.alpha.RDS")
-glm.beta <- readRDS("./models/glmnet/glm.beta.RDS")
-glm.gamma <- readRDS("./models/glmnet/glm.gamma.RDS")
+glm.a <- readRDS("./models/glmnet/glm.alpha.RDS")
+glm.b <- readRDS("./models/glmnet/glm.beta.RDS")
+glm.c <- readRDS("./models/glmnet/glm.gamma.RDS")
 
-fda.mat <- as.matrix(fda.pp)
-fda.alpha <- predict.glmnet(glm.alpha, fda.mat, 
-                            s = tail(glm.alpha$lambda, n = 1))[1:830]
-fda.beta <- predict.glmnet(glm.beta, fda.mat, 
-                           s = tail(glm.beta$lambda, n = 1))[831:1660]
-fda.gamma <- predict.glmnet(glm.gamma, fda.mat, 
-                            s = tail(glm.gamma$lambda, n = 1))[1661:2490]
+fda.a <- fda.pp %>% filter(alpha > 0) %>% as.matrix()
+fda.b <- fda.pp %>% filter(beta > 0) %>% as.matrix()
+fda.c <- fda.pp %>% filter(gamma > 0) %>% as.matrix()
+fda.glm.a <- predict.glmnet(glm.a, fda.a, s = tail(glm.a$lambda, n = 1)) %>%
+  as.data.frame() %>% mutate(cd.type = "alpha")
+fda.glm.b <- predict.glmnet(glm.b, fda.b, s = tail(glm.b$lambda, n = 1)) %>%
+  as.data.frame() %>% mutate(cd.type = "beta")
+fda.glm.c <- predict.glmnet(glm.c, fda.c, s = tail(glm.c$lambda, n = 1)) %>%
+  as.data.frame() %>% mutate(cd.type = "gamma")
 
-fda.glm <- c(fda.alpha, fda.beta, fda.gamma)
-fda.glm <- data.frame(guest, fda.glm) %>%
-  dplyr::rename(., pred = fda.glm) %>%
-  mutate(cd.type = c(rep("alpha", 830), rep("beta", 830), rep("gamma", 830)))
-ggplot(fda.glm, aes(x = guest, y = pred, color = cd.type, shape = cd.type)) +
+fda.glm <- data.frame(guest, rbind(fda.glm.a, fda.glm.b, fda.glm.c)) %>%
+  rename(., pred = X1)
+
+ggplot(fda.glm, aes(x = guest, y = pred, color = cd.type)) +
   geom_point(alpha = 0.6) + theme_bw() + 
   scale_x_discrete(breaks = NULL) + 
-  theme(
-    axis.ticks.x=element_blank(),
-    axis.line = element_blank(),
-    axis.text.x = element_blank(),
-    axis.title.x = element_blank()
-  ) + 
-  geom_hline(yintercept = -24, linetype = "dotted", color = "red", size = 1) +
-  geom_hline(yintercept = -20, linetype = "dotted", color = "orange", size = 1) +
-  labs(title = "GLMnet - FDA Approved Drugs", 
+  theme.2018 +
+  # geom_hline(yintercept = -24, linetype = "dotted", color = "red", size = 1) +
+  # geom_hline(yintercept = -20, linetype = "dotted", color = "orange", size = 1) +
+  labs(title = "GLMNet FDA Approved Drugs", 
        y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin", shape = "Cyclodextrin")
+       color = "CD Type", shape = "Cyclodextrin", 
+       x = NULL)
+
+#     PLS -----------------------------------------------------------------
+
+pls.a <- readRDS("./models/pls/pls.alpha.RDS")
+pls.b <- readRDS("./models/pls/pls.beta.RDS")
+pls.c <- readRDS("./models/pls/pls.gamma.RDS")
+
+fda.pls.a <- predict(pls.a, fda.pp %>% filter(alpha > 0), ncomp = 4) %>%
+  as.data.frame() %>% mutate(cd.type = "alpha") %>%
+  rename(pred = `DelG.4 comps`)
+fda.pls.b <- predict(pls.b, fda.pp %>% filter(beta > 0), ncomp = 4) %>%
+  as.data.frame() %>% mutate(cd.type = "beta") %>%
+  rename(pred = `DelG.4 comps`)
+fda.pls.c <- predict(pls.c, fda.pp %>% filter(gamma > 0), ncomp = 5) %>%
+  as.data.frame() %>% mutate(cd.type = "gamma") %>%
+  rename(pred = `DelG.5 comps`)
+
+fda.pls <- data.frame(guest, rbind(fda.pls.a, fda.pls.b, fda.pls.c))
+
+ggplot(fda.pls, aes(x = guest, y = pred, color = cd.type)) +
+  geom_point(alpha = 0.6) + theme_bw() + 
+  scale_x_discrete(breaks = NULL) + 
+  theme.2018 +
+  # geom_hline(yintercept = -24, linetype = "dotted", color = "red", size = 1) +
+  # geom_hline(yintercept = -20, linetype = "dotted", color = "orange", size = 1) +
+  labs(title = "Cubist - FDA Approved Drugs", 
+       y = "Predicted DelG, kJ/mol", 
+       color = "CD Type", shape = "Cyclodextrin", 
+       x = NULL)
 
 #     Glmnet and SVM ------------------------------------------------------
 
@@ -342,3 +370,26 @@ ggplot(glm.svm.nogamma, aes(x = guest, y = pred, color = cd.type, shape = cd.typ
   labs(title = "GLMnet and SVM - FDA Approved Drugs, No Gamma-CD", 
        y = "Predicted DelG, kJ/mol", 
        color = "Cyclodextrin", shape = "Cyclodextrin")
+
+# Compiling ---------------------------------------------------------------
+
+fda.comb <- rbind(fda.cube %>% mutate(model = "Cubist"), 
+                  fda.glm %>% mutate(model = "GLMNet"), 
+                  fda.svm %>% mutate(model = "SVM"))
+ggplot(fda.comb, aes(x = guest, y = pred, color = cd.type)) +
+  geom_point() + 
+  theme.2018 + 
+  facet_wrap(~model) + 
+  labs(title = "QSPR predictions on FDA-approved drugs", 
+       x = NULL, 
+       y = "Predicted dG, kJ/mol", 
+       color = "CD Type") + 
+  ylim(-60, 25)  +
+  scale_x_discrete(breaks = NULL) + 
+  theme(
+    axis.ticks.x=element_blank(),
+    axis.line = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank()
+  ) 
+ggsave("./graphs/fda.png", dpi = 600)

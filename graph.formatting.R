@@ -31,7 +31,7 @@ qsar.temp <- qsar.results %>% select(obs, pred, cd.type, qsar.type) %>%
 all.results <- rbind(dock.temp, qsar.temp)
 all <- transform(all.results, type = factor(
   type,
-  levels = c("PyRx Docking", "GLMnet", "PLS", "SVM", "Random Forest", "Cubist")
+  levels = c("PyRx Docking", "GLMNet", "PLS", "SVM", "Random Forest", "Cubist")
 ))
 
 # Graphs ------------------------------------------------------------------
@@ -71,4 +71,4 @@ plot.2018(all) +
   facet_wrap(~type) + 
   labs(title = "Docking vs. Various QSAR Predictions") + 
   geom_point(size = 0.5)
-ggsave("./graphs/2018 poster/2018-02-12 docking and qsar.png", dpi = 600, scale = 1.05)
+ggsave("./graphs/2018 poster/2018-02-12 docking and qsar.png", dpi = 600, scale = 1.5)
