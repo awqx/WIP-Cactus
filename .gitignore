@@ -14,4 +14,7 @@ compiled folds.RDS
 
 # Graphs
 graphs/
+graph.formatting.R
+graph.functions.R
+
 fda/
