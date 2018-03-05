@@ -226,6 +226,12 @@ temp.c <- ev.c.avg %>% mutate(cd.type = "gamma")
 
 ev.abc <- rbind(temp.a, temp.b, temp.c)
 defaultSummary(ev.abc) # 0.417
+saveRDS(ev.abc, "./ext val avg results.RDS")
+
+temp.a <- ev.a %>% mutate(cd.type = "alpha") 
+temp.b <- ev.b %>% mutate(cd.type = "beta")
+temp.c <- ev.c %>% mutate(cd.type = "gamma")
+ev.abc <- rbind(temp.a, temp.b, temp.c)
 saveRDS(ev.abc, "./ext val results.RDS")
 
 # A single outlier brings down the r-squared
