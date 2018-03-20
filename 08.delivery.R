@@ -7,18 +7,28 @@
 
 # Libraries and Packages --------------------------------------------------
 
-install.packages("ReacTran")
+# install.packages("ReacTran")
+library(dplyr)
 library(ReacTran)
 library(tidyverse)
 
 # Functions ---------------------------------------------------------------
 
-# Well, if we know that DelG = RTlnKd, then we should invert that
-convert.delg.kd <- function(delg) {
+# Well, if we know that DelG = RTlnKeq, then we should invert that
+# In ths case, b/c drug + CD <--> Complex, Keq = [complex]/[cd][drug]
+# And therefore, Keq = Ka
+
+# assuming delg is in kj/mol
+convert.delg.ka <- function(delg) {
   # exp(n) = e^n
-  return (exp(delg / (8.314 * 298)))
+  joules <- delg*1000
+  return (exp(joules / (-8.314 * 298)))
 }
 
+convert.delg.kd <- function(delg) {
+  return (1/convert.delg.ka(delg))
+}
+ 
 # These are dimensionless constants used by Vulic:
 #   alpha = Cpro,0 / Cpep,T (guest / total host (peptide))
 #   beta = L^2 * koff / D 
@@ -168,9 +178,59 @@ matplot.1D(out, grid = Distance, type = "l", mfrow = NULL,
 plot.1D(out, grid = Distance, type = "l", mfrow = NULL, subset = time == 100, 
         obs = data, obspar = list(pch = 18, cex = 2, col = "red"))
 
+# Following along w/ predator-prey model of vignette
+lvmod <- function(time, state, parms, N, rr, ri, dr, dri) {
+  with(as.list(parms), {
+    PREY <- state[1:N]
+    PRED <- state[(N + 1):(2 * N)]
+    
+    # Flux due to diffusion
+    # at internal/external boundaries: zero gradient
+    FluxPrey <- -Da * diff(c(PREY[1], PREY, PREY[N]))/dri
+    FluxPred <- -Da * diff(c(PRED[1], PRED, PRED[N]))/dri
+    
+    # Lotka-Volterra model
+    Ingestion    <- rIng * PRED * PREY
+    GrowthPrey   <- rGrow * PREY * (1 - PREY / cap)
+    MortPredator < rMort * PRED
+    
+    # Rate of change = Flux gradient + biology
+    dPrey <- -diff(ri * FluxPrey)/rr/dr + 
+      GrowthPrey - Ingestion
+    dPred <- -diff(ri * FluxPred)/rr/dr + 
+      Ingestion * assEff - MortPredator
+    
+    return(list(c(dPREY, dPRED)))
+  })
+}
+
+R <- 20 # radius of surface
+N <- 100 # number of concentric circles
+dr <- R/N # thickness of each layer
+r <- seq(dr/2, by = dr, len = N) # distance of center to mid-layer
+ri <- seq(0, by = dr, len = N + 1) # distance to layer interface
+dri <- dr # dispersion distances
+
+parms <- c(Da = 0.05, 
+           rIng = 0.2, 
+           rGrow = 1.0, 
+           rMort = 0.2, 
+           assEff = 0.5, # assimilation efficiency
+           cap = 10
+           )
+# Initial conditions
+state <- rep(0, 2 * N)
+state[1] <- state[N + 1] <- 10
+
+times <- seq(0, 200, by = 1)
+out <- ode.1D(y = state, times = times, func = lvmod, parms = parms,
+              nspec = 2, names = c("PREY", "PRED"), 
+              N = N, rr = r, ri= ri, dr = dr, dri = dri)
+
+
 # deSolve and Fu, von Recum -----------------------------------------------
 
-# Let's start by trying to model concentratino of free ligand in 
+# Let's start by trying to model concentration of free ligand in 
 # the hydrogel
 # total concentration of Beta-CD = Ct; free CD = Cc; bound CD = Clc
 # Binding rate = Rb
@@ -189,10 +249,10 @@ Hydrogel <- function(t, CONC, parameters){
   list(dCONC)
 }
 # Model parameters
-D <- 0.2 # Diffusion rate
-k1 <- 1.01218 # kon, or koff^-1
-k2 <- 0.98796 # koff, or kon^-1
-cd.total <- 0.4
+# D <- 0.5 # Diffusion rate
+# k1 <- 1.01218 # kon, or koff^-1
+# k2 <- 0.98796 # koff, or kon^-1
+# cd.total <- 0.4
 delx <- 1 # thickness of boxes
 numboxes <- 50
 Distance <- seq(from = 0.5, by = delx, length.out = numboxes) # for image(out)
@@ -235,20 +295,28 @@ dr <- R/N # thickness of each layer
 r <- seq(dr/2, by = dr, len = N) # distance of center to mid-layer
 ri <- seq (0, by = dr, len = N+1) # distance to layer interface
 dri <- dr # dispersion distances
-parms <- c(D = 0.05, k1 = 0.5, k2 = 2, cd.total = 1)
+parms <- c(D = 5, k1 = 50, k2 = 0.2, cd.total = 1)
 
 # Distance <- seq(from = 0.5, by = delx, length.out = numboxes)
 
 state <- rep(0, 2 * N)
 state[1] <- state[N+1] <- 0.1
 
-times <- seq(0, 10, by = 1)
+times <- seq(0, 20, by = 1)
 
-out <- ode.1D(y = state, times = times, func = hydrogel.mod, parms = parms, nspec = 2, names = c("DRUG", "CD"), 
+out <- ode.1D(y = state, times = times, 
+              func = hydrogel.mod, parms = parms, 
+              nspec = 2, names = c("DRUG", "CD"), 
               N = N, rr = r, ri = ri, dr = dr, dri = dri)
 
-DRUG  <- out[, 2:9]
+DRUG  <- out[1:5, 2:6]
+# DRUG <- out[ , 1:20]
 
-filled.contour(x = times, y = c(1:8), DRUG, color = topo.colors,
+filled.contour(x = c(1:5), y = c(1:5), DRUG, color = topo.colors,
                xlab = "time, days", ylab = "Distance",
                main = "Drug concentration")
+
+
+#      deSolve: Free Ligand in Hydrogel -----------------------------------
+
+
