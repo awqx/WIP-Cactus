@@ -1,15 +1,17 @@
+# Libraries and Packages --------------------------------------------------
+
 library(data.table)
 library(tidyverse)
 library(stringr)
 
 # Rekharsky and Inoue -----------------------------------------------------
 
-# The following reading will vary based on user preference
-setwd("~/SREP LAB/qsar")
-ri.bound <- readRDS("./bound/ri.bound.df.RDS")
+ri.bound <- readRDS("./dwnld/ri.bound.df.RDS")
 # 1367 observations
 
-# Rename columns 
+#     Cosmetic cleaning ---------------------------------------------------
+
+# 1. Rename columns 
 #     Note: for some reason, this doesn't work on Windows
 #     Keeping this, in case it's important for RStudio on iOS
 
@@ -21,15 +23,12 @@ ri.bound <- readRDS("./bound/ri.bound.df.RDS")
 #          log.K = `logâK`,
 #          method = `methoda`)
 
-
-# Splitting columns containing a variable value and its uncertainty
-# Occasionally the naming of the columns will get messed up
-# In this case, you would need colnames(ri.bound)[3], [5], [6], [7], and [11]
 colnames(ri.bound) <- c("host", "guest", "solvent", 
                         "T.K", "log.K", 
                         "DelG", "DelH", "TDelS", 
                         "methoda", "ref", "DelCp")
 
+# 2. Splitting columns containing a variable value and its uncertainty
 ri.clean <- ri.bound %>%
   separate(solvent, c("solvent","solvent.specs"),
            sep = "(?=\\s*\\()", extra = "merge", fill = "right") %>%
@@ -44,9 +43,9 @@ ri.clean <- ri.bound %>%
   separate(DelCp, c("DelCp", "DelCp.Uncertainty"),
           sep = "\\s\\±\\s",extra = "merge", fill = "right")
 
-# Cleaning strings that contain inconsistent patterns such as more than one space
-# separation and unconventional separation symbols. Converting alpha, beta and
-# gamma symbols to words for easier subset of tables 
+# 3. Cleaning strings that contain inconsistent patterns such as more than one space
+#     separation and unconventional separation symbols. Converting alpha, beta and
+#     gamma symbols to words for easier subset of tables 
 
 ri.clean <- ri.clean %>%
   lapply(str_replace_all, pattern = "\\â", 
@@ -75,12 +74,11 @@ ri.clean <- ri.clean %>%
 # the molarity of the acid given in the solvent composition will be set
 # at the theoretical value of the solution
 
-# Creating regex for molarity detection
-pattern.molarity <- gsub("\n", replacement = "", x = "[0-9]+\\.*[0-9]*[[:space:]]M
-                         [[:space:]][A-Za-z0-9]*([[:space:]]*(;|\\,|\\+)[[:space:]][0-9]\\.*[0-9]*[[:space:]]M
-                         \\s[A-Za-z0-9]*)*")
-
-pattern.molarity <- "[0-9]\\.*[0-9]*[[:space:]]M[[:space:]][[:alnum:]]+([[:space:]]?[[:punct:]][[:space:]][0-9]\\.*[0-9]*[[:space:]]M[[:space:]][[:alnum:]]+)*"
+# 1. Detecting molarity
+molarity.regex <- paste0("[0-9]+\\.*[0-9]*[[:space:]]M",
+                         "[[:space:]][A-Za-z0-9]*([[:space:]]", 
+                         "*(;|\\,|\\+)[[:space:]][0-9]\\.*[0-9]*", 
+                         "[[:space:]]M\\s[A-Za-z0-9]*)*")
 # Regex for pH
 pH.numeric <-  "[0-9]+\\.*[0-9]*"
 
@@ -94,7 +92,7 @@ ri.clean <- ri.clean %>%
          solvent.ratio = str_extract(solvent.specs,
                                      pattern = "[0-9]+(\\.[0-9]+)*\\:[0-9]+(\\.[0-9]+)*"),
          solvent.molarity = str_extract(solvent.specs, 
-                                        pattern = pattern.molarity)) %>%
+                                        pattern = molarity.regex)) %>%
   mutate(pH = ifelse(!is.na(pH.range), NA, pH)) %>%
   mutate(pH = str_extract(pH, pattern = pH.numeric) %>% as.numeric()) %>%
   separate(., pH.range, c("pH1", "pH2"), sep = "-") %>%
@@ -117,7 +115,6 @@ ri.clean$pH[hcl.acid]  <-  1.21
 
 
 #     Questionable Section ------------------------------------------------
-
 
 # It would be nice to explain what each of these cleanup step is actually doing
 # to the guest column and why is needed. I did a quick search in google 
@@ -171,6 +168,7 @@ ri.clean <- ri.clean[!str_detect(ri.clean$ref, "b|c|g|i|j|m"),]
 ri.clean <- ri.clean[str_detect(ri.clean$host, "^1[[:alpha:]]"), ]
 ri.clean <- ri.clean[str_detect(ri.clean$solvent, "H2O$"), ]
 ri.clean <- ri.clean[str_detect(ri.clean$solvent, "^H2O"), ]
+# removing hydrochloride salts
 ri.clean <- ri.clean[!str_detect(ri.clean$guest, pattern = "hydrochloride"), ]
 
 # Discriminating based on pH and T
@@ -180,7 +178,7 @@ ri.squeaky.clean <- ri.squeaky.clean[ri.squeaky.clean$T.K == 298,]
 
 #     Formatting  ---------------------------------------------------------
 
-# Reorganizing Table  into the following colunn families vector types
+# Reorganizing Table  into the following column families vector types
 # Host <chr> | Guest <chr> | Solvent Specs <chr>| pH + Thermodynamic Values (dbl)
 # | Method+References <chr>
 ri.clean <- ri.clean %>%
@@ -214,22 +212,21 @@ ri.squeaky.clean <- ri.squeaky.clean %>%
 # 273 unique
 
 #     Save Output ---------------------------------------------------------
-# # saveRDS(ri.clean, file = "./bound/02.ri.clean.RDS")
-# # saveRDS(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RDS")
-# save(ri.squeaky.clean, file = "./bound/02.ri.squeaky.clean.RData")
 
-# saveRDS(ri.clean, file = "./bound/02.2.ri.clean.RDS")
-# saveRDS(ri.squeaky.clean, file = "./bound/02.2.ri.squeaky.clean.RDS")
-# save(ri.squeaky.clean, file = "./bound/02.2.ri.squeaky.clean.RData")
+saveRDS(ri.clean, file = "./dwnld/0ri.clean.RDS")
+saveRDS(ri.squeaky.clean, file = "./dwnld/ri.squeaky.clean.RDS")
 
 #####
 # Suzuki ------------------------------------------------------------------
 
-suz.bound <- readRDS("./bound/suz.bound.df.RDS")
+suz.bound <- readRDS("./dwnld/suz.bound.df.RDS")
+# 1. Selecting only observed data
 suz.clean <- suz.bound[-1, c(2, 4, 8)] # Selection of obsd data only
-colnames(suz.clean) <- c("guest", "DelG.a", "DelG.b") # Easy renaming
 
-# Sorting out characters that were read weirdly 
+# 2. Renaming columns
+colnames(suz.clean) <- c("guest", "DelG.a", "DelG.b") 
+
+# 3. Sorting out misread special characters
 suz.clean <- suz.clean %>%
   mutate(DelG.a = str_replace(DelG.a, "â\u0088\u0092", "-")) %>%
   mutate(DelG.a = str_replace(DelG.a, "(â|Â)", "")) %>%
@@ -237,14 +234,14 @@ suz.clean <- suz.clean %>%
   mutate(DelG.b = str_replace(DelG.b, "(â|Â)", "")) %>%
   mutate(guest = str_replace(guest, "â\u0080\u0089", "-")) 
 
-# Detection of rows that ended up as column names
+# 4. Detection of rows that ended up as column names
 h.ind <- suz.clean$guest %>% str_detect("guest")
 suz.clean <- suz.clean[!h.ind, ] 
 
-# Converting the DelG columns to numeric
+# 5. Converting the DelG columns to numeric
 suz.clean[ , 2:3] <- sapply(suz.clean[, 2:3], as.numeric) 
 
-# Separating the DelGs, creating a long df
+# 6. Creation of long df
 suz.clean.dg.alpha <- suz.clean %>% 
   filter(!is.na(DelG.a)) %>% 
   select(guest, DelG.a) %>% 
@@ -266,18 +263,20 @@ suz.clean <- rbind(suz.clean.dg.alpha, suz.clean.dg.beta)
 # Unique guests: 218
 
 #     Save Output ---------------------------------------------------------
-# save(suz.clean, file = "./bound/02.suz.clean.RData")
-# saveRDS(suz.clean, file = "./bound/02.suz.clean.RDS")
+
+save(suz.clean, file = "./dwnld/02.suz.clean.RData")
+saveRDS(suz.clean, file = "./dwnld/02.suz.clean.RDS")
 
 #####
 # Combining Datasets ------------------------------------------------------
 
+# renaming for convenience
 ri <- ri.squeaky.clean %>%
   mutate(host = str_replace(ri.squeaky.clean$host, "1", "")) %>%
   select(host, guest, DelG) %>%
   mutate(data.source = "rekharsky.inoue")
 
-# Splitting based on CD type
+# 1. Splitting based on CD type
 ri.a <- filter(ri, host == "alpha")
 ri.b <- filter(ri, host == "beta")
 ri.c <- filter(ri, host == "gamma") # Gamma is RI-exclusive
@@ -285,7 +284,7 @@ ri.c <- filter(ri, host == "gamma") # Gamma is RI-exclusive
 suz.a <- filter(suz.clean, host == "alpha")
 suz.b <- filter(suz.clean, host == "beta")
 
-# Collapsing separate data points 
+# 2. Collapsing separate data points 
 #     Adapted from GSee at stackoverflow.com/questions/12884695
 #     As well as Sven Hohenstein at stackoverflow.com/questions/20854615
 comb.a <- rbind(ri.a, suz.a) %>%
@@ -303,11 +302,11 @@ comb.b <- comb.b[ , list(host = host, DelG = mean(DelG),
                   by = guest] 
 
 comb.dg <- rbind(comb.a, comb.b, ri.c)
-comb.dg.nodup <- comb.dg[!duplicated(comb.dg), ]
+comb.dg.nodup <- comb.dg[!duplicated(comb.dg), ] # filtering for unique
 suz.df <- rbind(suz.a, suz.b)
-# saveRDS(comb.dg, "./bound/combined ri and suzuki.RDS")
-# saveRDS(comb.dg.nodup, "./bound/combined data.RDS")
-# saveRDS(suz.df, "./bound/suzuki only.RDS")
+saveRDS(comb.dg, "./dwnld/full.combined.ri.suzuki.RDS")
+saveRDS(comb.dg.nodup, "./dwnld/combined.data.RDS")
+saveRDS(suz.df, "./dwnld/suzuki.only.RDS")
 
 # Information about Data
 # Total: 615
@@ -318,6 +317,9 @@ suz.df <- rbind(suz.a, suz.b)
 
 #####
 # Duplicate Cases ---------------------------------------------------------
+
+# Just a quick cisualization of differences between duplicated cases
+# Not necessary for model-building
 
 ri.clean.sub <- ri.clean %>% select(., guest, DelG, host, pH, T.K) %>%
   mutate(data.source = "rekharsky.inoue") %>%

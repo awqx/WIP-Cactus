@@ -2,6 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# HTML docs and data summaries
 report.svm.Rmd
 report.rf.Rmd
 report.pls.Rmd
@@ -18,3 +20,6 @@ graph.formatting.R
 graph.functions.R
 
 fda/
+
+# Other
+dwnld/
