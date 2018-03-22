@@ -179,54 +179,68 @@ plot.1D(out, grid = Distance, type = "l", mfrow = NULL, subset = time == 100,
         obs = data, obspar = list(pch = 18, cex = 2, col = "red"))
 
 # Following along w/ predator-prey model of vignette
-lvmod <- function(time, state, parms, N, rr, ri, dr, dri) {
-  with(as.list(parms), {
+lvmod <- function (time, state, parms, N, rr, ri, dr, dri) {
+  with (as.list(parms), {
     PREY <- state[1:N]
-    PRED <- state[(N + 1):(2 * N)]
-    
-    # Flux due to diffusion
-    # at internal/external boundaries: zero gradient
+    PRED <- state[(N+1):(2*N)]
+    ## Fluxes due to diffusion
+    ## at internal and external boundaries: zero gradient
     FluxPrey <- -Da * diff(c(PREY[1], PREY, PREY[N]))/dri
     FluxPred <- -Da * diff(c(PRED[1], PRED, PRED[N]))/dri
-    
-    # Lotka-Volterra model
-    Ingestion    <- rIng * PRED * PREY
-    GrowthPrey   <- rGrow * PREY * (1 - PREY / cap)
-    MortPredator < rMort * PRED
-    
-    # Rate of change = Flux gradient + biology
-    dPrey <- -diff(ri * FluxPrey)/rr/dr + 
+    ## Biology: Lotka-Volterra model
+    Ingestion     <- rIng  * PREY * PRED
+    GrowthPrey    <- rGrow * PREY * (1-PREY/cap)
+    MortPredator  <- rMort * PRED
+    ## Rate of change = Flux gradient + Biology
+    dPREY    <- -diff(ri * FluxPrey)/rr/dr   +
       GrowthPrey - Ingestion
-    dPred <- -diff(ri * FluxPred)/rr/dr + 
+    dPRED    <- -diff(ri * FluxPred)/rr/dr   +
       Ingestion * assEff - MortPredator
-    
-    return(list(c(dPREY, dPRED)))
+    return (list(c(dPREY, dPRED)))
   })
 }
 
-R <- 20 # radius of surface
-N <- 100 # number of concentric circles
-dr <- R/N # thickness of each layer
-r <- seq(dr/2, by = dr, len = N) # distance of center to mid-layer
-ri <- seq(0, by = dr, len = N + 1) # distance to layer interface
-dri <- dr # dispersion distances
+## model parameters:
+R  <- 20                        # total radius of surface, m
+N  <- 100                       # 100 concentric circles
+dr <- R/N                       # thickness of each layer
+r  <- seq(dr/2,by = dr,len = N) # distance of center to mid-layer
+ri <- seq(0,by = dr,len = N+1)  # distance to layer interface
+dri <- dr                       # dispersion distances
 
-parms <- c(Da = 0.05, 
-           rIng = 0.2, 
-           rGrow = 1.0, 
-           rMort = 0.2, 
-           assEff = 0.5, # assimilation efficiency
-           cap = 10
-           )
-# Initial conditions
-state <- rep(0, 2 * N)
+parms <- c(Da     = 0.05,       # m2/d, dispersion coefficient
+           rIng   = 0.2,        # /day, rate of ingestion
+           rGrow  = 1.0,        # /day, growth rate of prey
+           rMort  = 0.2 ,       # /day, mortality rate of pred
+           assEff = 0.5,        # -, assimilation efficiency
+           cap    = 10)         # density, carrying capacity
+## Initial conditions: both present in central circle (box 1) only
+state    <- rep(0, 2 * N)
 state[1] <- state[N + 1] <- 10
+## RUNNING the model:
+times  <- seq(0, 200, by = 1)   # output wanted at these time intervals
+## the model is solved by the two implemented methods:
+## 1. Default: banded reformulation
+print(system.time(
+  out <- ode.1D(y = state, times = times, func = lvmod, parms = parms,
+                nspec = 2, names = c("PREY", "PRED"),
+                N = N, rr = r, ri = ri, dr = dr, dri = dri)
+))
+## 2. Using sparse method
+print(system.time(
+  out2 <- ode.1D(y = state, times = times, func = lvmod, parms = parms,
+                 nspec = 2, names = c("PREY","PRED"),
+                 N = N, rr = r, ri = ri, dr = dr, dri = dri,
+                 method = "lsodes")
+))
+## ================
+## Plotting output
+## ================
 
-times <- seq(0, 200, by = 1)
-out <- ode.1D(y = state, times = times, func = lvmod, parms = parms,
-              nspec = 2, names = c("PREY", "PRED"), 
-              N = N, rr = r, ri= ri, dr = dr, dri = dri)
-
+PREY   <- out2[, 2:(N + 1)]
+filled.contour(x = times, y = r, PREY, color = topo.colors,
+               xlab = "time, days", ylab = "Distance, m",
+               main = "Prey density")
 
 # deSolve and Fu, von Recum -----------------------------------------------
 
@@ -239,44 +253,15 @@ out <- ode.1D(y = state, times = times, func = lvmod, parms = parms,
 # partialCl/partialt = D*secondpartialCl/secondpartialz^2-Rb
 # partialClc/partialt = Rb
 
-Hydrogel <- function(t, CONC, parameters){
-  deltac <- c(0.5, rep(1, numboxes - 1), 0.5)
-  Flux <- D*diff(c(0, CONC, 0)) / deltac
-  Rb <- k1*CONC*(cd.total - COMP) - k2*COMP
-  dCOMP <- Rb
-  dCONC <- diff(Flux) / delx - Rb
-  
-  list(dCONC)
-}
-# Model parameters
-# D <- 0.5 # Diffusion rate
-# k1 <- 1.01218 # kon, or koff^-1
-# k2 <- 0.98796 # koff, or kon^-1
-# cd.total <- 0.4
-delx <- 1 # thickness of boxes
-numboxes <- 50
-Distance <- seq(from = 0.5, by = delx, length.out = numboxes) # for image(out)
-
-# Initial conditions
-CONC <- rep(0.5, # concentration  of ligand/drug at equilibrium
-            times = numboxes)
-COMP <- rep(0.5, # concentration of complexes @ equilibrium
-            times = numboxes)
-state <- c(CONC = CONC)
-
-times <- seq(0, 20, by = 1)
-out <- ode.1D(state, times, Hydrogel, parms = 0, nspec = 1, 
-              names = "Hydrogel")
-image(out, grid = Distance)
-
-hydrogel.mod <- function(t, state, parms, N, rr, ri, dr, dri) {
+hydrogel <- function(t, state, parms, N, rr, ri, dr, dri) {
   with (as.list(parms), 
         {
-          DRUG <- state[1:N] # ligand/drug concentration
+          DRUG <- state[1:N] # ligand (drug) concentration
           CD <- state[(N+1):(2*N)] # complexed CD
           
           # Fluxes due to diffusion
           # Only a flux for drug b/c CD remains stationary
+          # adding a zero for boundary of hydrogel
           FluxDrug <- D * diff(c(DRUG[1], DRUG, DRUG[N])) / dri
           
           # Rb = net binding rate
@@ -295,28 +280,81 @@ dr <- R/N # thickness of each layer
 r <- seq(dr/2, by = dr, len = N) # distance of center to mid-layer
 ri <- seq (0, by = dr, len = N+1) # distance to layer interface
 dri <- dr # dispersion distances
-parms <- c(D = 5, k1 = 50, k2 = 0.2, cd.total = 1)
+parms <- c(D = 0.05, k1 = 0.5, k2 = 2, cd.total = 1)
+
+parms <- c(D = 10^-3, # diffusivity
+           k1 = 10^4, 
+           k2 = 10^3, 
+           cd.total = 0.01)
 
 # Distance <- seq(from = 0.5, by = delx, length.out = numboxes)
 
-state <- rep(0, 2 * N)
-state[1] <- state[N+1] <- 0.1
+state <- rep(0, 2 * N) # initial conditions
+state[1] <- 0.01
+state[N+1] <- 0.075
 
-times <- seq(0, 20, by = 1)
+times <- seq(0, 10, by = 1) # timepoints
 
 out <- ode.1D(y = state, times = times, 
-              func = hydrogel.mod, parms = parms, 
+              func = hydrogel, parms = parms, 
               nspec = 2, names = c("DRUG", "CD"), 
               N = N, rr = r, ri = ri, dr = dr, dri = dri)
 
-DRUG  <- out[1:5, 2:6]
+DRUG  <- out[, 2:(N+1)]
+DRUG <- out[ , 2:10]
 # DRUG <- out[ , 1:20]
 
-filled.contour(x = c(1:5), y = c(1:5), DRUG, color = topo.colors,
+filled.contour(x = times, y  = c(1:9), DRUG, color = topo.colors,
                xlab = "time, days", ylab = "Distance",
                main = "Drug concentration")
 
+#     release rate --------------------------------------------------------
 
-#      deSolve: Free Ligand in Hydrogel -----------------------------------
+# RR = -ADdCl/dz for z = height of CD disk
+release <- function(t, drug, param) {
+  tran <- tran.1D(C = drug, C.down = drug.conc, 
+                  D = D.grid, A = A.grid, 
+                  VF = por.grid, dx = grid)
+  reac <- -R.O2*(O2/(Ks + O2))
+  return(list(dCdt = tran$dC + reac, reac = reac, 
+              flux.up = tran$flux.up, flux.down = tran$flux.down))
+}
+
+drug.conc <- 0.05 # free ligand concentration
+cd.conc <- 0.1 # cd concentration in hydrogel
+D <- 0.01 # diffusion coef
+v <- 0
+kon <- 10000 # kon
+koff <- 10000
+Ks <- 0.05 # ligand saturation in CD for hydrogel
+
+R <- 0.05 # radius of hydrogel (height)
+N <- 50 # grid layers
+grid <- setup.grid.1D(x.up = 0, L = R, N = N)
+
+
+# Fu (no deSolve) ---------------------------------------------------------
+
+cd.conc <- 0.1 # cd concentration in hydrogel
+drug.eq <- 0.05 # [drug] at equilibrium
+comp.eq <- 0.05 # [drug-cd] at equilibrium
+  
+D <- 0.01 # diffusion coef
+v <- 0
+kon <- 10000 # kon
+koff <- 10000
+Ks <- 0.05 # ligand saturation in CD for hydrogel
+
+# The ODE/PDE system is
+# 
+# dDRUG/dt = D*d2DRUG/d2z - Rb
+# dCOMP/dt = Rb
+# Rb = Kon*DRUG*CD-KoffCOMP = Kon*COMP*(TOTAL-COMP)-KoffCOMP
+# 
+# Boundary condition
+# z = delta, DRUG = 0 
+# 
+# Initial conditions
+# DRUG = 0; COMP = 0
 
 
