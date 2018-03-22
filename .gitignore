@@ -19,8 +19,10 @@ graphs/
 graph.formatting.R
 graph.functions.R
 
+# Downloaded files
+dwnld/
+molecules/
 fda/
 
 # Other
-dwnld/
 diffusion-practice.R
