@@ -19,7 +19,9 @@ graphs/
 graph.formatting.R
 graph.functions.R
 
-# Downloaded files
+# Data files (possible copyright issues with uploading to GitHub)
+data/
+descriptors/
 dwnld/
 molecules/
 fda/
