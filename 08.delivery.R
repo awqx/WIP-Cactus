@@ -3,13 +3,11 @@
 # over time
 #
 # Source: https://doi.org/10.1016/j.jconrel.2014.10.032
-# setwd("~/SREP LAB/qsar")
 
 # Libraries and Packages --------------------------------------------------
 
-# install.packages("ReacTran")
+library(deSolve)
 library(dplyr)
-library(ReacTran)
 library(tidyverse)
 
 # Functions ---------------------------------------------------------------
@@ -29,321 +27,7 @@ convert.delg.kd <- function(delg) {
   return (1/convert.delg.ka(delg))
 }
  
-# These are dimensionless constants used by Vulic:
-#   alpha = Cpro,0 / Cpep,T (guest / total host (peptide))
-#   beta = L^2 * koff / D 
-#   gamma = kon * Cpro,0 / koff
-
-# Regime 1 calculations
-#   for cases when gamma << 1 or ~ 1
-regime1 <- function(gamma, alpha, L, D) {
-  return(L^2*(1 + gamma/alpha)/D)
-}
-
-# Regime 2 calculations
-#   for gamma >> 1; or, a large fraction of peptide initially bound
-#   This one is more complicated b/c the timeframe/calculations actually change
-#   as the concentration gradually drops, and the time frame calculation shifts
-#   to regime 1
-
-# Regime 3 (slow unbinding)
-#   for cases where unbinding is slow compared to diffusion, or beta << 1 or 1/koff >> L^2/D
-
-# Preliminary Trial -------------------------------------------------------
-
-glm <- readRDS("./models/glmnet/glm.results.RDS")
-glm.delg <- glm$pred
-glm.kd <- map(glm.delg, convert.delg.kd)
-
-# ReacTran Trial ----------------------------------------------------------
-
-# Grid definition
-r.N     <- 4   # number of cells in r-direction
-theta.N <- 6   # number of cells in theta-direction
-z.N     <- 3   # number of cells in z-direction
-
-D       <- 100 # diffusion coefficient
-# D can be calculated as = (9.940E-15*T)/
-# (viscosity*cuberoot(molecular weight)) [Vulic]
-# In this case, T = 298, viscosity = 8.90E-4 Pa 
-
-r      <- seq(0,   8, len = r.N+1)       # cell size r-direction [cm]
-theta  <- seq(0,2*pi, len = theta.N+1)   # theta-direction - theta: from 0, 2pi
-phi    <- seq(0,2*pi, len = z.N+1)       # phi-direction (0,2pi)
-z      <- seq(0,5, len = z.N+1)          # cell size z-direction [cm]
-
-# Intial conditions 
-C <- array(dim = c(r.N, theta.N, z.N), data = 0)
-
-# Concentration boundary conditions
-tran.cylindrical (C = C, D.r = D, D.theta = D, 
-                  C.r.up = 1, C.r.down = 1,
-                  C.theta.up = 1, C.theta.down = 1, 
-                  C.z.up = 1, C.z.down = 1,
-                  r = r, theta = theta, z = z )
-
-# Flux boundary conditions
-tran.cylindrical(C = C, D.r = D, r = r, theta = theta, z = z,
-                 flux.r.up = 10, flux.r.down = 10,
-                 flux.theta.up = 10, flux.theta.down = 10,
-                 flux.z.up = 10, flux.z.down = 10)
-
-# cyclic boundary conditions
-tran.cylindrical(C = C, D.r = D, r = r, theta = theta, z = z,
-                 cyclicBnd = 1:3)
-
-# zero-gradient boundary conditions
-tran.cylindrical(C = C, D.r = D, r = r, theta = theta, z = z)
-
-
-# Model w/ Diffusion and First-Order Consumption
-N     <- 50          # number of grid cells
-XX    <- 4           # total size
-rr    <- 0.005       # consumption rate
-ini   <- 1           # initial value at x=0
-D     <- 400
-r     <- seq (2, 4, len = N+1)
-theta   <- seq(0, 2*pi, len = N+1)
-theta.m <- 0.5*(theta[-1]+theta[-(N+1)])
-# The model equations
-Diffpolar <- function (t, y, parms)  {
-  CONC  <- matrix(nrow = N, ncol = N, data = y)
-  tran  <- tran.polar(CONC, D.r = D, D.theta = D, r = r, theta = theta,
-                      C.r.up = 0, C.r.down = 1*sin(5*theta.m),
-                      cyclicBnd = 2, full.output=TRUE )
-  dCONC <- tran$dC  - rr * CONC
-  return (list(dCONC))
-}
-# solve to steady-state; cyclicBnd = 2, because of C.theta.up, C.theta.down
-out <- steady.2D (y = rep(0, N*N), func = Diffpolar, parms = NULL,
-                  dim = c(N, N), lrw = 1e6, cyclicBnd = 2)
-image(out)
-cart <- polar2cart(out, r = r, theta = theta,
-                   x = seq(-4, 4, len = 100),
-                   y = seq(-4, 4, len = 100))
-image(cart)
-
-# Messing Around
-diff1 <- tran.cylindrical (C = C, D.r = D, D.theta = D, 
-                  C.r.up = 1, C.r.down = 1,
-                  C.theta.up = 1, C.theta.down = 1, 
-                  C.z.up = 1, C.z.down = 1,
-                  r = r, theta = theta, z = z )
-diff1.1 <- diff1[1] %>% unlist()
-diff1.1 <- array(dim = c(r.N, theta.N, z.N), data = diff1.1)
-diff2 <- tran.cylindrical (C = diff1.1, D.r = D, D.theta = D, 
-                           C.r.up = 1, C.r.down = 1,
-                           C.theta.up = 1, C.theta.down = 1, 
-                           C.z.up = 1, C.z.down = 1,
-                           r = r, theta = theta, z = z )
-
-# deSolve Trial -----------------------------------------------------------
-
-# Following the Soetart documentation
-# library(deSolve)
-Aphid <- function(t, APHIDS, parameters) {
-  deltax <- c(0.5, rep(1, numboxes -1), 0.5)
-  Flux <- -D*diff(c(0,APHIDS, 0)) / deltax
-  dAPHIDS <- -diff(Flux) / delx + APHIDS * r
-  
-  # the return value
-  list(dAPHIDS)
-}
-
-D <- 0.3 # m2/day diffusion rate
-r <- 0.01 # /day net growth rate
-delx <- 1 # thickness of boxes
-numboxes <- 60 
-# distance of boxes on plant, m, 1 m intervals)
-Distance <- seq(from = 0.5, by = delx, length.out = numboxes)
-
-# Initial conditions # ind/m2
-APHIDS <- rep(0, times = numboxes)
-APHIDS[30:31] <- 1
-state <- c(APHIDS = APHIDS) # initialize state variables
-
-# the model is run for 200 days, producing output every day
-times <- seq(0,200, by = 1)
-out <- ode.1D(state, times, Aphid, parms = 0, nspec = 1, names = "Aphid")
-image(out, method = "filled.contour", grid = Distance, 
-      xlab = "Time, days", ylab = "Distance on plant, m", 
-      main = "Aphid density")
-
-data <- cbind(dist = c(0, 10, 20, 30, 40, 50, 60), 
-              Aphid = c(0, 0.1, 0.25, 0.5, 0.25, 0.1, 0))
-par(mfrow = c(1,2))
-matplot.1D(out, grid = Distance, type = "l", mfrow = NULL, 
-           subset = time %in% seq(0, 200, by = 10), 
-           obs = data, obspar = list(pch = 18, cex = 2, col = "red"))
-plot.1D(out, grid = Distance, type = "l", mfrow = NULL, subset = time == 100, 
-        obs = data, obspar = list(pch = 18, cex = 2, col = "red"))
-
-# Following along w/ predator-prey model of vignette
-lvmod <- function (time, state, parms, N, rr, ri, dr, dri) {
-  with (as.list(parms), {
-    PREY <- state[1:N]
-    PRED <- state[(N+1):(2*N)]
-    ## Fluxes due to diffusion
-    ## at internal and external boundaries: zero gradient
-    FluxPrey <- -Da * diff(c(PREY[1], PREY, PREY[N]))/dri
-    FluxPred <- -Da * diff(c(PRED[1], PRED, PRED[N]))/dri
-    ## Biology: Lotka-Volterra model
-    Ingestion     <- rIng  * PREY * PRED
-    GrowthPrey    <- rGrow * PREY * (1-PREY/cap)
-    MortPredator  <- rMort * PRED
-    ## Rate of change = Flux gradient + Biology
-    dPREY    <- -diff(ri * FluxPrey)/rr/dr   +
-      GrowthPrey - Ingestion
-    dPRED    <- -diff(ri * FluxPred)/rr/dr   +
-      Ingestion * assEff - MortPredator
-    return (list(c(dPREY, dPRED)))
-  })
-}
-
-## model parameters:
-R  <- 20                        # total radius of surface, m
-N  <- 100                       # 100 concentric circles
-dr <- R/N                       # thickness of each layer
-r  <- seq(dr/2,by = dr,len = N) # distance of center to mid-layer
-ri <- seq(0,by = dr,len = N+1)  # distance to layer interface
-dri <- dr                       # dispersion distances
-
-parms <- c(Da     = 0.05,       # m2/d, dispersion coefficient
-           rIng   = 0.2,        # /day, rate of ingestion
-           rGrow  = 1.0,        # /day, growth rate of prey
-           rMort  = 0.2 ,       # /day, mortality rate of pred
-           assEff = 0.5,        # -, assimilation efficiency
-           cap    = 10)         # density, carrying capacity
-## Initial conditions: both present in central circle (box 1) only
-state    <- rep(0, 2 * N)
-state[1] <- state[N + 1] <- 10
-## RUNNING the model:
-times  <- seq(0, 200, by = 1)   # output wanted at these time intervals
-## the model is solved by the two implemented methods:
-## 1. Default: banded reformulation
-print(system.time(
-  out <- ode.1D(y = state, times = times, func = lvmod, parms = parms,
-                nspec = 2, names = c("PREY", "PRED"),
-                N = N, rr = r, ri = ri, dr = dr, dri = dri)
-))
-## 2. Using sparse method
-print(system.time(
-  out2 <- ode.1D(y = state, times = times, func = lvmod, parms = parms,
-                 nspec = 2, names = c("PREY","PRED"),
-                 N = N, rr = r, ri = ri, dr = dr, dri = dri,
-                 method = "lsodes")
-))
-## ================
-## Plotting output
-## ================
-
-PREY   <- out2[, 2:(N + 1)]
-filled.contour(x = times, y = r, PREY, color = topo.colors,
-               xlab = "time, days", ylab = "Distance, m",
-               main = "Prey density")
-
-# deSolve and Fu, von Recum -----------------------------------------------
-
-# Let's start by trying to model concentration of free ligand in 
-# the hydrogel
-# total concentration of Beta-CD = Ct; free CD = Cc; bound CD = Clc
-# Binding rate = Rb
-# height of cyclodextrin 0<z<smalldelta
-# Rb = Kon*Cl*Cc-KoffClc = Kon*Clc*(Ct-Clc)-KoffClc
-# partialCl/partialt = D*secondpartialCl/secondpartialz^2-Rb
-# partialClc/partialt = Rb
-
-hydrogel <- function(t, state, parms, N, rr, ri, dr, dri) {
-  with (as.list(parms), 
-        {
-          DRUG <- state[1:N] # ligand (drug) concentration
-          CD <- state[(N+1):(2*N)] # complexed CD
-          
-          # Fluxes due to diffusion
-          # Only a flux for drug b/c CD remains stationary
-          # adding a zero for boundary of hydrogel
-          FluxDrug <- D * diff(c(DRUG[1], DRUG, DRUG[N])) / dri
-          
-          # Rb = net binding rate
-          Rb <- k1 * DRUG * (cd.total - CD) - k2 * CD
-          
-          dDRUG <- diff(ri * FluxDrug)/rr/dr - Rb
-          dCD <- Rb
-          
-          return(list(c(dDRUG, dCD)))
-        })
-}
-
-R <- 20 # radius of surface
-N <- 100 # number of layers
-dr <- R/N # thickness of each layer
-r <- seq(dr/2, by = dr, len = N) # distance of center to mid-layer
-ri <- seq (0, by = dr, len = N+1) # distance to layer interface
-dri <- dr # dispersion distances
-parms <- c(D = 0.05, k1 = 0.5, k2 = 2, cd.total = 1)
-
-parms <- c(D = 10^-3, # diffusivity
-           k1 = 10^4, 
-           k2 = 10^3, 
-           cd.total = 0.01)
-
-# Distance <- seq(from = 0.5, by = delx, length.out = numboxes)
-
-state <- rep(0, 2 * N) # initial conditions
-state[1] <- 0.01
-state[N+1] <- 0.075
-
-times <- seq(0, 10, by = 1) # timepoints
-
-out <- ode.1D(y = state, times = times, 
-              func = hydrogel, parms = parms, 
-              nspec = 2, names = c("DRUG", "CD"), 
-              N = N, rr = r, ri = ri, dr = dr, dri = dri)
-
-DRUG  <- out[, 2:(N+1)]
-DRUG <- out[ , 2:10]
-# DRUG <- out[ , 1:20]
-
-filled.contour(x = times, y  = c(1:9), DRUG, color = topo.colors,
-               xlab = "time, days", ylab = "Distance",
-               main = "Drug concentration")
-
-#     release rate --------------------------------------------------------
-
-# RR = -ADdCl/dz for z = height of CD disk
-release <- function(t, drug, param) {
-  tran <- tran.1D(C = drug, C.down = drug.conc, 
-                  D = D.grid, A = A.grid, 
-                  VF = por.grid, dx = grid)
-  reac <- -R.O2*(O2/(Ks + O2))
-  return(list(dCdt = tran$dC + reac, reac = reac, 
-              flux.up = tran$flux.up, flux.down = tran$flux.down))
-}
-
-drug.conc <- 0.05 # free ligand concentration
-cd.conc <- 0.1 # cd concentration in hydrogel
-D <- 0.01 # diffusion coef
-v <- 0
-kon <- 10000 # kon
-koff <- 10000
-Ks <- 0.05 # ligand saturation in CD for hydrogel
-
-R <- 0.05 # radius of hydrogel (height)
-N <- 50 # grid layers
-grid <- setup.grid.1D(x.up = 0, L = R, N = N)
-
-
-# Fu (no deSolve) ---------------------------------------------------------
-
-cd.conc <- 0.1 # cd concentration in hydrogel
-drug.eq <- 0.05 # [drug] at equilibrium
-comp.eq <- 0.05 # [drug-cd] at equilibrium
-  
-D <- 0.01 # diffusion coef
-v <- 0
-kon <- 10000 # kon
-koff <- 10000
-Ks <- 0.05 # ligand saturation in CD for hydrogel
+# Functions (Fu, w/ dimensions) -------------------------------------------
 
 # The ODE/PDE system is
 # 
@@ -357,4 +41,73 @@ Ks <- 0.05 # ligand saturation in CD for hydrogel
 # Initial conditions
 # DRUG = 0; COMP = 0
 
+k1 <- 0.1 
+k2 <- 25
+cd <- 1
+D <- 10
 
+get.Rb <- function(drug, comp, loc) {
+  rb <- k1 * drug[loc] * (cd - comp[loc]) - k2*comp[loc]
+}
+
+ddrug.dt <- function(drug, comp) {
+  ddrug <- c(rep(0, n)) # create a blank vector w/ correct number of layers
+  # ddrug[0] (imaginary) = 0, ddrug[n] = 0 ... these are boundary conditions
+  ddrug[1] <- D * (drug[2] - drug[1]) / (del^2) - get.Rb(drug = drug, 
+                                                         comp = comp, 
+                                                         loc = 1)
+  ddrug[n - 1] <-
+    D*(-2*drug[n-1]+drug[n-2])/(del^2) - get.Rb(drug = drug,
+                                                comp = comp,
+                                                loc = n - 1)
+  for (i in 2:(n-2)) {
+    ddrug[i] <- D*(drug[i+1]-2*drug[i]+drug[i-1])/(del^2)-get.Rb(drug = drug, 
+                                                                 comp = comp,
+                                                                 loc = i)
+  }
+  
+  return(ddrug)
+}
+
+dcomp.dt <- function(drug, comp) {
+  dcomp <- sapply(c(1:(n-1)), get.Rb, drug = drug, comp = comp)
+  dcomp[n] <- 0
+  return(dcomp)
+}
+
+dMr.dt <- function(drug, comp, time) {
+  time.results <- list()
+  initial <- list(drug, comp, 
+                  ddrug.dt(drug = drug, comp = comp), 
+                  dcomp.dt(drug = drug, comp = comp)) %>%
+    setNames(., c("drug", "comp", "ddrug", "dcomp"))
+  time.results[[1]] <- initial
+  print(time.results)
+  for (t in 2:time) 
+  {
+    # calculates new concentration of drug based on previous concentration
+    # plus the calculated change
+    drug.new <- time.results[[t-1]][[1]] + time.results[[t-1]][[3]]
+    comp.new <- time.results[[t-1]][[2]] + time.results[[t-1]][[4]]
+    ddrug.new <- ddrug.dt(drug.new, comp.new)
+    dcomp.new <- dcomp.dt(drug.new, comp.new)
+    list.new <- list(drug.new, comp.new, ddrug.new, dcomp.new) %>%
+      setNames(., c("drug", "comp", "ddrug", "dcomp"))
+    time.results[[t]] <- list.new
+  }
+  setNames(time.results, c(1:time))
+  return(time.results)
+}
+
+dMr.dt2 <- function(time.results) {
+  time <- length(time.results)
+  change <- c(rep(0, time))
+  
+  for(i in 1:time)
+    change[i] <- -D * 0.0005^2 * pi * (time.results[[i]]$drug[20] - time.results[[i]]$drug[19]) # 20 and 19 should be N and N-1
+
+  return(change)
+  }
+
+temp2 <- dMr.dt(DRUG, COMP, 10)
+dMr.dt2(temp2)
