@@ -6,10 +6,9 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-# setwd("~/SREP LAB/qsar")
-# dir.create("./graphs/glmnet")
+dir.create("./graphs/glmnet")
 
-df.raw <- readRDS("./padel.pp.new.RDS")
+df.raw <- readRDS("./data/padel.pp.RDS")
 df <- df.raw %>% select(-guest:-host) %>%
   select(-data.source)
 # mat <- sparse.model.matrix(~., df)

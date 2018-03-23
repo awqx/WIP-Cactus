@@ -12,7 +12,7 @@ library(tidyverse)
 
 dir.create("./models")
 dir.create("./models/svm")
-df.raw <- readRDS("./padel.pp.new.RDS") 
+df.raw <- readRDS("./data/padel.pp.RDS") 
 df <- df.raw %>%
   select(., -guest:-host) %>%
   select(., -data.source)

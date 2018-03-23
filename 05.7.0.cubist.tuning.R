@@ -1,9 +1,12 @@
-setwd("~/SREP LAB/qsar")
-source("./model.code/tuning.functions.R")
+
+# Libraries ---------------------------------------------------------------
+
+library(Cubist)
+library(tidyverse)
 
 # Data Organization -------------------------------------------------------
 
-rpt <- readRDS("./padel.pp.new.RDS")
+rpt <- readRDS("./data/padel.pp.RDS")
 mat.dg <- rpt %>% 
   dplyr::select(., -guest:-host, -data.source)
 
@@ -13,6 +16,124 @@ trn <- mat.dg[trn.ind, ]
 tst <- mat.dg[-trn.ind, ]
 
 dir.create("./tuning/cubist")
+
+# Functions ---------------------------------------------------------------
+
+# Cubist should be fed with matrix or data.frame
+tune.cubist.cmte <- function(data, nfolds, cmte, seed) {
+  set.seed(seed)
+  fold.list <- createFolds(y = data[ , 1], k = nfolds)
+  results <- c(rep(0.0, nfolds))
+  
+  ctrl <- cubistControl(
+    seed = seed
+  )
+  
+  for(i in 1:nfolds) {
+    fold <- fold.list[[i]]
+    
+    trn.x <- data[-fold, -1]
+    trn.y <- data[-fold, 1]
+    tst.x <- data[fold, -1]
+    tst.y <- data[fold, 1]
+    
+    cube <- cubist(x = trn.x, y = trn.y, control = ctrl,
+                   committees = cmte)
+    cube.df <- predict(cube, tst.x) %>%
+      cbind(tst.y) %>%
+      data.frame() 
+    
+    colnames(cube.df)[1] <- "pred"
+    colnames(cube.df)[2] <- "obs"
+    
+    results[i] <- defaultSummary(cube.df)[2]
+    message("Fold ", i, " of ", cmte, " committees completed.")
+  }
+  
+  return(data.frame( # Useful for records
+    data = deparse(substitute(data)), # Turns the variable name into char
+    nfolds = nfolds,
+    seed = seed,
+    committees = cmte,
+    rsquared = sum(results) / nfolds))
+}
+
+tune.cubist.samp <- function(data, nfolds, samp, seed) {
+  set.seed(seed)
+  fold.list <- createFolds(y = data[ , 1], k = nfolds)
+  results <- c(rep(0.0, nfolds))
+  
+  ctrl <- cubistControl(
+    seed = seed, 
+    sample = samp
+  )
+  
+  for(i in 1:nfolds) {
+    fold <- fold.list[[i]]
+    
+    trn.x <- data[-fold, -1]
+    trn.y <- data[-fold, 1]
+    tst.x <- data[fold, -1]
+    tst.y <- data[fold, 1]
+    
+    cube <- cubist(x = trn.x, y = trn.y, control = ctrl)
+    cube.df <- predict(cube, tst.x) %>%
+      cbind(tst.y) %>%
+      data.frame() 
+    
+    colnames(cube.df)[1] <- "pred"
+    colnames(cube.df)[2] <- "obs"
+    
+    results[i] <- defaultSummary(cube.df)[2]
+    message("Fold ", i, " of ", samp, " % sample size completed.")
+  }
+  
+  return(data.frame( # Useful for records
+    data = deparse(substitute(data)), # Turns the variable name into char
+    nfolds = nfolds,
+    seed = seed,
+    sample.perc = samp,
+    rsquared = sum(results) / nfolds))
+}
+
+tune.cubist.extra <- function(data, nfolds, extra, seed) {
+  set.seed(seed)
+  fold.list <- createFolds(y = data[ , 1], k = nfolds)
+  results <- c(rep(0.0, nfolds))
+  
+  ctrl <- cubistControl(
+    seed = seed, 
+    extrapolation = extra
+  )
+  
+  for(i in 1:nfolds) {
+    fold <- fold.list[[i]]
+    
+    trn.x <- data[-fold, -1]
+    trn.y <- data[-fold, 1]
+    tst.x <- data[fold, -1]
+    tst.y <- data[fold, 1]
+    
+    cube <- cubist(x = trn.x, y = trn.y, control = ctrl)
+    cube.df <- predict(cube, tst.x) %>%
+      cbind(tst.y) %>%
+      data.frame() 
+    
+    colnames(cube.df)[1] <- "pred"
+    colnames(cube.df)[2] <- "obs"
+    
+    results[i] <- defaultSummary(cube.df)[2]
+    message("Fold ", i, " of ", extra, " extrapolation completed.")
+  }
+  
+  return(data.frame( # Useful for records
+    data = deparse(substitute(data)), # Turns the variable name into char
+    nfolds = nfolds,
+    seed = seed,
+    extrapolation = extra, 
+    rsquared = sum(results) / nfolds))
+}
+
 
 # Committees --------------------------------------------------------------
 

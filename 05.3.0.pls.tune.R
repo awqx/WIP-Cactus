@@ -5,11 +5,9 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-setwd("~/SREP LAB/qsar")
 dir.create("./tuning/pls")
-source("./model.code/tuning.functions.R")
 
-df.raw <- readRDS("./padel.pp.new.RDS")
+df.raw <- readRDS("./data/padel.pp.RDS")
 df <- df.raw %>% select(-guest:-host) %>%
   select(-data.source)
 mat <- sparse.model.matrix(~., df)

@@ -6,8 +6,7 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-# setwd("~/SREP LAB/qsar")
-df.raw <- readRDS("./padel.pp.new.RDS")
+df.raw <- readRDS("./data/padel.pp.RDS")
 df <- df.raw %>% select(-guest:-host) %>%
   select(-data.source)
 mat <- as.matrix(df)

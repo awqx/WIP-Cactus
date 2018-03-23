@@ -6,8 +6,7 @@ library(tidyverse)
 
 # Data Organization -------------------------------------------------------
 
-# setwd("~/SREP LAB/qsar")
-df <- readRDS("./padel.pp.new.RDS") %>%
+df <- readRDS("./data/padel.pp.RDS") %>%
   select(-guest:-host) %>%
   select(-data.source)
 mat <- df %>% as.matrix()

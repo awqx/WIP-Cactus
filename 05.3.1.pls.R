@@ -5,9 +5,8 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-# setwd("~/SREP LAB/qsar")
-# dir.create("./models/pls")
-df.raw <- readRDS("./padel.pp.new.RDS")
+dir.create("./models/pls")
+df.raw <- readRDS("./data/padel.pp.RDS")
 df <- df.raw %>% select(-guest, -host, -data.source)
 
 set.seed(10)
