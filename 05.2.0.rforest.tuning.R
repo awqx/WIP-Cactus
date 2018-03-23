@@ -6,8 +6,7 @@ library(tidyverse)
 
 # Data Organization -------------------------------------------------------
 
-# setwd("~/SREP LAB/qsar")
-rpt <- readRDS("./padel.pp.new.RDS")
+rpt <- readRDS("./data/padel.pp.RDS")
 mat.dg <- rpt %>% dplyr::select(., -guest:-host, -data.source)
 
 set.seed(1)

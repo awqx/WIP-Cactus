@@ -5,14 +5,14 @@
 # Set working directory as needed
 # setwd("~/SREP LAB/qsar")
 
-source("./model.code/eval.functions.R")
+source("./eval.functions.R")
 
 # Importing Models' Results -----------------------------------------------
 
 cube <- readRDS("./models/cubist/compiled.results.RDS")
 svm  <- readRDS("./models/svm/polysvm.tst.results.RDS")
 rf   <- readRDS("./models/rforest/rf.results.RDS") 
-glm  <- readRDS("./models/glmnet/glm.results.RDS")
+glm  <- readRDS("./models/glmnet/glmnet.tst.results.RDS")
 pls  <- readRDS("./models/pls/pls.results.RDS")
 
 # Evaluating Standards ----------------------------------------------------
@@ -43,7 +43,7 @@ proc.time()
 (find.r2(cube) - find.r20prime(cube))/find.r2(cube) # 0.040
 (find.r2(svm) - find.r20prime(svm))/find.r2(svm)  # 0.020
 (find.r2(rf) - find.r20prime(rf))/find.r2(rf)  # 0.032
-(find.r2(glm) - find.r20prime(glm))/find.r2(glm) # 0.009
+(find.r2(glm) - find.r20prime(glm))/find.r2(glm) # 0.0029
 (find.r2(rf) - find.r20prime(pls))/find.r2(pls)  # 0.024
 
 # abs(R20- - R20prime) < 0.3

@@ -2,6 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# HTML docs and data summaries
 report.svm.Rmd
 report.rf.Rmd
 report.pls.Rmd
@@ -10,3 +12,19 @@ report.cubist.Rmd
 06.4.glm.html
 report.cubist.Rmd
 report.cubist.html
+compiled folds.RDS
+
+# Graphs
+graphs/
+graph.formatting.R
+graph.functions.R
+
+# Data files (possible copyright issues with uploading to GitHub)
+data/
+descriptors/
+dwnld/
+molecules/
+fda/
+
+# Other
+diffusion-practice.R

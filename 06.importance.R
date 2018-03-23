@@ -6,9 +6,9 @@
 library(caret)
 library(Cubist)
 library(data.table)
+library(e1071)
 library(glmnet)
 library(randomForest)
-library(svm)
 library(tidyverse)
 
 # Loading Models ----------------------------------------------------------
@@ -18,8 +18,8 @@ df <- df.raw %>% select(-guest,-host,-data.source)
 beta <- df %>% filter(beta > 0)
 
 # setwd("~/SREP LAB/qsar")
-cube <- readRDS("./models/cubist/cube.beta.RDS")
-# glm <- readRDS("./models/glmnet/glm.all.sprse.RDS")
+cube <- readRDS("./models/cubist/cubist.beta.RDS")
+glm <- readRDS("./models/glmnet/glm.beta.RDS")
 pls <- readRDS("./models/pls/pls.beta.RDS")
 rf <- readRDS("./models/rforest/rf.beta.RDS")
 svm <- readRDS("./models/svm/polysvm.beta.RDS")
@@ -78,7 +78,7 @@ rf.imp <- rf.imp[order(-rf.imp$Overall), ]
 
 glm <- train(beta[ , -1], beta[ , 1], 
              method = "glmnet", metric = "RMSE")
-glm.imp <- varImp(glm)[[1]] %>% 
+glm.imp <- varImp(glm, lambda = tail(glm$lambda, n = 1))[[1]] %>% 
   mutate(desc = rownames(.)) %>%
   mutate(model = "glm")
 glm.imp <- glm.imp[order(-glm.imp$Overall), ]
@@ -101,11 +101,17 @@ pls.imp <- pls.imp[order(-pls.imp$Overall), ]
 
 # Plot --------------------------------------------------------------------
 
-imp1 <- row.names(cube.imp[1:50, ])
-imp2 <- row.names(rf.imp[1:50, ])
-imp3 <- row.names(glm.imp[1:50, ])
-imp4 <- row.names(svm.imp[1:50, ])
-imp5 <- row.names(pls.imp[1:50, ])
+# imp1 <- row.names(cube.imp[1:50, ])
+# imp2 <- row.names(rf.imp[1:50, ])
+# imp3 <- row.names(glm.imp[1:50, ])
+# imp4 <- row.names(svm.imp[1:50, ])
+# imp5 <- row.names(pls.imp[1:50, ])
+
+imp1 <- cube.imp[1:50, "desc"]
+imp2 <- rf.imp[1:50, "desc"]
+imp3 <- glm.imp[1:50, "desc"]
+imp4 <- svm.imp[1:50, "desc"]
+imp5 <- pls.imp[1:50, "desc"]
 
 imps <- c(imp1, imp2, imp3, imp4, imp5) 
 imps <- imps[duplicated(imps)]
@@ -116,9 +122,10 @@ glm.imp$Overall <- range01(glm.imp$Overall)
 svm.imp$Overall <- range01(svm.imp$Overall)
 pls.imp$Overall <- range01(pls.imp$Overall)
 
-pls.temp <- pls.imp[ , -2:-12] %>%
-  mutate(model = "pls") %>%
-  dplyr::rename(., desc = key)
+pls.temp <- pls.imp %>%
+  select(key, Overall) %>%
+  rename(desc = key) %>%
+  mutate(model = "PLS")
 comp <- rbind(
   cube.imp, rf.imp, glm.imp, svm.imp, pls.temp
 )
@@ -127,8 +134,10 @@ comp <- comp %>% filter(desc %in% imps) %>%
   dplyr::rename(., importance = Overall)
 
 ggplot(comp, aes(x = model, y = desc, fill = importance)) + 
+  theme.paper.2018 +
   geom_tile() + 
-  scale_fill_gradient2(low = "palegreen1", high = "#AEA5DE", mid = "white", midpoint = 0.5) + 
-  theme_bw() + 
-  labs(title = "Descriptor Importance for Each Model on Beta-CD", x = "Model", 
-       y = "Descriptor Variable", fill = "Importance")
+  scale_fill_gradient2(low = "#0ea3b2", high = "#ff9b42", mid = "white", midpoint = 0.5) + 
+  scale_x_discrete(labels = c("Cubist", "GLM", "PLS", "RF", "SVM")) + 
+  labs(x = "Model", y = "Descriptor Variable", fill = "Importance") + 
+  coord_fixed(ratio = 0.25)
+ggsave("./graphs/2018 paper/varimp.png", scale = 1.5)

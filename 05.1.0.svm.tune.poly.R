@@ -10,11 +10,10 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-setwd("~/SREP LAB/qsar")
 dir.create("./tuning")
 dir.create("./tuning/svm")
 # Reading data with all descriptors
-df.raw <- readRDS("./padel.pp.new.RDS") 
+df.raw <- readRDS("./data/padel.pp.RDS") 
 df <- df.raw %>%
   select(., -guest:-host) %>%
   select(., -data.source)
@@ -28,11 +27,11 @@ df <- df.raw %>%
 #   filter(data.source == "suzuki") %>%
 #   select(., -data.source)
 
-# Reading data selected via genetic alg
-ga.pred <- readRDS("./feature.select/GAFS names.RDS")
-ga <- df.raw[ , colnames(df.raw) %in% ga.pred]
-ga <- cbind(df.raw$DelG, ga) %>%
-  rename(DelG = `df.raw$DelG`)
+# # Reading data selected via genetic alg
+# ga.pred <- readRDS("./feature.select/GAFS names.RDS")
+# ga <- df.raw[ , colnames(df.raw) %in% ga.pred]
+# ga <- cbind(df.raw$DelG, ga) %>%
+#   rename(DelG = `df.raw$DelG`)
 
 # Creating train-test splits on the dataset
 set.seed(25)
@@ -40,17 +39,17 @@ trn.ind <- sample(x = 1:nrow(df), size = round(0.7 * nrow(df)))
 trn <- df[trn.ind, ]
 tst <- df[-trn.ind, ]
 
-ga.trn <- ga[trn.ind, ]
-ga.tst <- ga[-trn.ind, ]
+# ga.trn <- ga[trn.ind, ]
+# ga.tst <- ga[-trn.ind, ]
 
 sprse <- sparse.model.matrix(~., df)
 trn.ind <- sample(x = 1:nrow(sprse), size = round(0.7 * nrow(sprse)))
 sprse.trn <- sprse[trn.ind, ]
 sprse.tst <- sprse[-trn.ind, ]
-
-sprse.ga <- sparse.model.matrix(~., ga)
-sprse.ga.trn <- sprse.ga[trn.ind, ]
-sprse.ga.tst <- sprse.ga[-trn.ind, ]
+# 
+# sprse.ga <- sparse.model.matrix(~., ga)
+# sprse.ga.trn <- sprse.ga[trn.ind, ]
+# sprse.ga.tst <- sprse.ga[-trn.ind, ]
 
 # Tuning Functions --------------------------------------------------------
 

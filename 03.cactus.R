@@ -78,17 +78,16 @@ download.cactus.results <- function(guest, path, chemical.format) {
 
 # Cactus Download (1) -----------------------------------------------------
 
-setwd("~/SREP LAB/qsar")
-# dir.create("./molecules")
-# dir.create("./molecules/alphaCD")
-# dir.create("./molecules/betaCD")
-# dir.create("./molecules/gammaCD")
-dataset <-readRDS("./bound/combined data.RDS")
-# Reading dataset for guest molecules specific to host
-alpha.guest <- dataset[host == "alpha", guest]
-beta.guest <- dataset[host == "beta", guest]
-gamma.guest <- dataset[host == "gamma", guest]
+dir.create("./molecules")
+dir.create("./molecules/alphaCD")
+dir.create("./molecules/betaCD")
+dir.create("./molecules/gammaCD")
+dataset <-readRDS("./dwnld/combined.data.RDS")
 
+# Reading dataset for guest molecules specific to host
+alpha.guest <- dataset %>% filter(host == "alpha") %>% .$guest
+beta.guest <- dataset %>% filter(host == "beta") %>% .$guest
+gamma.guest <- dataset %>% filter(host == "gamma") %>% .$guest
 
 # AlphaCD
 #     Creates a dataframe of results; SDFs downloaded to disk
@@ -128,7 +127,7 @@ results.gamma <-
   ) %>% mutate(host = "gamma")
 
 results.all <- rbind(results.alpha, results.beta, results.gamma)
-saveRDS(results.all, "./molecules/cactus dwnld results.RDS")
+saveRDS(results.all, "./molecules/cactus.dwnld.results.RDS")
 
 # Failed SDFs -------------------------------------------------------------
 
@@ -286,7 +285,7 @@ pattern.replacement <- fixed.sdf %>%
   spread(key = argument, value = "chemical.name") %>%
   dplyr::select(., -attribute) 
 
-# Convreting the table to regex for str_replace
+# Converting the table to regex for str_replace
 pattern.reg <- pattern.replacement %>%
   mutate(pattern = make.regex(pattern)) %>%
   mutate(replacement = make.regex(replacement))
@@ -305,12 +304,9 @@ wip.sdf$guest <- str_replace(wip.sdf$guest, pattern = '4-nitrophenyl-beta-d-gluc
                              'N-[(2R,3R,4R,5S,6R)-4,5-dihydroxy-6-(hydroxymethyl)-2-[(4-nitrophenyl)methoxy]oxan-3-yl]acetamide')
 
 # Cactus Download (2) -----------------------------------------------------
-alpha.guest2 <- wip.sdf[wip.sdf$host == "alpha", ]
-alpha.guest2 <- alpha.guest2$guest
-beta.guest2 <- wip.sdf[wip.sdf$host == "beta", ]
-beta.guest2 <- beta.guest2$guest
-gamma.guest2 <- wip.sdf[wip.sdf$host == "gamma", ]
-gamma.guest2 <- gamma.guest2$guest
+alpha.guest2 <- wip.sdf %>% filter(host == "alpha") %>% .$guest
+beta.guest2 <- wip.sdf %>% filter(host == "beta") %>% .$guest
+gamma.guest2 <- wip.sdf %>% filter(host == "gamma") %>% .$guest
 
 # Alpha-CD
 results2.alpha <-
@@ -350,7 +346,7 @@ results2.gamma <-
 
 results2.all <- rbind(results2.alpha, results2.beta, results2.gamma)
 results2.fail <- results2.all %>% filter(downloaded == "no")
-saveRDS(results2.all, "./molecules/cactus dwnld 2.RDS")
+saveRDS(results2.all, "./molecules/cactus.dwnld.2.RDS")
 
 # 5 alpha, 13 beta, 3 gamma did not download 
 

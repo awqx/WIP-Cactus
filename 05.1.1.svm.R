@@ -10,10 +10,9 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-setwd("~/SREP LAB/qsar")
 dir.create("./models")
 dir.create("./models/svm")
-df.raw <- readRDS("./padel.pp.new.RDS") 
+df.raw <- readRDS("./data/padel.pp.RDS") 
 df <- df.raw %>%
   select(., -guest:-host) %>%
   select(., -data.source)
@@ -159,6 +158,8 @@ saveRDS(svm.gamma, "./models/svm/polysvm.gamma.RDS")
 
 #     Compiled CDs --------------------------------------------------------
 
+dir.create("./qsar results")
+dir.create("./qsar results/svm")
 temp.a <- svm.a.tst %>% mutate(cd.type = "alpha")
 temp.b <- svm.b.tst %>% mutate(cd.type = "beta")
 temp.c <- svm.c.tst %>% mutate(cd.type = "gamma")
@@ -410,7 +411,7 @@ defaultSummary(sig.abc.trn) # 0.575
 # Plots -------------------------------------------------------------------
 
 # Notes: Outlier is 3-methylbenzoic acid
-# dir.create("./graphs)
+dir.create("./graphs")
 dir.create("./graphs/svm")
 
 #     Polynomial ----------------------------------------------------------
@@ -994,6 +995,49 @@ ev.abc.poly <- rbind(ev.a, ev.b) %>%
   mutate(resid = pred - obs)
 
 defaultSummary(ev.abc.poly) # 0.845
+
+# Suzuki Only Data --------------------------------------------------------
+
+suz <- readRDS("./suzuki.clean.RDS") %>%
+  select(-guest)
+suz.sprse <- sparse.model.matrix(~., suz)
+set.seed(1)
+trn.ind <- sample(x = 1:nrow(suz.sprse), 
+                  size = round(0.7 * nrow(suz.sprse)))
+suz.sprse.trn <- suz.sprse[trn.ind, ]
+suz.sprse.trn.x <- suz.sprse.trn[ , -1:-2]
+suz.sprse.trn.y <- suz.sprse.trn[ , 2]
+suz.sprse.tst <- suz.sprse[-trn.ind, ]
+suz.sprse.tst.x <- suz.sprse.tst[ , -1:-2]
+suz.sprse.tst.y <- suz.sprse.tst[ , 2]
+
+suz.svm.all <- svm(x = suz.sprse.trn.x, 
+                   y = suz.sprse.trn.y, 
+                   coef0 = 2, 
+                   cost = 1024, 
+                   epsilon = 0.1, 
+                   kernel = "polynomial", 
+                   gamma = 0.5, 
+                   degree = 2)
+
+suz.svm.all.tst <- predict(suz.svm.all, suz.sprse.tst.x) %>%
+  cbind(suz.sprse.tst.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = suz.sprse.tst.y)
+suz.svm.all.trn <- predict(suz.svm.all, suz.sprse.trn.x) %>%
+  cbind(suz.sprse.trn.y) %>%
+  data.frame() %>%
+  rename(., pred = `.`, obs = suz.sprse.trn.y)
+
+defaultSummary(suz.svm.all.tst) # 2.84 # 0.680
+
+ggplot(suz.svm.all.tst, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
+       title = "Polynomial suz.svm - All Data Points, Suzuki") + 
+  coord_fixed() + 
+  theme_bw()
 
 # Plots -------------------------------------------------------------------
 

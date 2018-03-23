@@ -9,14 +9,80 @@ library(tidyverse)
 
 # Loading Data ------------------------------------------------------------
 
-setwd("~/SREP LAB/qsar")
 dir.create("./tuning/glmnet")
-source("./model.code/tuning.functions.R")
 
-df.raw <- readRDS("./padel.pp.new.RDS")
+df.raw <- readRDS("./data/padel.pp.RDS")
 df <- df.raw %>% select(-guest:-host) %>%
   select(-data.source)
 mat <- sparse.model.matrix(~., df)
+
+# Functions ---------------------------------------------------------------
+
+tune.glm.alpha <- function(data, nfolds, alpha, seed) {
+  set.seed(seed)
+  fold.list <- createFolds(y = data[ , 2], k = nfolds)
+  results <- c(rep(0.0, nfolds))
+  
+  for(i in 1:nfolds) {
+    fold <- fold.list[[i]]
+    
+    trn.x <- data[-fold, -1:-2]
+    trn.y <- data[-fold, 2]
+    tst.x <- data[fold, -1:-2]
+    tst.y <- data[fold, 2]
+    
+    glm.mod <- glmnet(x = trn.x, y = trn.y, 
+                      alpha = alpha, 
+                      family = "mgaussian")
+    glm.df <- predict.glmnet(glm.mod, tst.x,
+                             s = tail(glm.mod$lambda, n = 1)) %>%
+      cbind(tst.y) %>%
+      data.frame() %>%
+      rename(pred = X1, obs = tst.y)
+    
+    results[i] <- defaultSummary(glm.df)[2]
+  }
+  
+  return(data.frame( # Useful for records
+    data = deparse(substitute(data)), # Turns the variable name into char
+    nfolds = nfolds,
+    seed = seed,
+    alpha = alpha,
+    rsquared = sum(results) / nfolds))
+}
+
+tune.glm.dfmax <- function(data, nfolds, max, seed) {
+  set.seed(seed)
+  fold.list <- createFolds(y = data[ , 2], k = nfolds)
+  results <- c(rep(0.0, nfolds))
+  
+  for(i in 1:nfolds) {
+    fold <- fold.list[[i]]
+    
+    trn.x <- data[-fold, -1:-2]
+    trn.y <- data[-fold, 2]
+    tst.x <- data[fold, -1:-2]
+    tst.y <- data[fold, 2]
+    
+    glm.mod <- glmnet(x = trn.x, y = trn.y, 
+                      dfmax = max, 
+                      family = "mgaussian")
+    glm.df <- predict.glmnet(glm.mod, tst.x,
+                             s = tail(glm.mod$lambda, n = 1)) %>%
+      cbind(tst.y) %>%
+      data.frame() %>%
+      rename(pred = X1, obs = tst.y)
+    
+    results[i] <- defaultSummary(glm.df)[2]
+  }
+  
+  return(data.frame( # Useful for records
+    data = deparse(substitute(data)), # Turns the variable name into char
+    nfolds = nfolds,
+    seed = seed,
+    dfmax = max,
+    rsquared = sum(results) / nfolds))
+}
 
 # Tuning ------------------------------------------------------------------
 
