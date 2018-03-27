@@ -26,34 +26,7 @@ convert.delg.ka <- function(delg) {
 convert.delg.kd <- function(delg) {
   return (1/convert.delg.ka(delg))
 }
- 
 # ODE ---------------------------------------------------------------------
-
-n <- 100 # number of layers
-del <- 1
-del <- 0.01 # I don't know why this value works 
-del <- 1/n # width of a layer
-# del <- 1
-# width <- 1
-width <- 0.05 # width of hydrogel, in cm
-cl.eq <- 0.3 # conc of drug at equilibrium
-clc.eq <- 0.5 # conc of complexes @ equilibrium
-c0 <- cl.eq + clc.eq # total drug concentration
-ct <- clc.eq + 0.6 # total cd conc
-D <- 0.08 # diffusivity coef
-k1 <- 36*20 # rate of binding
-k2 <- 36 # rate of unbinding
-
-P1 <- k1/k2*c0
-P2 <- D/(k2*width^2)
-P2 <- 0.9 # according to Fu
-P3 <- ct/c0
-
-# parameters <- c(P1 = p1, 
-#                 P2 = p2, 
-#                 P3 = p3)
-state <- c(rep(cl.eq, n), 
-           rep(clc.eq, n))
 
 drug.model <- function(t, state, parms) {
    drug <- state[1:n]
@@ -70,6 +43,7 @@ drug.model <- function(t, state, parms) {
    dt <- c(ddrug, dcomp)
    return(list(c(dt)))
 }
+
 
 # out is the result of ode with times 0 to t and layers 1 to n
 get.dMr <- function(out) {
@@ -91,21 +65,79 @@ accumulate.dMr <- function(out) {
   return(data.frame(times, rr))
 }
 
-t <- 500
+
+# Parameters --------------------------------------------------------------
+
+# Known
+ka <- convert.delg.ka(-15) # choose a value from the QSPR
+ct <- 0.22 # at 1 g/4 mL (Fu)
+D <- 0.1 # technically searchable, but this is arbitrary
+width <- 0.05 # width of half of hydrogel
+vol <- 0.0785 # cm^2, vol when swollen
+
+# Reasonably derivable
+k2 <- 35 # h^-1, according to Fu
+k1 <- k2*ka # ka = k1/k2 
+
+# Educated guesses
+c0 <- 0.15 # total drug concentration
+cc <- 0.08 # concentration of uncomplexed cd
+clc.eq <- ct - cc
+# # Checking for approximate accuracy
+# clc.eq
+# c0 - c0/(1 + ka*cc)
+
+# Dimensionless
+P1 <- k1/k2*c0
+P2 <- D/(k2*width^2)
+P2 <- 0.8 # approximation from Fu
+P3 <- ct/c0
+
+
+# ODE Implementation ------------------------------------------------------
+
+n <- 100 # number of layers
+del <- 1/n # width of a layer
+del <- 0.1 # I don't know why this value works 
+state <- c(rep(cl.eq, n), 
+           rep(clc.eq, n))
+t <- 200
 times <- seq(0, t, 1) 
 out <- ode(y = state, times = times, func = drug.model, parms = NULL)
 
-drug.out <- out[ , c(1:n)] %>% as.data.frame()
-drug.out <- data.table::melt(setDT(drug.out), id.vars = "time", 
-                             variable.name = "location")
-
-ggplot(drug.out, aes(x = time, y = location, fill = value)) + 
-  geom_tile()
-
-dmr.raw <- get.dMr(out = out) %>% .[-1, ]
-ggplot(dmr.raw, aes(x = times, y = rr)) + 
-  geom_line()
+# drug.out <- out[ , c(1:n)] %>% as.data.frame()
+# drug.out <- data.table::melt(setDT(drug.out), id.vars = "time", 
+#                              variable.name = "location")
+# 
+# ggplot(drug.out, aes(x = time, y = location, fill = value)) + 
+#   geom_tile()
+# 
+# dmr.raw <- get.dMr(out = out) %>% .[-1, ]
+# ggplot(dmr.raw, aes(x = times, y = rr)) + 
+#   geom_line()
 dmr.sum <- accumulate.dMr(out = out) %>% .[-1, ]
 ggplot(dmr.sum, aes(x = times, y = rr)) + 
-  geom_line()
+  geom_line() + 
+  theme_bw() + 
+  coord_cartesian(ylim = c(0,2))
+
+# Testing values ----------------------------------------------------------
+
+#     P1 ------------------------------------------------------------------
+
+# Provides a cumulative release dataframe for a new value of P1
+vary.P1 <- function(newP1) {
+  P1 <<- newP1
+  ode.out <- ode(y = state, times = times, func = drug.model, parms = NULL)
+  result <- accumulate.dMr(out = ode.out) %>% .[-1, ] %>%
+    mutate(param = paste0("P1 = ", newP1))
+  return(result)
+}
+
+P1.variance <- do.call(rbind, lapply(seq(20, 320, 50),
+                                     FUN = vary.P1))
+
+ggplot(P1.variance, aes(x = times, y = rr, color = param)) + 
+  geom_line() + 
+  theme_bw() 
 
