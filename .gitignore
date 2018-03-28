@@ -15,9 +15,11 @@ report.cubist.html
 compiled folds.RDS
 
 # Graphs
+#     Data files that simply do not need to exist in GitHub
 graphs/
 graph.formatting.R
 graph.functions.R
+release/
 
 # Data files (possible copyright issues with uploading to GitHub)
 data/
