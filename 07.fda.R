@@ -444,7 +444,7 @@ zero.pred <- readRDS("./pre-process/zero.pred.RDS") %>% str_replace(., "-", ".")
 zero.pred2 <- readRDS("./pre-process/zero.pred2.RDS")[1]
 too.high <- readRDS("./pre-process/high.cor.RDS") %>% str_replace(., "-", ".")
 
-desc <- db.small[ , !colnames(db.small) %in% zero.pred]
+desc <- db.small[ , !colnames(db.small) %in% zero.pred] %>% as.data.frame()
 db.pp <- predict(pp.settings, desc)
 db.pp <- db.pp[ , !colnames(db.pp) %in% too.high] %>%
   .[ , !colnames(db.pp) %in% zero.pred2]
@@ -523,8 +523,12 @@ fda.pp <- predict(pp.settings, fda.desc, na.ignore = T)
 fda.pp <- fda.pp[ , !colnames(fda.pp) %in% too.high]
 fda.pp <- fda.pp[ , !colnames(fda.pp) %in% zero.pred2]
 
+saveRDS(fda.pp, "./fda/fda.pp.RDS")
+
 fda.data <- cbind(fda.guest, fda.pp)
 colnames(fda.data)[1] <- "guest"
+
+saveRDS(fda.data, "./fda/fda.data.RDS")
 
 # GLMNet predictions on DrugBank ------------------------------------------
 
@@ -551,7 +555,7 @@ ggplot(fda.svm, aes(x = guest, y = pred, color = cd.type)) +
   geom_point() + 
   theme_bw() + 
   theme(axis.text.x = ) + 
-  coord_cartesian(ylim = c(-50, 50))
+  coord_cartesian(ylim = c(-75, 75))
 
 # GLMNet ------------------------------------------------------------------
 
@@ -569,14 +573,49 @@ fda.glm.b <- predict.glmnet(glm.b, fda.b, s = tail(glm.b$lambda, n = 1)) %>%
 fda.glm.c <- predict.glmnet(glm.c, fda.c, s = tail(glm.c$lambda, n = 1)) %>%
   as.data.frame() %>% mutate(cd.type = "gamma")
 
-fda.glm <- data.frame(guest, rbind(fda.glm.a, fda.glm.b, fda.glm.c)) %>%
+fda.glm <- data.frame(fda.guest, rbind(fda.glm.a, fda.glm.b, fda.glm.c)) %>%
   rename(., pred = X1)
 
-ggplot(fda.glm, aes(x = guest, y = pred, color = cd.type)) +
-  geom_point(alpha = 0.6) + 
-  theme_bw() + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
-  
-labs(title = "GLMNet FDA Approved Drugs", 
+ggplot(fda.glm, aes(x = fda.guest, y = pred, color = cd.type)) +
+  geom_point() + 
+  theme.isef + 
+  scale_x_discrete(breaks = NULL) + 
+  labs(title = "GLMNet FDA Approved Drugs", 
+       x = NULL, 
        y = "Predicted DelG, kJ/mol", 
        color = "CD Type", shape = "Cyclodextrin")
+ggsave("./fda/glmnet.png", dpi = 450, scale = 1.5)
+
+# Applicability domain ----------------------------------------------------
+
+
+fda.desc <-
+  rbind(
+    fda.desc %>% mutate(
+      alpha = 1,
+      beta = 0,
+      gamma = 0
+    ),
+    fda.desc %>% mutate(
+      alpha = 0,
+      beta = 1,
+      gamma = 0
+    ),
+    fda.desc %>% mutate(
+      alpha = 0,
+      beta = 0,
+      gamma = 1
+    )
+  )
+
+source("./06.1.ad.functions.R")
+fda.pp <- readRDS("./fda/fda.pp.RDS")
+fda.guest <- read.csv("./drugbank/all.csv") %>% select(., Name)
+fda.nobin <- fda.pp %>% remove.binary()
+# fda.small <- fda.nobin[1:50, ]
+# domain.num(fda.small)
+
+fda.ad <- domain.num(fda.nobin)
+fda.ad <- data.frame(fda.guest, fda.ad)
+ggplot(fda.ad, aes(x = fda.guest, y = newSk)) + 
+  geom_point()
