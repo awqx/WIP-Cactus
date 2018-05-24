@@ -636,7 +636,7 @@ data.results <- rbind(cube.data.folds, glm.data.folds, pls.data.folds,
                       rf.data.folds, svm.data.folds)
 qsar.type <- c("Cubist", "GLMNet", "PLS", "Random Forest", "SVM")
 qsar.time <- c(445.91, 4.314, 176.01, 635.8, 9.59)
-times <- data.frame(temp.types, qsar.times)
+times <- data.frame(qsar.type, qsar.time)
 saveRDS(data.results, "./compiled folds.RDS")
 
 # Suzuki Results (stable)
@@ -742,13 +742,14 @@ ggsave("./graphs/compiled rmse.png")
 
 #     Time ----------------------------------------------------------------
 
-ggplot(times, aes(x = qsar.type, y = qsar.times, fill = qsar.type)) + 
+ggplot(times, aes(x = qsar.type, y = qsar.time, fill = qsar.type)) + 
   geom_bar(stat = "identity") + 
-  theme.2018 + 
-  labs(title = "Calculation time between QSARs", y = "Time, seconds", 
-       x = "QSAR type")+
-  guides(fill = F)
-ggsave("./graphs/qsar calc time.png", dpi = 600)
+  theme.isef + 
+  labs(title = NULL, y = "Time, seconds", 
+       x = "QSAR type") +
+  guides(fill = F) + 
+  coord_fixed(ratio = 0.005)
+ggsave("./graphs/isef qsar calc time.png", dpi = 450, scale = 1.5)
 
 # External Validation Compilation -----------------------------------------
 

@@ -13,7 +13,7 @@ library(tidyverse)
 
 # Loading Models ----------------------------------------------------------
 
-df.raw <- readRDS("./padel.pp.new.RDS")
+df.raw <- readRDS("./data/padel.pp.RDS")
 df <- df.raw %>% select(-guest,-host,-data.source) 
 beta <- df %>% filter(beta > 0)
 
@@ -135,9 +135,10 @@ comp <- comp %>% filter(desc %in% imps) %>%
 
 ggplot(comp, aes(x = model, y = desc, fill = importance)) + 
   theme.paper.2018 +
+  theme(text = element_text(size=13)) + 
   geom_tile() + 
-  scale_fill_gradient2(low = "#0ea3b2", high = "#ff9b42", mid = "white", midpoint = 0.5) + 
+  scale_fill_gradient2(high = "#f8766d", low = "#619cff", mid = "white", midpoint = 0.5) + 
   scale_x_discrete(labels = c("Cubist", "GLM", "PLS", "RF", "SVM")) + 
   labs(x = "Model", y = "Descriptor Variable", fill = "Importance") + 
   coord_fixed(ratio = 0.25)
-ggsave("./graphs/2018 paper/varimp.png", scale = 1.5)
+ggsave("./graphs/2018 paper/varimp.png", scale = 1.25)
