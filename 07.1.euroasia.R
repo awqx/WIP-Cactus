@@ -1,7 +1,7 @@
 library(caret)
 library(tidyverse)
 
-# source("./03.cactus.functions.R")
+source("./master-process.R")
 dir.create("./predictions")
 dir.create("./predictions/euroasia")
 dir.create("./predictions/euroasia/molecules")
@@ -24,12 +24,20 @@ cactus.ea <-
       chemical.format = "SDF"
     )
   )
+
 # View(cactus.ea)
 ea.fail <- cactus.ea %>% filter(downloaded == "no") %>% .$guest %>% as.character()
-saveRDS(cactus.ea, "./molecules/euroasia/results.RDS")
+saveRDS(cactus.ea, "./predictions/euroasia/cactus-results.RDS")
 
 # After running PaDEL-Descriptor
-ea.padel <- read.csv("./molecules/euroasia.csv")
+# Settings used:
+  # Remove salts
+  # Detect aromaticity
+  # Use filename as molecule name
+  # Maximum time of 200000 (200 seconds)
+  # 1D/2D descriptors, fingerprints
+
+ea.padel <- read.csv("./predictions/euroasia/descriptors.csv")
 ea.desc <- ea.padel[complete.cases(ea.padel), ]
 ea.desc <- ea.desc[ , !colnames(ea.desc) %in% zero.pred] 
 ea.guest <- ea.desc[ , 1]
@@ -46,6 +54,8 @@ ea.pp <- ea.pp[ , !colnames(ea.pp) %in% zero.pred2]
 ea.data <- cbind(ea.guest, ea.pp)
 colnames(ea.data)[1] <- "guest"
 
+saveRDS(ea.data, "./predictions/euroasia/ea.all.pp.RDS")
+
 # Applicability domain ----------------------------------------------------
 
 ea.nobin <- remove.binary(ea.data[1:(nrow(ea.data)/3), ])
@@ -55,21 +65,29 @@ ea.ad <- domain.num(ea.nobin) %>% mutate(guest = as.character(ea.guest))
 ea.inside <- ea.ad %>% filter(domain == "inside") %>% .$guest
 
 ea <- ea.data %>% filter(guest %in% ea.inside)
-saveRDS(ea, "./data/euroasia.RDS")
+saveRDS(ea, "./predictions/euroasia/ea.RDS")
 
-# SVM ---------------------------------------------------------------------
+# Predictions -------------------------------------------------------------
 
-ea.svm.a <- predict(svm.a, ea[ , -1] %>% filter(alpha > 0)) %>%
+# Sorting data
+ea.a <- ea[ , -1] %>% filter(alpha > 0)
+ea.b <- ea[ , -1] %>% filter(beta > 0)
+ea.c <- ea[ , -1] %>% filter(gamma > 0)
+
+#     SVM -----------------------------------------------------------------
+
+ea.svm.a <- predict(svm.a, ea.a) %>%
   as.data.frame() %>% mutate(cd.type = "alpha")
-ea.svm.b <- predict(svm.b, ea[ , -1] %>% filter(beta > 0)) %>%
+ea.svm.b <- predict(svm.b, ea.b) %>%
   as.data.frame() %>% mutate(cd.type = "beta")
-ea.svm.c <- predict(svm.c, ea[ , -1] %>% filter(gamma > 0)) %>%
+ea.svm.c <- predict(svm.c, ea.c) %>%
   as.data.frame() %>% mutate(cd.type = "gamma")
 
 ea.svm <-
   data.frame(guest <-
                ea[, 1], rbind(ea.svm.a, ea.svm.b, ea.svm.c)) %>%
   rename(., pred = `.`)
+colnames(ea.svm)[1] <- "guest"
 
 ggplot(ea.svm, aes(x = guest, y = pred, color = cd.type)) + 
   geom_point() + 
@@ -77,6 +95,51 @@ ggplot(ea.svm, aes(x = guest, y = pred, color = cd.type)) +
   facet_grid(~cd.type) + 
   theme(axis.text.x = NULL)
 
-# GLMNet ------------------------------------------------------------------
+#     GLMNet --------------------------------------------------------------
 
+ea.glm.a <- predict.glmnet(glm.a, as.matrix(ea.a),
+                           s = tail(glm.a$lambda, n = 1)) %>%
+  as.data.frame() %>% mutate(cd.type = "alpha")
+ea.glm.b <- predict.glmnet(glm.b, as.matrix(ea.b),
+                           s = tail(glm.b$lambda, n = 1)) %>%
+  as.data.frame() %>% mutate(cd.type = "beta")
+ea.glm.c <- predict.glmnet(glm.c, as.matrix(ea.c),
+                           s = tail(glm.c$lambda, n = 1)) %>%
+  as.data.frame() %>% mutate(cd.type = "gamma")
 
+ea.glm <- data.frame(ea[ , 1], rbind(ea.glm.a, ea.glm.b, ea.glm.c)) 
+colnames(ea.glm)[1] <- "guest"
+colnames(ea.glm)[2] <- "pred"  
+
+ggplot(ea.glm, aes(x = guest, y = pred, color = cd.type)) + 
+  geom_point() + 
+  theme_bw() + 
+  facet_grid(~cd.type) + 
+  theme(axis.text.x = NULL)
+
+# Compiled ----------------------------------------------------------------
+
+ea.ensemble <- inner_join(ea.glm %>% rename(glm = pred),
+                          ea.svm %>% rename(svm = pred),
+                          by = c("guest", "cd.type")) %>%
+  mutate(pred = (glm + svm)/2)
+
+ea.ensemble.long <- rbind(ea.glm %>% mutate(QSPR = "GLMNet"), 
+                          ea.svm %>% mutate(QSPR = "SVM"), 
+                          ea.ensemble %>% select(., guest, pred, cd.type) %>% mutate(QSPR = "Ensemble"))
+
+ggplot(ea.ensemble, aes(x = guest, y = pred, color = cd.type)) + 
+  geom_point() + 
+  theme_bw() + 
+  facet_grid(~cd.type) + 
+  theme(axis.text.x = NULL)
+ggsave("./predictions/euroasia/ensemble-graph.png")
+
+ggplot(ea.ensemble.long, aes(x = guest, y = pred, shape = QSPR, color = cd.type)) + 
+  geom_point() + 
+  theme_bw() + 
+  facet_grid(~cd.type)
+ggsave("./predictions/euroasia/all-predictions.png")
+
+saveRDS(ea.ensemble, "./predictions/euroasia/predictions.RDS")
+write.csv(ea.ensemble[c(1, 3, 2, 4, 5)], "./predictions/euroasia/predictions.csv")
