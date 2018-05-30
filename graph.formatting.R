@@ -36,6 +36,8 @@ all <- transform(all.results, type = factor(
 
 # Graphs ------------------------------------------------------------------
 
+#     Poster 2018 ---------------------------------------------------------
+
 # For the poster
 dir.create("./graphs/2018 poster")
 
@@ -74,6 +76,8 @@ plot.2018(all) +
   geom_point(size = 0.5)
 ggsave("./graphs/2018 poster/2018-02-12 docking and qsar.png", dpi = 600, scale = 1.5)
 
+#     Manuscript, 2018 ----------------------------------------------------
+
 # For the manuscript, 2018
 dir.create("./graphs/2018 paper")
 
@@ -82,7 +86,7 @@ ggsave("./graphs/2018 paper/docking results.png")
 
 plot.paper.2018(qsar.results) +
   facet_wrap(~qsar.type)
-ggsave("./graphs/2018 paper/qsar results.png", scale = 1.5)
+ggsave("./graphs/2018 paper/qsar results.png", scale = 1)
 
 plot.paper.2018(all) + 
   facet_wrap(~type) 
@@ -93,10 +97,6 @@ ext.val <- readRDS("./ext val results.RDS") %>% mutate(Data = "External validati
   rename(type = model)
 tst.ev.all <- rbind(temp.all, ext.val) %>%
   filter(type != "PyRx Docking")
-
-# plot.paper.2018(tst.ev.all) + 
-#   facet_wrap(~type) + 
-#   geom_point(aes(shape = Data)) + 
 
 shapes <- c("16" = "Test", "0" = "External validation")  
 ggplot(tst.ev.all, aes(x = obs, y = pred, color = cd.type, shape = Data)) +
@@ -112,10 +112,44 @@ ggsave("./graphs/2018 paper/test and extval.png")
 
 qsar.type <- c("Cubist", "GLMNet", "PLS", "Random Forest", "SVM")
 qsar.time <- c(445.91, 4.314, 176.01, 635.8, 9.59)
-times <- data.frame(temp.types, qsar.times)
+times <- data.frame(qsar.type, qsar.time)
 
 ggplot(times, aes(x = qsar.type, y = qsar.time)) + 
   geom_bar(stat = "identity") + 
   theme.paper.2018 + 
   labs(x = "QSAR type", y = "Time used, seconds")
 ggsave("./graphs/2018 paper/time.png", scale = 0.75)
+
+# For the ISEF poster
+
+#     ISEF Poster ---------------------------------------------------------
+
+dir.create("./graphs/2018 isef")
+plot.isef(docking) + 
+  labs(title = "Docking (PyRx) predictions")
+
+plot.isef(all) + 
+  facet_wrap(~type) + 
+  # labs(title = "Docking vs. Various QSAR Predictions") + 
+  geom_point(size = 0.5)
+ggsave("./graphs/2018 isef/2018-04-25 docking and qsar.png", dpi = 450, scale = 1.5)
+
+folds <- readRDS("./compiled folds.RDS") %>% select(-data)
+ggplot(folds, aes(x = fold, y = rsquared, color = model)) +
+  theme.isef + 
+  geom_line(size = 1) +
+  scale_x_continuous(breaks = seq(1,10, by = 1)) + 
+  labs(x = "Fold", y = "R-squared", 
+       color = "Model") 
+ggsave("./graphs/2018 isef/2018-04-25 folds.png", dpi = 450, scale = 1.5)
+
+
+# easy ensemble average function
+# nvm, this is incorrect
+# average.folds <- function(data, fold.num) {
+#   rsquared <- data %>% filter(fold == fold.num) %>% .$rsquared %>% mean()
+#   rmse <- data %>% filter(fold == fold.num) %>% .$rmse %>% mean()
+#   model <- "ensemble"
+#   fold <- fold.num
+#   return(data.frame(fold, model, rmse, rsquared))
+# }

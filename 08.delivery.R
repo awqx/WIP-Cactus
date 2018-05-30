@@ -1,15 +1,13 @@
-# Integrating DelG results from the QSARs with Vulic's mathematical modeling of
-# complexation dynamics Meant to produce estimates of cumulative drug release
+# Integrating DelG results from the QSARs with Fu's mathematical modeling of
+# complexation dynamics. Meant to produce estimates of cumulative drug release
 # over time
 #
-# Source: https://doi.org/10.1016/j.jconrel.2014.10.032
-# setwd("~/SREP LAB/qsar")
+# Source: https://doi.org/10.1007/s10439-011-0336-z
 
 # Libraries and Packages --------------------------------------------------
 
-# install.packages("ReacTran")
+library(deSolve)
 library(dplyr)
-library(ReacTran)
 library(tidyverse)
 
 # Functions ---------------------------------------------------------------
@@ -28,333 +26,530 @@ convert.delg.ka <- function(delg) {
 convert.delg.kd <- function(delg) {
   return (1/convert.delg.ka(delg))
 }
- 
-# These are dimensionless constants used by Vulic:
-#   alpha = Cpro,0 / Cpep,T (guest / total host (peptide))
-#   beta = L^2 * koff / D 
-#   gamma = kon * Cpro,0 / koff
 
-# Regime 1 calculations
-#   for cases when gamma << 1 or ~ 1
-regime1 <- function(gamma, alpha, L, D) {
-  return(L^2*(1 + gamma/alpha)/D)
+# Diffusivity can be related to molecular weight with Vulic's modified
+# Stokes-Einstein-Sutherland equation
+# 
+# This is probably wrong in terms of how the units scale
+get.diffusivity <- function(mol.wt) {
+  # assuming the conditions are standardizes to 298 K
+  # and the release media is water
+  diff <- 9.940 * 10^-15 * 298 / (0.8921 * mol.wt^(1/3))
+  # assuming the output is in m^2*s^-1...
+  # correcting units to cm^2*h^-1
+  diff <- diff * 10000 * 3600
+  return(diff)
 }
 
-# Regime 2 calculations
-#   for gamma >> 1; or, a large fraction of peptide initially bound
-#   This one is more complicated b/c the timeframe/calculations actually change
-#   as the concentration gradually drops, and the time frame calculation shifts
-#   to regime 1
+# ODE ---------------------------------------------------------------------
 
-# Regime 3 (slow unbinding)
-#   for cases where unbinding is slow compared to diffusion, or beta << 1 or 1/koff >> L^2/D
-
-# Preliminary Trial -------------------------------------------------------
-
-glm <- readRDS("./models/glmnet/glm.results.RDS")
-glm.delg <- glm$pred
-glm.kd <- map(glm.delg, convert.delg.kd)
-
-# ReacTran Trial ----------------------------------------------------------
-
-# Grid definition
-r.N     <- 4   # number of cells in r-direction
-theta.N <- 6   # number of cells in theta-direction
-z.N     <- 3   # number of cells in z-direction
-
-D       <- 100 # diffusion coefficient
-# D can be calculated as = (9.940E-15*T)/
-# (viscosity*cuberoot(molecular weight)) [Vulic]
-# In this case, T = 298, viscosity = 8.90E-4 Pa 
-
-r      <- seq(0,   8, len = r.N+1)       # cell size r-direction [cm]
-theta  <- seq(0,2*pi, len = theta.N+1)   # theta-direction - theta: from 0, 2pi
-phi    <- seq(0,2*pi, len = z.N+1)       # phi-direction (0,2pi)
-z      <- seq(0,5, len = z.N+1)          # cell size z-direction [cm]
-
-# Intial conditions 
-C <- array(dim = c(r.N, theta.N, z.N), data = 0)
-
-# Concentration boundary conditions
-tran.cylindrical (C = C, D.r = D, D.theta = D, 
-                  C.r.up = 1, C.r.down = 1,
-                  C.theta.up = 1, C.theta.down = 1, 
-                  C.z.up = 1, C.z.down = 1,
-                  r = r, theta = theta, z = z )
-
-# Flux boundary conditions
-tran.cylindrical(C = C, D.r = D, r = r, theta = theta, z = z,
-                 flux.r.up = 10, flux.r.down = 10,
-                 flux.theta.up = 10, flux.theta.down = 10,
-                 flux.z.up = 10, flux.z.down = 10)
-
-# cyclic boundary conditions
-tran.cylindrical(C = C, D.r = D, r = r, theta = theta, z = z,
-                 cyclicBnd = 1:3)
-
-# zero-gradient boundary conditions
-tran.cylindrical(C = C, D.r = D, r = r, theta = theta, z = z)
-
-
-# Model w/ Diffusion and First-Order Consumption
-N     <- 50          # number of grid cells
-XX    <- 4           # total size
-rr    <- 0.005       # consumption rate
-ini   <- 1           # initial value at x=0
-D     <- 400
-r     <- seq (2, 4, len = N+1)
-theta   <- seq(0, 2*pi, len = N+1)
-theta.m <- 0.5*(theta[-1]+theta[-(N+1)])
-# The model equations
-Diffpolar <- function (t, y, parms)  {
-  CONC  <- matrix(nrow = N, ncol = N, data = y)
-  tran  <- tran.polar(CONC, D.r = D, D.theta = D, r = r, theta = theta,
-                      C.r.up = 0, C.r.down = 1*sin(5*theta.m),
-                      cyclicBnd = 2, full.output=TRUE )
-  dCONC <- tran$dC  - rr * CONC
-  return (list(dCONC))
+drug.model <- function(t, state, parms) {
+   drug <- state[1:n]
+   comp <- state[(n+1):(2*n)]
+   dcomp <- P1 * drug * (P3 - comp) - k2*comp
+   
+   ddrug <- rep(0, n)
+   ddrug[1] <- P2 * (drug[2] - drug[1]) / (del^2) - dcomp[1]
+   ddrug[n - 1] <-
+     P2*(-2*drug[n-1]+drug[n-2])/(del^2) - dcomp[n - 1]
+   for (i in 2:(n-2)) {
+     ddrug[i] <- P2*(drug[i+1]-2*drug[i]+drug[i-1])/(del^2)-dcomp[i]
+   }
+   dt <- c(ddrug, dcomp)
+   return(list(c(dt)))
 }
-# solve to steady-state; cyclicBnd = 2, because of C.theta.up, C.theta.down
-out <- steady.2D (y = rep(0, N*N), func = Diffpolar, parms = NULL,
-                  dim = c(N, N), lrw = 1e6, cyclicBnd = 2)
-image(out)
-cart <- polar2cart(out, r = r, theta = theta,
-                   x = seq(-4, 4, len = 100),
-                   y = seq(-4, 4, len = 100))
-image(cart)
 
-# Messing Around
-diff1 <- tran.cylindrical (C = C, D.r = D, D.theta = D, 
-                  C.r.up = 1, C.r.down = 1,
-                  C.theta.up = 1, C.theta.down = 1, 
-                  C.z.up = 1, C.z.down = 1,
-                  r = r, theta = theta, z = z )
-diff1.1 <- diff1[1] %>% unlist()
-diff1.1 <- array(dim = c(r.N, theta.N, z.N), data = diff1.1)
-diff2 <- tran.cylindrical (C = diff1.1, D.r = D, D.theta = D, 
-                           C.r.up = 1, C.r.down = 1,
-                           C.theta.up = 1, C.theta.down = 1, 
-                           C.z.up = 1, C.z.down = 1,
-                           r = r, theta = theta, z = z )
+# out is the result of ode with times 0 to t and layers 1 to n
+get.dMr <- function(out) {
+  times <- seq(1, t, 1)
+  rr <- rep(0, (t-1))
+  for(i in 1:t) {
+    rr[i] <- -0.5 * P2 * (out[i, n] - out[i , (n - 1)])/del
+  }
+  return(data.frame(times, rr))
+}
 
-# deSolve Trial -----------------------------------------------------------
+accumulate.dMr <- function(out) {
+  times <- seq(1, t, 1)
+  rr <- rep(0, (t-1))
+  rr[1] <- -0.5 * P2 * (out[1, n] - out[1 , (n - 1)])/del
+  for(i in 2:t) {
+    rr[i] <- rr[i - 1] - 0.5 * P2 * (out[i, n] - out[i , (n - 1)])/del
+  }
+  return(data.frame(times, rr))
+}
 
-# Following the Soetart documentation
-# library(deSolve)
-Aphid <- function(t, APHIDS, parameters) {
-  deltax <- c(0.5, rep(1, numboxes -1), 0.5)
-  Flux <- -D*diff(c(0,APHIDS, 0)) / deltax
-  dAPHIDS <- -diff(Flux) / delx + APHIDS * r
+
+# Parameters --------------------------------------------------------------
+
+# Known
+ka <- convert.delg.ka(-18) # benzoic acid
+ct <- 0.22 # at 1 g/4 mL (Fu)
+D <- 0.1 # technically searchable, but this is arbitrary
+# just using benzoic acid
+D <- get.diffusivity(122.123)
+width <- 0.05 # width of half of hydrogel
+vol <- 0.0785 # cm^2, vol when swollen
+
+# Reasonably derivable
+k2 <- 35 # h^-1, according to Fu
+k1 <- k2*ka # ka = k1/k2 
+
+# Educated guesses
+c0 <- 0.15 # total drug concentration
+cc <- 0.08 # concentration of uncomplexed cd
+clc.eq <- ct - cc
+cl.eq <- c0 - clc.eq
+# # Checking for approximate accuracy
+# clc.eq
+# c0 - c0/(1 + ka*cc)
+
+# Dimensionless
+P1 <- k1/k2*c0
+P2 <- D/(k2*width^2)
+P2 <- 0.8 # approximation from Fu
+P3 <- ct/c0
+
+
+# ODE Implementation ------------------------------------------------------
+
+n <- 100 # number of layers
+del <- 1/n # width of a layer
+# del <- 0.1 # I don't know why this value works 
+state <- c(rep(cl.eq, n), 
+           rep(clc.eq, n))
+t <- 700
+times <- seq(0, t, 1) 
+out <- ode(y = state, times = times, func = drug.model, parms = NULL)
+
+drug.out <- out[ -1, c(1:n)] %>% as.data.frame()
+drug.out <- data.table::melt(setDT(drug.out), id.vars = "time",
+                             variable.name = "location")
+
+ggplot(drug.out, aes(x = time, y = location, fill = value)) +
+  geom_raster()
+# 
+# dmr.raw <- get.dMr(out = out) %>% .[-1, ]
+# ggplot(dmr.raw, aes(x = times, y = rr)) +
+#   geom_line()
+dmr.sum <- accumulate.dMr(out = out) %>% .[-1, ]
+ggplot(dmr.sum, aes(x = times, y = rr)) + 
+  geom_line() + 
+  theme_bw()
+
+# Testing values ----------------------------------------------------------
+
+dir.create("./release")
+
+# A function to reset the parameters to certain values
+# because for some reason ODE works best with global parameters only
+set.param <- function() {
+  ka <<- convert.delg.ka(-15) # choose a value from the QSPR
+  ct <<- 0.22 # at 1 g/4 mL (Fu)
+
+  # Reasonably derivable
+  k2 <<- 35 # h^-1, according to Fu
+  k1 <<- k2*ka # ka = k1/k2 
   
-  # the return value
-  list(dAPHIDS)
-}
-
-D <- 0.3 # m2/day diffusion rate
-r <- 0.01 # /day net growth rate
-delx <- 1 # thickness of boxes
-numboxes <- 60 
-# distance of boxes on plant, m, 1 m intervals)
-Distance <- seq(from = 0.5, by = delx, length.out = numboxes)
-
-# Initial conditions # ind/m2
-APHIDS <- rep(0, times = numboxes)
-APHIDS[30:31] <- 1
-state <- c(APHIDS = APHIDS) # initialize state variables
-
-# the model is run for 200 days, producing output every day
-times <- seq(0,200, by = 1)
-out <- ode.1D(state, times, Aphid, parms = 0, nspec = 1, names = "Aphid")
-image(out, method = "filled.contour", grid = Distance, 
-      xlab = "Time, days", ylab = "Distance on plant, m", 
-      main = "Aphid density")
-
-data <- cbind(dist = c(0, 10, 20, 30, 40, 50, 60), 
-              Aphid = c(0, 0.1, 0.25, 0.5, 0.25, 0.1, 0))
-par(mfrow = c(1,2))
-matplot.1D(out, grid = Distance, type = "l", mfrow = NULL, 
-           subset = time %in% seq(0, 200, by = 10), 
-           obs = data, obspar = list(pch = 18, cex = 2, col = "red"))
-plot.1D(out, grid = Distance, type = "l", mfrow = NULL, subset = time == 100, 
-        obs = data, obspar = list(pch = 18, cex = 2, col = "red"))
-
-# Following along w/ predator-prey model of vignette
-lvmod <- function (time, state, parms, N, rr, ri, dr, dri) {
-  with (as.list(parms), {
-    PREY <- state[1:N]
-    PRED <- state[(N+1):(2*N)]
-    ## Fluxes due to diffusion
-    ## at internal and external boundaries: zero gradient
-    FluxPrey <- -Da * diff(c(PREY[1], PREY, PREY[N]))/dri
-    FluxPred <- -Da * diff(c(PRED[1], PRED, PRED[N]))/dri
-    ## Biology: Lotka-Volterra model
-    Ingestion     <- rIng  * PREY * PRED
-    GrowthPrey    <- rGrow * PREY * (1-PREY/cap)
-    MortPredator  <- rMort * PRED
-    ## Rate of change = Flux gradient + Biology
-    dPREY    <- -diff(ri * FluxPrey)/rr/dr   +
-      GrowthPrey - Ingestion
-    dPRED    <- -diff(ri * FluxPred)/rr/dr   +
-      Ingestion * assEff - MortPredator
-    return (list(c(dPREY, dPRED)))
-  })
-}
-
-## model parameters:
-R  <- 20                        # total radius of surface, m
-N  <- 100                       # 100 concentric circles
-dr <- R/N                       # thickness of each layer
-r  <- seq(dr/2,by = dr,len = N) # distance of center to mid-layer
-ri <- seq(0,by = dr,len = N+1)  # distance to layer interface
-dri <- dr                       # dispersion distances
-
-parms <- c(Da     = 0.05,       # m2/d, dispersion coefficient
-           rIng   = 0.2,        # /day, rate of ingestion
-           rGrow  = 1.0,        # /day, growth rate of prey
-           rMort  = 0.2 ,       # /day, mortality rate of pred
-           assEff = 0.5,        # -, assimilation efficiency
-           cap    = 10)         # density, carrying capacity
-## Initial conditions: both present in central circle (box 1) only
-state    <- rep(0, 2 * N)
-state[1] <- state[N + 1] <- 10
-## RUNNING the model:
-times  <- seq(0, 200, by = 1)   # output wanted at these time intervals
-## the model is solved by the two implemented methods:
-## 1. Default: banded reformulation
-print(system.time(
-  out <- ode.1D(y = state, times = times, func = lvmod, parms = parms,
-                nspec = 2, names = c("PREY", "PRED"),
-                N = N, rr = r, ri = ri, dr = dr, dri = dri)
-))
-## 2. Using sparse method
-print(system.time(
-  out2 <- ode.1D(y = state, times = times, func = lvmod, parms = parms,
-                 nspec = 2, names = c("PREY","PRED"),
-                 N = N, rr = r, ri = ri, dr = dr, dri = dri,
-                 method = "lsodes")
-))
-## ================
-## Plotting output
-## ================
-
-PREY   <- out2[, 2:(N + 1)]
-filled.contour(x = times, y = r, PREY, color = topo.colors,
-               xlab = "time, days", ylab = "Distance, m",
-               main = "Prey density")
-
-# deSolve and Fu, von Recum -----------------------------------------------
-
-# Let's start by trying to model concentration of free ligand in 
-# the hydrogel
-# total concentration of Beta-CD = Ct; free CD = Cc; bound CD = Clc
-# Binding rate = Rb
-# height of cyclodextrin 0<z<smalldelta
-# Rb = Kon*Cl*Cc-KoffClc = Kon*Clc*(Ct-Clc)-KoffClc
-# partialCl/partialt = D*secondpartialCl/secondpartialz^2-Rb
-# partialClc/partialt = Rb
-
-hydrogel <- function(t, state, parms, N, rr, ri, dr, dri) {
-  with (as.list(parms), 
-        {
-          DRUG <- state[1:N] # ligand (drug) concentration
-          CD <- state[(N+1):(2*N)] # complexed CD
-          
-          # Fluxes due to diffusion
-          # Only a flux for drug b/c CD remains stationary
-          # adding a zero for boundary of hydrogel
-          FluxDrug <- D * diff(c(DRUG[1], DRUG, DRUG[N])) / dri
-          
-          # Rb = net binding rate
-          Rb <- k1 * DRUG * (cd.total - CD) - k2 * CD
-          
-          dDRUG <- diff(ri * FluxDrug)/rr/dr - Rb
-          dCD <- Rb
-          
-          return(list(c(dDRUG, dCD)))
-        })
-}
-
-R <- 20 # radius of surface
-N <- 100 # number of layers
-dr <- R/N # thickness of each layer
-r <- seq(dr/2, by = dr, len = N) # distance of center to mid-layer
-ri <- seq (0, by = dr, len = N+1) # distance to layer interface
-dri <- dr # dispersion distances
-parms <- c(D = 0.05, k1 = 0.5, k2 = 2, cd.total = 1)
-
-parms <- c(D = 10^-3, # diffusivity
-           k1 = 10^4, 
-           k2 = 10^3, 
-           cd.total = 0.01)
-
-# Distance <- seq(from = 0.5, by = delx, length.out = numboxes)
-
-state <- rep(0, 2 * N) # initial conditions
-state[1] <- 0.01
-state[N+1] <- 0.075
-
-times <- seq(0, 10, by = 1) # timepoints
-
-out <- ode.1D(y = state, times = times, 
-              func = hydrogel, parms = parms, 
-              nspec = 2, names = c("DRUG", "CD"), 
-              N = N, rr = r, ri = ri, dr = dr, dri = dri)
-
-DRUG  <- out[, 2:(N+1)]
-DRUG <- out[ , 2:10]
-# DRUG <- out[ , 1:20]
-
-filled.contour(x = times, y  = c(1:9), DRUG, color = topo.colors,
-               xlab = "time, days", ylab = "Distance",
-               main = "Drug concentration")
-
-#     release rate --------------------------------------------------------
-
-# RR = -ADdCl/dz for z = height of CD disk
-release <- function(t, drug, param) {
-  tran <- tran.1D(C = drug, C.down = drug.conc, 
-                  D = D.grid, A = A.grid, 
-                  VF = por.grid, dx = grid)
-  reac <- -R.O2*(O2/(Ks + O2))
-  return(list(dCdt = tran$dC + reac, reac = reac, 
-              flux.up = tran$flux.up, flux.down = tran$flux.down))
-}
-
-drug.conc <- 0.05 # free ligand concentration
-cd.conc <- 0.1 # cd concentration in hydrogel
-D <- 0.01 # diffusion coef
-v <- 0
-kon <- 10000 # kon
-koff <- 10000
-Ks <- 0.05 # ligand saturation in CD for hydrogel
-
-R <- 0.05 # radius of hydrogel (height)
-N <- 50 # grid layers
-grid <- setup.grid.1D(x.up = 0, L = R, N = N)
-
-
-# Fu (no deSolve) ---------------------------------------------------------
-
-cd.conc <- 0.1 # cd concentration in hydrogel
-drug.eq <- 0.05 # [drug] at equilibrium
-comp.eq <- 0.05 # [drug-cd] at equilibrium
+  # Educated guesses
+  c0 <<- 0.15 # total drug concentration
+  cc <<- 0.08 # concentration of uncomplexed cd
+  clc.eq <<- ct - cc
+  # # Checking for approximate accuracy
+  # clc.eq
+  # c0 - c0/(1 + ka*cc)
   
-D <- 0.01 # diffusion coef
-v <- 0
-kon <- 10000 # kon
-koff <- 10000
-Ks <- 0.05 # ligand saturation in CD for hydrogel
+  # Dimensionless
+  P1 <<- k1/k2*c0
+  P2 <<- 0.0002753496
+  P3 <<- ct/c0
+}
 
-# The ODE/PDE system is
-# 
-# dDRUG/dt = D*d2DRUG/d2z - Rb
-# dCOMP/dt = Rb
-# Rb = Kon*DRUG*CD-KoffCOMP = Kon*COMP*(TOTAL-COMP)-KoffCOMP
-# 
-# Boundary condition
-# z = delta, DRUG = 0 
-# 
+#     P1 ------------------------------------------------------------------
+
+# Provides a cumulative release dataframe for a new value of P1
+vary.P1 <- function(newP1) {
+  P1 <<- newP1
+  ode.out <- ode(y = state, times = times, func = drug.model, parms = NULL)
+  result <- accumulate.dMr(out = ode.out) %>% .[-1, ] %>%
+    mutate(param = as.factor(newP1))
+  return(result)
+}
+
+P1.variance <- do.call(rbind, lapply(seq(20, 320, 50),
+                                     FUN = vary.P1))
+
+ggplot(P1.variance, aes(x = times, y = rr, color = param)) + 
+  geom_line() + 
+  theme_bw() 
+
+# Simple modification of P1 that takes inputted DelG values
+vary.delG <- function(delG) {
+  P1 <<- convert.delg.ka(delG) * c0
+  ode.out <- ode(y = state, times = times, func = drug.model, parms = NULL)
+  result <- accumulate.dMr(out = ode.out) %>% .[-1, ] %>%
+    mutate(param = as.factor(delG))
+  return(result)
+}
+# P2 <- 0.01
+delg.variance <- do.call(rbind, lapply(seq(-5, -40, -5),
+                                       FUN = vary.delG)) 
+ggplot(delg.variance, aes(x = times, y = rr, color = param)) + 
+  geom_line() +
+  labs(title = "Effect of delG on release profiles", x = "Time, hr", y = "Cumulative release", 
+       color = "delG, kJ/mol") + 
+  theme_bw() 
+ggsave("./release/delg.variance.png")
+saveRDS(delg.variance, "./release/delg.variance.RDS")
+
+ggplot(delg.variance, aes(x = times, y = rr, color = param)) + 
+  geom_line(size = 1) +
+  labs( x = "Time, hr", y = "Cumulative release", 
+       color = "dG, kJ/mol") +
+  coord_fixed(ratio = 12500) +
+  theme.isef
+ggsave("./graphs/2018 isef/dg and release.png", dpi = 450)
+
+#     P2 and k2 -----------------------------------------------------------
+
+vary.k2 <- function(newk2) {
+  k2 <<- newk2
+  P2 <<- D/(k2*width^2)
+  ode.out <- ode(y = state, times = times, func = drug.model, parms = NULL)
+  result <- accumulate.dMr(out = ode.out) %>% .[-1, ] %>%
+    mutate(param = as.factor(newk2))
+  return(result)
+}
+
+
 # Initial conditions
-# DRUG = 0; COMP = 0
+ka <- convert.delg.ka(-15)
+k2 <- 35 # h^-1, according to Fu
+k1 <- k2*ka # ka = k1/k2 
+P1 <- k1/k2*c0
+P2 <- D/(k2*width^2)
+
+k2.variance <- do.call(rbind, lapply(seq(20, 420, 50),
+                                       FUN = vary.k2)) 
+ggplot(k2.variance, aes(x = times, y = rr, color = param)) + 
+  geom_line() +
+  labs(title = "Effect of k2, rate of dissociation, on release profiles", 
+       x = "Time, hr", y = "Cumulative release", color = "k2, h^-1") + 
+  theme_bw() 
+ggsave("./release/k2.variance.png")
+
+#     P3 ------------------------------------------------------------------
+
+# Varying P3 is a lot less simple than P1 or P2 because the constituent 
+# variables, ct and c0, exist in a balance with clc.eq, cl.eq
+
+set.param()
+
+# Let's keep ct, the total amount of CD, constant
+# (and ignore the fact that this set of equations contradicts basic
+# chemical relationships in the model)
+# c0 is the total drug concentration
+vary.c0 <- function(newc0) {
+  P3 <<- ct/newc0
+  ode.out <- ode(y = state, times = times, func = drug.model, parms = NULL)
+  result <- accumulate.dMr(out = ode.out) %>% .[-1, ] %>%
+    mutate(param = as.factor(newc0))
+  return(result)
+}
+
+c0.variance <- do.call(rbind, lapply(seq(0.01, 0.51, 0.1),
+                                     FUN = vary.c0)) 
+ggplot(c0.variance, aes(x = times, y = rr, color = param)) + 
+  geom_line() +
+  labs(title = "Effect of c0, total drug concentration, on release profiles", 
+       x = "Time, hr", y = "Cumulative release", color = "c0") + 
+  theme_bw() 
+ggsave("./release/c0.variance.png")
+
+set.param()
+vary.ct <- function(newct) {
+  P3 <<- newct/c0
+  ode.out <- ode(y = state, times = times, func = drug.model, parms = NULL)
+  result <- accumulate.dMr(out = ode.out) %>% .[-1, ] %>%
+    mutate(param = as.factor(newct))
+  return(result)
+}
+
+ct.variance <- do.call(rbind, lapply(seq(0.01, 0.51, 0.1),
+                                     FUN = vary.ct)) 
+ggplot(ct.variance, aes(x = times, y = rr, color = param)) + 
+  geom_line() +
+  labs(title = "Effect of ct, total CD concentration, on release profiles", 
+       x = "Time, hr", y = "Cumulative release", color = "ct") + 
+  theme_bw() 
+ggsave("./release/ct.variance.png")
+
+#     Diffusivity ---------------------------------------------------------
+
+# First, finding relationships between diffusivity and kd
+# 1. Find the data with descriptors
+padel <- readRDS("./descriptors/all.padel.RDS") 
+data.mw <- padel %>% select(., guest, MW)
+#     i. convert molecular weight to diffusivity
+data.diff <- data.mw %>% mutate(diffusivity = get.diffusivity(MW)) %>%
+  select(., guest, diffusivity)
+
+# 2. Find the data with DelG
+binding <- readRDS("./dwnld/combined.data.RDS")
+#     i. convert delG to Ka
+data.ka <- binding %>% mutate(ka = convert.delg.ka(DelG)) %>%
+  select(., guest, host, ka)
+data.dg <- binding %>% select(., guest, host, DelG)
+
+# 3. split the ka data by host and join to the diffusivity data
+#     i. alpha-CD
+ka.alpha <- data.ka %>% filter(host == "alpha")
+ka.diff.alpha <- inner_join(ka.alpha, data.diff, by = "guest")
+ka.diff.alpha <- ka.diff.alpha[!duplicated(ka.diff.alpha), ]
+#     ii. beta-CD
+ka.beta <- data.ka %>% filter(host == "beta")
+ka.diff.beta <- inner_join(ka.beta, data.diff, by = "guest")
+ka.diff.beta <- ka.diff.beta[!duplicated(ka.diff.beta), ]
+#     iii. gamma-CD
+ka.gamma <- data.ka %>% filter(host == "gamma")
+ka.diff.gamma <- inner_join(ka.gamma, data.diff, by = "guest")
+ka.diff.gamma <- ka.diff.gamma[!duplicated(ka.diff.gamma), ]
+#     iv. join everything
+data.ka.diff <- rbind(ka.diff.alpha, ka.diff.beta, ka.diff.gamma)
+#     v. repeat for only delg
+dg.alpha <- data.dg %>% filter(host == "alpha")
+dg.diff.alpha <- inner_join(dg.alpha, data.diff, by = "guest")
+dg.diff.alpha <- dg.diff.alpha[!duplicated(dg.diff.alpha), ]
+#     ii. beta-CD
+dg.beta <- data.dg %>% filter(host == "beta")
+dg.diff.beta <- inner_join(dg.beta, data.diff, by = "guest")
+dg.diff.beta <- dg.diff.beta[!duplicated(dg.diff.beta), ]
+#     iii. gamma-CD
+dg.gamma <- data.dg %>% filter(host == "gamma")
+dg.diff.gamma <- inner_join(dg.gamma, data.diff, by = "guest")
+dg.diff.gamma <- dg.diff.gamma[!duplicated(dg.diff.gamma), ]
+
+data.dg.diff <- rbind(dg.diff.alpha, dg.diff.beta, dg.diff.gamma)
 
 
+#         Graphing diffusivity vs. dG -------------------------------------
+
+# On an ordinary scale, trends aren'ts very clear due to the exponential 
+# character of Ka
+ggplot(data.ka.diff, aes(x = ka, y = diffusivity,
+  color = host, shape = host)) +
+  geom_point() +
+  theme_bw()
+ggplot(data.ka.diff, aes(x = ka, y = diffusivity,
+                         color = host, shape = host)) +
+  geom_point() +
+  theme_bw() + 
+  coord_cartesian(xlim = c(0,700)) + 
+  facet_grid(~host)
+
+# plotting ka on an exponential scale
+ggplot(data.ka.diff, aes(x = ka, y = diffusivity, color = host, shape = host)) + 
+  geom_point() + 
+  scale_x_log10() + 
+  theme_bw()
+
+# Graphing with labels
+ggplot(data.ka.diff, aes(x = ka, y = diffusivity,
+                         color = host, shape = host)) +
+  geom_point() +
+  theme_bw() + 
+  scale_x_log10() + 
+  # facet_grid(~host) + 
+  geom_text(data = subset(data.ka.diff, ka > 10000 & diffusivity < (2 * 10^-5)), 
+            aes(ka, diffusivity, label = guest))
+
+# Graphing with labels
+ggplot(data.dg.diff, aes(x = DelG, y = diffusivity,
+                         color = host, shape = host)) +
+  geom_point() +
+  theme_bw() 
+  # facet_grid(~host) + 
+
+
+#     i. divide into quadrants
+# search for some extreme values (not the most extreme, though, b/c reliability)
+# quadrant 1: high binding, high diffusivity
+subset(data.dg.diff, DelG < -18 & diffusivity > 2.35e-5)
+# benzaldehyde (211) for alpha, cyclohexanecarboxylic acid (299) for beta
+# nothing available for gamma
+q1 <- data.dg.diff[rownames(data.dg.diff) %in% c("211", "299"), ] %>%
+  mutate(quadrant = as.factor(1))
+
+# quadrant 2: low binding, high diff
+subset(data.dg.diff, DelG > -5 & diffusivity > 3e-5)
+#     acetonitrile (200) for alpha, ethanol (339) for beta
+subset(data.dg.diff, DelG > -8 & diffusivity > 2.5e-5) 
+#     benzene (121) for gamma
+q2 <- data.dg.diff[rownames(data.dg.diff) %in% c("200", "339", "121"), ] %>%
+  mutate(quadrant = as.factor(2))
+
+# quadrant 3: low binding, low diff
+subset(data.dg.diff, DelG > -9 & diffusivity < 2.1e-5)
+# Tyr-Ile-Gly-Ser-Arg (197) for alpha, griseofulvin (354) for beta
+# 2-naphthalenesulfonate (2312) for gamma
+q3 <- data.dg.diff[rownames(data.dg.diff) %in% c("197", "354", "2312"), ] %>%
+  mutate(quadrant = as.factor(3))
+
+# quadrant 4: high binding, low diff
+subset(data.dg.diff, DelG < -20 & diffusivity < 2e-5)
+# 3-[(4-hydroxyphenyl)azo]benzoate (83) for alpha, 
+# 2-chloro-4-[(4-hydroxyphenyl)azo]benzoate (123) for gamma
+subset(data.dg.diff, DelG < -25 & diffusivity < 1.8e-5)
+# spironolactone (440) for beta
+q4 <- data.dg.diff[rownames(data.dg.diff) %in% c("83", "123", "440"), ] %>%
+  mutate(quadrant = as.factor(4))
+
+dg.diff.subset <- rbind(q1, q2, q3, q4)
+ggplot(data.dg.diff, aes(x = DelG, y = diffusivity, color = host)) +
+  geom_point() +
+  theme_bw() + 
+  geom_hline(yintercept = mean(data.dg.diff$diffusivity)) + 
+  geom_vline(xintercept = mean(data.dg.diff$DelG)) + 
+  facet_grid(~host) + 
+  geom_text(data = dg.diff.subset, aes(x = DelG, y = diffusivity, label = guest),
+            color = "#161616", vjust = 1) + 
+  geom_point(data = dg.diff.subset, aes(x = DelG, y = diffusivity)) + 
+  # theme.2018 + 
+  labs(y = "Diffusivity", x = "dG, kJ/mol", color = "CD Type")
+
+#         Release curves --------------------------------------------------
+
+# modifying the set.param function to be more usable
+
+# set.param.p <- function(p1, p2, p3) {
+#   P1 <<- p1
+#   P2 <<- p2
+#   P3 <<- p3
+# }
+
+set.param.dg.diff <- function(dg, diff) {
+  P1 <<- convert.delg.ka(dg) * c0
+  P2 <<- diff/(k2*width^2)
+}
+
+vary.dg.diff <- function(dg, diff) {
+  set.param.dg.diff(dg, diff)
+  ode.out <- ode(y = state, times = times, func = drug.model, parms = NULL)
+  result <- accumulate.dMr(out = ode.out) %>%
+    mutate(DelG = as.factor(dg)) %>%
+    mutate(diffusivity = as.factor(diff))
+  return(result)
+}
+q1.dd <- do.call(rbind, Map(f = vary.dg.diff, 
+                            dg = q1$DelG, 
+                            diff = q1$diffusivity)) %>%
+  mutate(quadrant = "q1")
+q2.dd <- do.call(rbind, Map(f = vary.dg.diff, 
+                            dg = q2$DelG, 
+                            diff = q2$diffusivity)) %>%
+  mutate(quadrant = "q2")
+q3.dd <- do.call(rbind, Map(f = vary.dg.diff, 
+                            dg = q3$DelG, 
+                            diff = q3$diffusivity)) %>%
+  mutate(quadrant = "q3")
+q4.dd <- do.call(rbind, Map(f = vary.dg.diff, 
+                            dg = q4$DelG, 
+                            diff = q4$diffusivity)) %>%
+  mutate(quadrant = "q4")
+
+allq.dd <- rbind(q1.dd, q2.dd, q3.dd, q4.dd) 
+ggplot(allq.dd, aes(x = times, y = rr, color = quadrant, group = DelG)) + 
+  geom_line() +
+  theme_bw() 
+
+# For the heck of it, why don't we just increase the diffusivity by 
+# a factor of 10. Or something. 
+set.param.dg.diff <- function(dg, diff) {
+  P1 <<- convert.delg.ka(dg) * c0
+  P2 <<- diff/(k2*width^2) * 10 
+}
+
+q1.dd <- do.call(rbind, Map(f = vary.dg.diff, 
+                            dg = q1$DelG, 
+                            diff = q1$diffusivity)) %>%
+  mutate(quadrant = "q1")
+q2.dd <- do.call(rbind, Map(f = vary.dg.diff, 
+                            dg = q2$DelG, 
+                            diff = q2$diffusivity)) %>%
+  mutate(quadrant = "q2")
+q3.dd <- do.call(rbind, Map(f = vary.dg.diff, 
+                            dg = q3$DelG, 
+                            diff = q3$diffusivity)) %>%
+  mutate(quadrant = "q3")
+q4.dd <- do.call(rbind, Map(f = vary.dg.diff, 
+                            dg = q4$DelG, 
+                            diff = q4$diffusivity)) %>%
+  mutate(quadrant = "q4")
+
+allq.dd <- rbind(q1.dd, q2.dd, q3.dd, q4.dd) 
+ggplot(allq.dd, aes(x = times, y = rr, color = quadrant, group = DelG)) + 
+  geom_line(size = 0.75) +
+  # theme.2018 + 
+  labs(x = "Time, hr", y = "Cumulative release", color = "Quadrant")
+# ggsave("./release/presentation graph.png")
+
+#     Diffusivity (~constant dG) ------------------------------------------
+
+subset(data.dg.diff, DelG < -12.5 & DelG > -12.7)
+# 346, 317, 67, and 2381 make a nice range
+same.dg <- data.dg.diff[rownames(data.dg.diff) %in% c("346", "317", "67", "2381"), ]
+same.dg.out <- do.call(rbind, Map(f = vary.dg.diff, 
+                            dg = -12.6, 
+                            diff = same.dg$diffusivity)) 
+ggplot(same.dg.out, aes(x = times, y = rr, color = diffusivity)) + 
+  geom_line() + 
+  theme_bw()
+
+# Checking an area with weak affinity
+same.dg.low <- subset(data.dg.diff, DelG <= -3.5 & DelG > -3.7)
+same.dg.low.out <- do.call(rbind, Map(f = vary.dg.diff, 
+                                  dg = -3.6, 
+                                  diff = same.dg.low$diffusivity)) 
+ggplot(same.dg.low.out, aes(x = times, y = rr, color = diffusivity)) + 
+  geom_line() + 
+  theme_bw()
+
+# checking an area with high affinity
+same.dg.high <- subset(data.dg.diff, DelG < -24.5 & DelG > -25.5)
+same.dg.high.out <- do.call(rbind, Map(f = vary.dg.diff, 
+                                      dg = -25, 
+                                      diff = same.dg.high$diffusivity)) 
+ggplot(same.dg.high.out, aes(x = times, y = rr, color = diffusivity)) + 
+  geom_line() + 
+  theme_bw()
+
+# Checking for conservation of mass ---------------------------------------
+
+vary.dg.diff <- function(dg, diff) {
+  set.param.dg.diff(dg, diff)
+  ode.out <- ode(y = state, times = times, func = drug.model, parms = NULL)
+  result <- accumulate.dMr(out = ode.out) %>%
+    mutate(DelG = as.factor(dg)) %>%
+    mutate(diffusivity = as.factor(diff))
+  return(result)
+}
+
+temp <- ode(y = state, times = times, func = drug.model, parms = NULL)
+
+length(times)
+drug.total <- rep(0, length(times))
+comp.total <- rep(0, length(times))
+
+for(i in 1:length(times)) {
+  drug.total[i] <- sum(temp[i, 2:102])
+}
+for(i in 1:length(times)) {
+  comp.total[i] <- sum(temp[i, 102:201])
+}
+drug.comp.total <- drug.total + comp.total
+drug.total.time <- data.frame(times, drug.total, comp.total, drug.comp.total)
+ggplot(drug.total.time, aes(x = times, y = drug.total)) + 
+  geom_line(color = "blue") + 
+  geom_line(aes(y = comp.total), color = "red") + 
+  geom_line(aes(y = drug.comp.total)) + 
+  theme_bw()

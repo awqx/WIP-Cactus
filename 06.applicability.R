@@ -13,7 +13,7 @@ library(tidyverse)
 # Finds standard deviation for a single descriptor
 # Requires a vector or single column; returns num
 find.sd.desc <- function(data) {
-  sd <- (data - mean(data)) ^ 2 %>% sum()
+  sd <- (data - mean(data, na.rm = T)) ^ 2 %>% sum()
   sd <- sqrt(sd / (length(data) - 1))
   return(sd)
 }
@@ -47,7 +47,7 @@ initial.standardize <- function(data) {
 
 # Standardize works on new data
 # sd.list should be retrieved from the data the model was trained on
-standardize <- function(data, sd.list) {
+standardize.withSDs <- function(data, sd.list) {
   df <- data[ , -1]
   guest <- data[ , 1]
   for (c in 1:length(df)) {
@@ -56,7 +56,7 @@ standardize <- function(data, sd.list) {
       ski <- abs(df[r, c] - mean(df[ , c])) / sd 
       df[r, c] <- ski
     }
-    # message(paste("Column ", c, " completed."))
+    if(c %% 50 == 0) message(paste("Column ", c, " completed."))
   }
   return(cbind(guest, df))
 }
@@ -68,9 +68,9 @@ domain <- function(data) {
   results <- c(rep(NA, nrow(data)))
   df <- data[ , -1]
   for(r in 1:nrow(df)) {
-    if (max(df[r, ] <= 3)) {
+    if (max(df[r, ]) <= 3) {
       results[r] <- "inside"
-    } else if (min(df[r, ] > 3)){
+    } else if (min(df[r, ]) > 3){
       results[r] <- "outside"
     } else {
       newSk <- mean(as.numeric(df[r, ])) + 1.28 * find.sd.desc(as.numeric(df[r, ]))
@@ -83,9 +83,44 @@ domain <- function(data) {
   return(data.frame(guest, results))
 }
 
+newSk <- function(vec) {
+  return(mean(as.numeric(vec), na.rm = T) + 1.28 * find.sd.desc(as.numeric(vec)))
+}
+
+# Assuming standard deviation has been centered to be 1
+
+domain.num <- function(data) {
+  newSk <- c(rep(0, nrow(data)))
+  if (class(data[, 1]) != "numeric") {
+    guest <- data[, 1]
+    data <- data[, -1]
+    result <-
+      apply(data, 1, function(x)
+        mean(as.numeric(x), na.rm = T) + 1.28 * find.sd.desc(as.numeric(x))) %>%
+      as.data.frame()
+    result <- cbind(guest, result)
+  } else
+    result <- apply(data, 1, function(x)
+      mean(as.numeric(x), na.rm = T) + 1.28 * find.sd.desc(as.numeric(x))) %>%
+      as.data.frame()
+  return(result %>% 
+           mutate(domain = ifelse(result[ , 2] > 3, "outside", "inside")))
+}
+
+
+# Removes descriptors w/ very little variation (<= 2 unique values) in an 
+# attempt to make applicability domain a little more useful
+remove.binary <- function(data) {
+  binary <- sapply(data, unique) %>% sapply(., length) %>% data.frame()
+  binary.pred <- which(binary < 3)
+  
+  return(data[ , -binary.pred])
+}
+
+
 # Testing on Some Data ----------------------------------------------------
 
-df <- readRDS("./padel.pp.new.RDS") %>% select(., -DelG, -host, -data.source)
+df <- readRDS("./data/padel.pp.RDS") %>% select(., -DelG, -host, -data.source)
 test <- df[ , 1:25]
 sd.all <- lapply(test[ , -1], find.sd.desc) %>% unlist() %>% as.vector() # Works
 stand.test <- initial.standardize(test)
@@ -94,7 +129,7 @@ stand.test2 <- standardize(test, sd.all)
 # Analysis ----------------------------------------------------------------
 
 # Test to make sure it works
-df <- readRDS("./padel.pp.new.RDS") %>% select(., -DelG, -host, -data.source)
+df <- readRDS("./descriptors/all.padel.RDS") %>% select(., -DelG, -host, -data.source)
 desc <- df[ , -1]
 sdevs <- lapply(desc, find.sd.desc) %>% unlist() %>% as.vector() 
 saveRDS(sdevs, "./domain/standard deviations.RDS")
@@ -128,7 +163,6 @@ samp.dmn <- domain(samp.stand)
 #     Removing Binary Data ------------------------------------------------
 
 # Possibility that large number of binary fingerprints skews many guests
-# to be inside the applicability domain
 #
 # Solution 1: Remove the binary guests
 df.binary <- sapply(df, unique) %>% sapply(., length) %>% data.frame()

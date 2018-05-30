@@ -1,193 +1,17 @@
 # Libraries and Packages --------------------------------------------------
 
-library(caret)
 library(data.table)
 library(e1071)
 library(Matrix)
-library(stringr)
-library(tidyverse)
 
-# Functions ---------------------------------------------------------------
-
-# Finds standard deviation for a single descriptor
-# Requires a vector or single column; returns num
-find.sd.desc <- function(data) {
-  sd <- (data - mean(data)) ^ 2 %>% sum()
-  sd <- sqrt(sd / (length(data) - 1))
-  return(sd)
-}
-
-# Determines whether a chemical is within the applicability domain
-# Requires a df or matrix and an index
-# Can be used in do.call, rbind, lapply sequence
-determine.domain <- function(index, data){
-  results <- c(rep(0.0, length(data)  - 1))
-  for (i in 2:length(data)) {
-    sd <- find.sd.desc(data[ , i])
-    results[i - 1] <- (data[index, i] - mean(data[ , i])) / sd
-  }
-}
-
-# Precondition: first column of data is guests, rest is descriptors
-# initial.standardize works on the data the model was trained on
-initial.standardize <- function(data) {
-  df <- data[ , -1]
-  guest <- data[ , 1]
-  for (c in 1:length(df)) {
-    sd <- find.sd.desc(df[ , c])
-    for (r in 1:nrow(df)) {
-      ski <- abs(df[r, c] - mean(df[ , c])) / sd 
-      df[r, c] <- ski
-    }
-    # message(paste("Column ", c, " completed."))
-  }
-  return(cbind(guest, df))
-}
-
-# Standardize works on new data
-# sd.list should be retrieved from the data the model was trained on
-standardize <- function(data, sd.list) {
-  df <- data[ , -1]
-  guest <- data[ , 1]
-  for (c in 1:length(df)) {
-    sd <- sd.list[c]
-    for (r in 1:nrow(df)) {
-      ski <- abs(df[r, c] - mean(df[ , c])) / sd 
-      df[r, c] <- ski
-    }
-    # message(paste("Column ", c, " completed."))
-  }
-  return(cbind(guest, df))
-}
-
-# Precondition: data is the result of standardize
-# guest is in first col, rest are numeric
-domain <- function(data) {
-  guest <- data[ , 1]
-  results <- c(rep(NA, nrow(data)))
-  df <- data[ , -1]
-  for(r in 1:nrow(df)) {
-    if (max(df[r, ] <= 3)) {
-      results[r] <- "inside"
-    } else if (min(df[r, ] > 3)){
-      results[r] <- "outside"
-    } else {
-      newSk <- mean(as.numeric(df[r, ])) + 1.28 * find.sd.desc(as.numeric(df[r, ]))
-      if (newSk <= 3)
-        results[r] <- "inside"
-      else
-        results[r] <- "outside"
-    }
-  }
-  return(data.frame(guest, results))
-}
-
-download.cactus.results <- function(guest, path, chemical.format) {
-  report <- tryCatch({
-    destfile       <- paste0(path, "/", guest, ".SDF")
-    # Chemical format must be parsed to match all the outputs from NCI cactus
-    Guest.URL      <- unlist(lapply(guest, URLencode, reserved = T))
-    URL            <- paste0(
-      "https://cactus.nci.nih.gov/chemical/structure/",
-      Guest.URL,
-      "/",
-      chemical.format
-    )
-    Map(download.file, url = URL, destfile = destfile)
-    data.frame(
-      guest = guest,
-      downloaded = "yes",
-      warning = "no",
-      error = "no"
-    )
-  },
-  warning = function(warn) {
-    message("Warning: either URL error or already existing directory.")
-    destfile       <- paste0(path, "/", guest, ".SDF")
-    Guest.URL      <- unlist(lapply(guest, URLencode, reserved = T))
-    URL            <- paste0(
-      "https://cactus.nci.nih.gov/chemical/structure/",
-      Guest.URL, "/", chemical.format
-    )
-    Map(download.file, url = URL, destfile = destfile)
-    data.frame(
-      guest = guest,
-      downloaded = "yes",
-      warning = "yes",
-      error = "no"
-    )
-  },
-  error = function(err) {
-    message("An error occurred")
-    data.frame(
-      guest = guest,
-      downloaded = "no",
-      warning = "yes",
-      error = "yes"
-    )
-  },
-  finally = {
-    message("Chemical name processed")
-  })
-  return(report)
-}
+source("./06.1.ad.functions.R")
 
 # Data --------------------------------------------------------------------
 
-# Downloaded from http://zinc15.docking.org/substances/subsets/fda/, 
-# analyzed via PaDEL-Descriptor
-dir.create("./molecules/fdaSDFs")
-
-fda <- read.csv("./molecules/fda/fda.csv")
-fda.guest <- fda[ , 2]
-
-guest <- fda.guest %>% as.vector()
-guest1 <- fda.guest[1:100] %>% as.vector()
-
-cactus1 <- 
-  do.call(
-    rbind,
-    lapply(
-      guest1,
-      download.cactus.results,
-      path = "./molecules/fdaSDFs",
-      chemical.format = "SDF"
-    )
-  )
-
-fda.results <- 
-  do.call(
-    rbind,
-    lapply(
-      guest,
-      download.cactus.results,
-      path = "./molecules/fdaSDFv2",
-      chemical.format = "SDF"
-    )
-  )
-
-
-# PaDEL-Descriptor --------------------------------------------------------
-
-# Loading raw data
-fda.padel1 <- read.csv("./fda/fda desc 0-3 kb.csv")
-fda.padel2 <- read.csv("./fda/fda desc 4-5 kb.csv")
-fda.padel3 <- read.csv("./fda/fda desc 6-8 kb.csv")
-fda.padel4 <- read.csv("./fda/fda desc 9+ kb.csv")
-fda.padel <- rbind(fda.padel1, fda.padel2, fda.padel3, fda.padel3)
-# fda.padel <- rbind(fda.padel, fda.padel, fda.padel)
-
-# fda.alpha <- fda.padel %>% mutate(alpha = 1) %>%
-#   mutate(beta = 0) %>% mutate(gamma = 0)
-# fda.beta <- fda.padel %>% mutate(alpha = 0) %>%
-#   mutate(beta = 1) %>% mutate(gamma = 0)
-# fda.gamma <- fda.padel %>% mutate(alpha = 0) %>%
-#   mutate(beta = 0) %>% mutate(gamma = 1)
-
-pp.settings <- readRDS("./preprocess/preprocess.settings.RDS")
-zero.pred <- readRDS("./preprocess/zero.pred.RDS") %>% str_replace(., "-", ".")
-zero.pred2 <- readRDS("./preprocess/zero.pred2.RDS")[1]
-too.high <- readRDS("./preprocess/high.cor.RDS") %>% str_replace(., "-", ".")
+pp.settings <- readRDS("./pre-process/pp.settings.RDS")
+zero.pred <- readRDS("./pre-process/zero.pred.RDS") %>% str_replace(., "-", ".")
+zero.pred2 <- readRDS("./pre-process/zero.pred2.RDS")[1]
+too.high <- readRDS("./pre-process/high.cor.RDS") %>% str_replace(., "-", ".")
 
 fda.desc <- fda.padel[ , !colnames(fda.padel) %in% zero.pred]
 
@@ -195,7 +19,7 @@ fda.desc <- fda.desc[ , -1]
 fda.desc <- rbind(fda.desc %>% mutate(alpha = 1, beta = 0, gamma = 0), 
                   fda.desc %>% mutate(alpha = 0, beta = 1, gamma = 0), 
                   fda.desc %>% mutate(alpha = 0, beta = 0, gamma = 1))
-fda.pp <- predict(pp.settings, fda.desc)
+fda.pp <- predict(pp.settings, fda.desc, na.remove = T)
 
 fda.pp <- fda.pp[ , !colnames(fda.pp) %in% too.high]
 fda.pp <- fda.pp[ , !colnames(fda.pp) %in% zero.pred2]
@@ -203,11 +27,9 @@ fda.pp <- fda.pp[ , !colnames(fda.pp) %in% zero.pred2]
 fda.data <- cbind(fda.padel[ , 1], fda.pp)
 colnames(fda.data)[1] <- "guest"
 
-#     Applicability Domain Analysis ---------------------------------------
+# Applicability domain ----------------------------------------------------
 
-sdevs <- readRDS("./domain/trn.sdevs.RDS")
-fda.stand <- standardize(fda.data, sdevs)
-fda.dmn <- domain(fda.stand)
+
 
 # Models ------------------------------------------------------------------
 
@@ -393,3 +215,250 @@ ggplot(fda.comb, aes(x = guest, y = pred, color = cd.type)) +
     axis.title.x = element_blank()
   ) 
 ggsave("./graphs/fda.png", dpi = 600)
+
+# SDF splitting -----------------------------------------------------------
+
+db.comp <- read.csv("./drugbank_approved_structures/structures.SDF", 
+                    header = F, sep = "\n")
+
+# index where SDF encoding ends, 
+# aka where the new SDF starts in the next line
+end.index <- which(db.comp$V1 == "$$$$") 
+# index where names should go
+name.index <- c(1, end.index[1:(length(end.index) - 1)] + 1) %>% as.integer()
+
+# index where generic names can be found
+generic.index <- which(db.comp$V1 == "> <GENERIC_NAME>") + 1
+generic.names <- db.comp$V1[generic.index] %>% as.character()
+
+# simple enough replacement at the correct indices
+db.comp$V1[name.index] <- generic.names
+
+# location where useful encoding ends
+mend.index <- which(db.comp$V1 == "M  END")
+
+# Just a function to split SDFs
+# name is generic names, mend is the list of "M END" indices
+subset.sdf <- function(name, mend, sdfs) {
+  result <- sdfs[name:mend, 1] 
+  header <- rep(" ", 3) # this is necessary b/c the header section syntax 
+  header.end <- result %>% as.character() %>% str_detect(., "V2000") %>% which(.)
+  header.temp <- result[1:(header.end - 1)]
+  result <- result[header.end:length(result)]
+  
+  for(i in 1:length(header.temp))
+    header[i] <- header.temp[i]
+  
+  result <- c(header, result, "$$$$")
+  result <- data.frame(result)
+  return(result)
+} 
+
+db.char <- db.comp %>% mutate(V1 = as.character(V1))
+db.all <-
+  mapply(
+    FUN = subset.sdf,
+    name = name.index,
+    mend = mend.index,
+    MoreArgs = list(sdfs = db.char),
+    SIMPLIFY = F
+  ) %>% rbindlist()
+
+# write.table(temp, file = "./drugbank/fixed-sample.SDF", quote = F, row.names = F, col.names = F)
+write.table(db.all, file = "./drugbank/all.SDF", quote = F, row.names = F, col.names = F)
+write.table(db.all, file = "./fda/all.fda.SDF", quote = F, row.names = F, col.names = F)
+
+
+# PaDEL Descriptor results ------------------------------------------------
+
+fda.padel <- read.csv("./drugbank/all.csv")
+
+# Pre-processing
+pp.settings <- readRDS("./pre-process/pp.settings.RDS")
+zero.pred <- readRDS("./pre-process/zero.pred.RDS") %>% str_replace(., "-", ".")
+zero.pred2 <- readRDS("./pre-process/zero.pred2.RDS")[1]
+too.high <- readRDS("./pre-process/high.cor.RDS") %>% str_replace(., "-", ".")
+
+fda.desc <- fda.padel[ , !colnames(fda.padel) %in% zero.pred] 
+
+# removes guest molecules that are missing values: 2327 --> 2037 guests
+fda.desc <- fda.desc[complete.cases(fda.desc), ]
+
+fda.guest <- fda.desc[ , 1]
+fda.desc <- fda.desc[ , -1] 
+fda.desc <- rbind(fda.desc %>% mutate(alpha = 1, beta = 0, gamma = 0), 
+                  fda.desc %>% mutate(alpha = 0, beta = 1, gamma = 0), 
+                  fda.desc %>% mutate(alpha = 0, beta = 0, gamma = 1))
+
+fda.pp <- predict(pp.settings, fda.desc, na.ignore = T)
+
+fda.pp <- fda.pp[ , !colnames(fda.pp) %in% too.high]
+fda.pp <- fda.pp[ , !colnames(fda.pp) %in% zero.pred2]
+
+saveRDS(fda.pp, "./fda/fda.pp.RDS")
+
+fda.data <- cbind(fda.guest, fda.pp)
+colnames(fda.data)[1] <- "guest"
+
+saveRDS(fda.data, "./fda/fda.data.RDS")
+
+# Applicability domain ----------------------------------------------------
+
+# do to a weird conflict of pre-processing, the fda.pp dataframe actually 
+# contains alpha, beta, and gamma data that doesn't need to exist
+# so remove.binary is being applied to only 1/3 of fda.pp
+fda.nobin <- remove.binary(fda.pp[1:(nrow(fda.pp)/3) , ])
+fda.ad <- domain.num(fda.nobin)
+fda.ad <- fda.ad %>% mutate(guest = as.character(fda.guest))
+
+# There are 224 drugs that are outside of the model's applicability domain
+# making up around 11% of the database
+# fda.ad %>% filter(newSk > 3) %>% nrow() / 2037
+
+# there are several outliers in fda.ad (newSk > 50)
+fda.outliers <- fda.ad %>% filter(newSk >= 50) %>% .$guest
+
+fda.ad.nooutliers <- fda.ad %>% filter(!(guest %in% fda.outliers))
+ggplot(fda.ad.nooutliers, aes(x = guest, y = newSk, color = domain, shape = domain)) + 
+  geom_point() + 
+  theme.isef + 
+  theme(axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        panel.grid.major = element_blank()) + 
+  geom_hline(yintercept = 3, size = 1, color = "#404040") + 
+  labs(x = NULL, y = "Similarity score", color = "Domain", shape = "Domain") + 
+  coord_fixed(ratio = 72)
+ggsave("./fda/app.domain.png", scale = 1.35, dpi = 450)
+
+
+# Sorting applicability domain drugs --------------------------------------
+
+guest.in.ad <- fda.ad %>% filter(domain == "inside") %>% .$guest
+fda <- fda.data %>% filter(guest %in% guest.in.ad)
+
+# SVM predictions on DrugBank ---------------------------------------------
+
+svm.a <- readRDS("./models/svm/polysvm.alpha.RDS")
+svm.b <- readRDS("./models/svm/polysvm.beta.RDS")
+svm.c <- readRDS("./models/svm/polysvm.gamma.RDS")
+
+fda.svm.a <- predict(svm.a, fda[ , -1] %>% filter(alpha > 0)) %>%
+  as.data.frame() %>% mutate(cd.type = "alpha")
+fda.svm.b <- predict(svm.b, fda[ , -1] %>% filter(beta > 0)) %>%
+  as.data.frame() %>% mutate(cd.type = "beta")
+fda.svm.c <- predict(svm.c, fda[ , -1] %>% filter(gamma > 0)) %>%
+  as.data.frame() %>% mutate(cd.type = "gamma")
+
+
+fda.svm <- data.frame(guest <- fda[ , 1], rbind(fda.svm.a, fda.svm.b, fda.svm.c)) %>%
+  rename(., pred = `.`)
+
+ggplot(fda.svm, aes(x = guest, y = pred, color = cd.type)) + 
+  geom_point() + 
+  theme.isef + 
+  facet_grid(~cd.type) + 
+  theme(axis.text.x = )
+
+# GLMNet ------------------------------------------------------------------
+
+glm.a <- readRDS("./models/glmnet/glm.alpha.RDS")
+glm.b <- readRDS("./models/glmnet/glm.beta.RDS")
+glm.c <- readRDS("./models/glmnet/glm.gamma.RDS")
+
+fda.a <- fda[ , -1] %>% filter(alpha > 0) %>% as.matrix()
+fda.b <- fda[ , -1] %>% filter(beta > 0) %>% as.matrix()
+fda.c <- fda[ , -1] %>% filter(gamma > 0) %>% as.matrix()
+fda.glm.a <- predict.glmnet(glm.a, fda.a, s = tail(glm.a$lambda, n = 1)) %>%
+  as.data.frame() %>% mutate(cd.type = "alpha")
+fda.glm.b <- predict.glmnet(glm.b, fda.b, s = tail(glm.b$lambda, n = 1)) %>%
+  as.data.frame() %>% mutate(cd.type = "beta")
+fda.glm.c <- predict.glmnet(glm.c, fda.c, s = tail(glm.c$lambda, n = 1)) %>%
+  as.data.frame() %>% mutate(cd.type = "gamma")
+
+fda.glm <- data.frame(guest <- fda[ , 1], rbind(fda.glm.a, fda.glm.b, fda.glm.c)) %>%
+  rename(., pred = X1)
+
+ggplot(fda.glm, aes(x = guest, y = pred, color = cd.type)) +
+  geom_point() + 
+  theme.isef + 
+  scale_x_discrete(breaks = NULL) + 
+  labs(title = "GLMNet FDA Approved Drugs", 
+       x = NULL, 
+       y = "Predicted DelG, kJ/mol", 
+       color = "CD Type", shape = "Cyclodextrin") + 
+  facet_wrap(~cd.type)
+
+ggsave("./fda/glmnet.png", dpi = 450, scale = 1.5)
+
+# Compiled FDA predictions ------------------------------------------------
+
+fda.ensemble <- inner_join(fda.svm, fda.glm, by = c("guest....fda...1.", "cd.type")) %>%
+  mutate(pred  = (pred.x + pred.y)/2) %>%
+  select(-pred.x) %>%
+  select(-pred.y)
+fda.all <- rbind(fda.svm %>% mutate(QSPR = "SVM"), 
+                 fda.glm %>% mutate(QSPR = "GLMNet"), 
+                 fda.ensemble %>% mutate(QSPR = "Ensemble"))
+colnames(fda.all)[1] <- "guest"
+ggplot(fda.all, aes(x = guest, y = pred, color = cd.type)) + 
+  geom_point() + 
+  theme.paper.2018 + 
+  scale_x_discrete(breaks = NULL) + 
+  labs(x = NULL, 
+       y = "Predicted delF, kJ/mol", 
+       color = "CD") + 
+  facet_grid(QSPR ~ cd.type)
+ggsave("./fda/qsars and ensemble.png")
+ggsave("./graphs/2018 paper/qsar and ensemble.png")
+
+# Promising alpha-CD drugs
+# docosanol, oleic acid, cetyl alcohol
+fda.a.drugs <- c("Docosanol", "Oleic Acid")
+fda.rows <- fda.all %>% mutate(row = rep(1:1813, 6))
+fda.a.drugs <- fda.rows %>% filter(guest %in% fda.a.drugs) %>%
+  filter(cd.type == "alpha")
+
+# Promising beta-CD drugs
+# Vitamin E, cholesterol, testosterone undecanoate
+fda.b.drugs <- c("Vitamin E", "Cholesterol")
+fda.b.drugs <- fda.rows %>% filter(guest %in% fda.b.drugs) %>%
+  filter(cd.type == "beta")
+
+# Promising gamma-CD drugs
+# balsalazide, montelukast
+fda.c.drugs <- c("Montelukast")
+fda.c.drugs <- fda.rows %>% filter(guest %in% fda.c.drugs) %>%
+  filter(cd.type == "gamma")
+
+fda.drugs <- rbind(fda.a.drugs, fda.b.drugs, fda.c.drugs)
+# don't show up well on graph
+# fda.drugs <- fda.drugs %>% filter(!(guest %in% c("Testosterone undecanoate", "Cetyl alcohol")))
+ggplot(fda.rows, aes(x = row, y = pred)) + 
+  geom_point(aes(color = cd.type)) +
+  scale_x_discrete(breaks = NULL) + 
+  labs(x = NULL, 
+       y = "Predicted dG, kJ/mol", 
+       color = "CD") + 
+  facet_grid(QSPR ~ cd.type) + 
+  geom_point(data = fda.drugs, aes(x = row, y = pred)) + 
+  theme.isef + 
+  geom_label(data = fda.drugs, aes(x = row, y = pred, label = guest, family = "Clear Sans Light"), 
+             hjust = -0.05, vjust = 1) + 
+  theme(text = element_text(size = 24), 
+        legend.key.size = unit(1.25, 'lines'))
+ggsave("./fda/predicted drugs.png", scale = 1.25, dpi = 450)  
+
+# Applicability domain ----------------------------------------------------
+
+
+source("./06.1.ad.functions.R")
+fda.pp <- readRDS("./fda/fda.pp.RDS")
+fda.guest <- read.csv("./drugbank/all.csv") %>% select(., Name)
+fda.nobin <- fda.pp %>% remove.binary()
+# fda.small <- fda.nobin[1:50, ]
+# domain.num(fda.small)
+
+fda.ad <- domain.num(fda.nobin)
+fda.ad <- data.frame(fda.guest, fda.ad)
+ggplot(fda.ad, aes(x = fda.guest, y = newSk)) + 
+  geom_point()

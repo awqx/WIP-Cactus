@@ -158,8 +158,6 @@ saveRDS(svm.gamma, "./models/svm/polysvm.gamma.RDS")
 
 #     Compiled CDs --------------------------------------------------------
 
-dir.create("./qsar results")
-dir.create("./qsar results/svm")
 temp.a <- svm.a.tst %>% mutate(cd.type = "alpha")
 temp.b <- svm.b.tst %>% mutate(cd.type = "beta")
 temp.c <- svm.c.tst %>% mutate(cd.type = "gamma")
@@ -730,7 +728,7 @@ ggsave("./graphs/svm/2017-07-27 sig compiled cd trn.png")
 
 #####
 
-ext.val <- readRDS("./external validation set new.RDS") %>%
+ext.val <- readRDS("./data/ext.val.RDS") %>%
   select(-guest:-host) %>%
   select(-data.source) 
 
