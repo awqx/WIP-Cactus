@@ -61,103 +61,24 @@ colnames(padel.pp) <- str_replace(colnames(padel.pp), "-", ".")
 
 #     Creating External Validation Set ----------------------------------------
 
+dir.create("./data")
 set.seed(4)
 ext.val.ind <- sample(x = 1:nrow(padel.pp), 
                       size = round(0.15 * nrow(padel.pp)))
 ext.val <- padel.pp[ext.val.ind, ]
 padel.pp.all <- padel.pp
 padel.pp <- padel.pp[-ext.val.ind, ]
+saveRDS(ext.val, "./data/ext.val.RDS")
 
 #     Data Organization and Saving --------------------------------------------
 
-sprse.padel <- sparse.model.matrix(~., padel.pp)
-mat.padel <- as.matrix(padel.pp)
+saveRDS(padel.pp, "./data/padel.pp.RDS")
 
 dir.create("./pre-process")
 saveRDS(pp.settings, "./pre-process/pp.settings.RDS")
-
-dir.create("./data")
-saveRDS(padel.pp, "./data/padel.pp.RDS")
-saveRDS(sprse.padel, "./data/sprse.padel.RDS")
-saveRDS(mat.padel, "./data/mat.padel.RDS")
-
-saveRDS(ext.val, "./data/ext.val.RDS")
-
-# Processing GAFS Data ----------------------------------------------------
-
-# ga.padel <- readRDS("./feature.select/GAFS df.RDS")
-# # Removing predictors with near zero variance - 1302 predictors
-# # ga.zero.pred <- nearZeroVar(ga.padel) # Good news: no zero variances
-# 
-# # Putting "gamma" back into the data
-# ga.cd <- cbind(ga.padel, padel.pp[ , "gamma"]) %>%
-#   rename(gamma = `padel.pp[, \"gamma\"]`)
-# 
-# # Removing highly correlated predictors
-# ga.too.high <- findCorrelation(cor(ga.cd[ , -1:-4]), 0.95) # No high corr
-# 
-# ga.pp <- ga.cd
-# 
-# # Modifying external validation set to match genetic alg
-# ga.extval <- readRDS("./external validation set.RDS")
-# ga.extval <- ga.extval[ , colnames(ga.extval) %in% colnames(ga.pp)]
-# 
-# #     Data Organization and Saving ----------------------------------------
-# 
-# sprse.ga <- sparse.model.matrix(~., ga.pp)
-# mat.ga <- as.matrix(ga.pp)
-# 
-# saveRDS(ga.pp, "./feature.select/ga.pp.RDS")
-# saveRDS(sprse.ga, "./feature.select/sprse.ga.RDS")
-# saveRDS(mat.ga, "./feature.select/mat.ga.RDS")
-# 
-# saveRDS(ga.extval, "./feature.select/gafs.extval.RDS")
-# 
-# # Processing 2D Only Data -------------------------------------------------
-# 
-# twod <- readRDS("./molecules/descriptors/04.all.2d.RDS")
-# # Removing predictors with near zero variance - 1302 predictors
-# zero.pred <- nearZeroVar(twod)
-# zero.pred.names <- colnames(twod)[zero.pred]
-# twod.no.zero <- twod[ , -zero.pred]
-# 
-# # Binning alpha, beta, and gamma
-# twod.cd <- twod.no.zero %>% 
-#   mutate(alpha = ifelse(str_detect(host, "alpha"), 1, 0)) %>%
-#   mutate(beta = ifelse(str_detect(host, "beta"), 1, 0)) %>%
-#   mutate(gamma = ifelse(str_detect(host, "gamma"), 1, 0))
-# 
-# # Separating non-predictors from data
-# twod.split1 <- twod.cd %>% dplyr::select(., guest:data.source)
-# twod.split2 <- twod.cd %>% dplyr::select(., -guest:-data.source)
-# 
-# # twod.pp = twod.preprocess, just shortened
-# twod.pp <- preProcess(twod.split2, na.remove = T, 
-#                        method = c("medianImpute", "center", "scale")) %>%
-#   predict(., twod.split2)
-# twod.pp <- lapply(twod.pp, as.numeric) %>% data.frame()
-# twod.pp <- preProcess(twod.pp, na.remove = T, 
-#                       method = c("medianImpute")) %>%
-#   predict(., twod.pp)
-# 
-# # Removing highly correlated predictors
-# too.high <- findCorrelation(cor(twod.pp), 0.95) # 0.95 mostly arbitrary
-# corr <- names(twod.pp)[too.high]
-# twod.pp <- twod.pp[ , -too.high]
-# twod.pp <- cbind(twod.split1, twod.pp)
-# 
-# colnames(twod.pp) <- str_replace(colnames(twod.pp), "-", ".")
-# 
-# #     External Validation ----
-# set.seed(4)
-# ext.val.ind <- sample(x = 1:nrow(twod.pp), 
-#                       size = round(0.15 * nrow(twod.pp)))
-# ext.val <- twod.pp[ext.val.ind, ]
-# 
-# #     Data Organization and Saving --------------------------------------------
-# 
-# saveRDS(twod.pp, "./2d.pp.RDS")
-# saveRDS(ext.val, "./2d.extval.RDS")
+saveRDS(too.high, "./pre-process/high.cor.RDS")
+saveRDS(zero.pred, "./pre-process/zero.pred.RDS")
+saveRDS(zero.pred2, "./pre-process/zero.pred2.RDS")
 
 # Suzuki Only -------------------------------------------------------------
 

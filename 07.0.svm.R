@@ -419,11 +419,11 @@ ggplot(svm.all.tst, aes(x = obs, y = pred)) +
   geom_point() + 
   geom_abline(slope = 1, intercept = 0) + 
   theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
+  coord_fixed(xlim = c(-33, 5), ylim = c(-40, 5)) + 
   labs(title = "Polynomial SVM", 
        x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol")
-ggsave("./graphs/svm/2017-07-28 polysvm all.png")
+# ggsave("./graphs/svm/polysvm all.png")
 
 # ggplot_build(p)$data
 ggplot(svm.a.tst, aes(x = obs, y = pred)) + 
@@ -434,7 +434,7 @@ ggplot(svm.a.tst, aes(x = obs, y = pred)) +
   labs(title = "Polynomial SVM - Alpha-CD", 
        x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol")
-ggsave("./graphs/svm/2017-07-28 polysvm alpha.png")
+# ggsave("./graphs/svm/polysvm alpha.png")
 
 ggplot(svm.b.tst, aes(x = obs, y = pred)) + 
   geom_point(color = "#00BA38") + 
@@ -444,7 +444,7 @@ ggplot(svm.b.tst, aes(x = obs, y = pred)) +
   labs(title = "Polynomial SVM - Beta-CD", 
        x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol")
-ggsave("./graphs/svm/2017-07-28 polysvm beta.png")
+# ggsave("./graphs/svm/polysvm beta.png")
 
 ggplot(svm.c.tst, aes(x = obs, y = pred)) + 
   geom_point(color = "#619CFF") + 
@@ -454,7 +454,7 @@ ggplot(svm.c.tst, aes(x = obs, y = pred)) +
   labs(title = "Polynomial SVM - Gamma-CD", 
        x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol")
-ggsave("./graphs/svm/2017-07-28 polysvm gamma.png")
+# ggsave("./graphs/svm/polysvm gamma.png")
 
 ggplot(poly.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
@@ -465,7 +465,7 @@ ggplot(poly.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
        x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        color = "Cyclodextrin")
-ggsave("./graphs/svm/2017-07-28 polysvm compiled.png")
+# ggsave("./graphs/svm/polysvm compiled.png")
 
 ggplot(poly.abc.tst, aes(x = pred, y = obs, color = cd.type)) +
   geom_point() + 
@@ -485,7 +485,7 @@ ggplot(svm.all.trn, aes(x = obs, y = pred)) +
   labs(title = "Polynomial SVM - Training", 
        x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol")
-ggsave("./graphs/svm/2017-07-27 polysvm all trn.png")
+# ggsave("./graphs/svm/polysvm all trn.png")
 
 # ggplot_build(p)$data
 ggplot(svm.a.trn, aes(x = obs, y = pred)) + 
@@ -496,7 +496,7 @@ ggplot(svm.a.trn, aes(x = obs, y = pred)) +
   labs(title = "Polynomial SVM - Alpha-CD, Training", 
        x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol")
-ggsave("./graphs/svm/2017-07-27 polysvm alpha trn.png")
+# ggsave("./graphs/svm/polysvm alpha trn.png")
 
 ggplot(svm.b.trn, aes(x = obs, y = pred)) + 
   geom_point(color = "#00BA38") + 
@@ -506,7 +506,7 @@ ggplot(svm.b.trn, aes(x = obs, y = pred)) +
   labs(title = "Polynomial SVM - Beta-CD, Training", 
        x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol")
-ggsave("./graphs/svm/2017-07-27 polysvm beta trn.png")
+# ggsave("./graphs/svm/polysvm beta trn.png")
 
 ggplot(svm.c.trn, aes(x = obs, y = pred)) + 
   geom_point(color = "#619CFF") + 
@@ -516,7 +516,7 @@ ggplot(svm.c.trn, aes(x = obs, y = pred)) +
   labs(title = "Polynomial SVM - Gamma-CD, Training", 
        x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol")
-ggsave("./graphs/svm/2017-07-27 polysvm gamma trn.png")
+# ggsave("./graphs/svm/polysvm gamma trn.png")
 
 ggplot(poly.abc.trn, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
@@ -527,7 +527,7 @@ ggplot(poly.abc.trn, aes(x = obs, y = pred, color = cd.type)) +
        x = "Observed DelG, kJ/mol", 
        y = "Predicted DelG, kJ/mol", 
        color = "Cyclodextrin")
-ggsave("./graphs/svm/2017-07-28 polysvm compiled trn.png")
+# ggsave("./graphs/svm/polysvm compiled trn.png")
 
 #     RBF -----------------------------------------------------------------
 #         Test Set --------------------------------------------------------
@@ -539,7 +539,7 @@ ggplot(rbf.all.tst, aes(x = obs, y = pred)) +
        title = "Radial SVM - All Data Points") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 rbf all data points.png")
+# ggsave("./graphs/svm/rbf all data points.png")
 
 ggplot(rbf.a.tst, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -548,7 +548,7 @@ ggplot(rbf.a.tst, aes(x = obs, y = pred)) +
        title = "Radial SVM - Alpha CD") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 rbf alpha cd.png")
+# ggsave("./graphs/svm/rbf alpha cd.png")
 
 ggplot(rbf.b.tst, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -557,7 +557,7 @@ ggplot(rbf.b.tst, aes(x = obs, y = pred)) +
        title = "Radial SVM - Beta CD") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 rbf beta cd.png")
+# ggsave("./graphs/svm/rbf beta cd.png")
 
 ggplot(rbf.c.tst, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -566,7 +566,7 @@ ggplot(rbf.c.tst, aes(x = obs, y = pred)) +
        title = "Radial SVM - Gamma CD") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 rbf gamma cd.png")
+# ggsave("./graphs/svm/rbf gamma cd.png")
 
 ggplot(rbf.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
@@ -576,7 +576,7 @@ ggplot(rbf.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
        color = "Cyclodextrin") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 rbf compiled cd.png")
+# ggsave("./graphs/svm/rbf compiled cd.png")
 
 #         Training Set ----------------------------------------------------
 
@@ -587,7 +587,7 @@ ggplot(rbf.all.trn, aes(x = obs, y = pred)) +
        title = "Radial SVM - All Data, Training") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 rbf all data points trn.png")
+# ggsave("./graphs/svm/rbf all data points trn.png")
 
 ggplot(rbf.a.trn, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -596,7 +596,7 @@ ggplot(rbf.a.trn, aes(x = obs, y = pred)) +
        title = "Radial SVM - Alpha CD, Training") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 rbf alpha cdtrn.png")
+# ggsave("./graphs/svm/rbf alpha cdtrn.png")
 
 ggplot(rbf.b.trn, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -605,7 +605,7 @@ ggplot(rbf.b.trn, aes(x = obs, y = pred)) +
        title = "Radial SVM - Beta CD, Training") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 rbf beta cd trn.png")
+# ggsave("./graphs/svm/rbf beta cd trn.png")
 
 ggplot(rbf.c.trn, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -614,7 +614,7 @@ ggplot(rbf.c.trn, aes(x = obs, y = pred)) +
        title = "Radial SVM - Gamma CD, Training") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 rbf gamma cd trn.png")
+# ggsave("./graphs/svm/rbf gamma cd trn.png")
 
 ggplot(rbf.abc.trn, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
@@ -624,7 +624,7 @@ ggplot(rbf.abc.trn, aes(x = obs, y = pred, color = cd.type)) +
        color = "Cyclodextrin") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 rbf compiled cd trn.png")
+# ggsave("./graphs/svm/rbf compiled cd trn.png")
 
 #     Sigmoid -------------------------------------------------------------
 #         Test Set --------------------------------------------------------
@@ -636,7 +636,7 @@ ggplot(sig.all.tst, aes(x = obs, y = pred)) +
        title = "Sigmoid SVM - All Data Points") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 sig all data points.png")
+# ggsave("./graphs/svm/sig all data points.png")
 
 ggplot(sig.a.tst, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -645,7 +645,7 @@ ggplot(sig.a.tst, aes(x = obs, y = pred)) +
        title = "Sigmoid SVM - Alpha CD") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 sig alpha cd.png")
+# ggsave("./graphs/svm/sig alpha cd.png")
 
 ggplot(sig.b.tst, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -654,7 +654,7 @@ ggplot(sig.b.tst, aes(x = obs, y = pred)) +
        title = "Sigmoid SVM - Beta CD") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 sig beta cd.png")
+# ggsave("./graphs/svm/sig beta cd.png")
 
 ggplot(sig.c.tst, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -663,7 +663,7 @@ ggplot(sig.c.tst, aes(x = obs, y = pred)) +
        title = "Sigmoid SVM - Gamma CD") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 sig gamma cd.png")
+# ggsave("./graphs/svm/sig gamma cd.png")
 
 ggplot(sig.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
@@ -673,7 +673,7 @@ ggplot(sig.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
        color = "Cyclodextrin") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 sig compiled cd.png")
+# ggsave("./graphs/svm/sig compiled cd.png")
 
 #         Training Set ----------------------------------------------------
 
@@ -684,7 +684,7 @@ ggplot(sig.all.trn, aes(x = obs, y = pred)) +
        title = "Sigmoid SVM - All Data, Training") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 sig all data points trn.png")
+# ggsave("./graphs/svm/sig all data points trn.png")
 
 ggplot(sig.a.trn, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -693,7 +693,7 @@ ggplot(sig.a.trn, aes(x = obs, y = pred)) +
        title = "Sigmoid SVM - Alpha CD, Training") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 sig alpha cdtrn.png")
+# ggsave("./graphs/svm/sig alpha cdtrn.png")
 
 ggplot(sig.b.trn, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -702,7 +702,7 @@ ggplot(sig.b.trn, aes(x = obs, y = pred)) +
        title = "Sigmoid SVM - Beta CD, Training") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 sig beta cd trn.png")
+# ggsave("./graphs/svm/sig beta cd trn.png")
 
 ggplot(sig.c.trn, aes(x = obs, y = pred)) + 
   geom_point() + 
@@ -711,7 +711,7 @@ ggplot(sig.c.trn, aes(x = obs, y = pred)) +
        title = "Sigmoid SVM - Gamma CD, Training") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 sig gamma cd trn.png")
+# ggsave("./graphs/svm/sig gamma cd trn.png")
 
 ggplot(sig.abc.trn, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
@@ -721,7 +721,7 @@ ggplot(sig.abc.trn, aes(x = obs, y = pred, color = cd.type)) +
        color = "Cyclodextrin") + 
   coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw()
-ggsave("./graphs/svm/2017-07-27 sig compiled cd trn.png")
+# ggsave("./graphs/svm/sig compiled cd trn.png")
 
 #####
 # External  Validation ----------------------------------------------------
@@ -808,7 +808,7 @@ ggplot(ev.abc.poly, aes(x = obs, y = pred, color = cd.type)) +
   labs(title = "Polynomial SVM - External Validation", 
        x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        color = "Cyclodextrin")
-ggsave("./graphs/svm/2017-07-28 polysvm extval.png")
+# ggsave("./graphs/svm/2017-07-28 polysvm extval.png")
 
 defaultSummary(ev.abc.rbf)
 ggplot(ev.abc.rbf, aes(x = pred, y = obs, color = cd.type)) + 
@@ -819,7 +819,7 @@ ggplot(ev.abc.rbf, aes(x = pred, y = obs, color = cd.type)) +
   labs(title = "Radial SVM - External Validation", 
        x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        color = "Cyclodextrin")
-ggsave("./graphs/svm/2017-07-28 rbfsvm extval.png")
+# ggsave("./graphs/svm/2017-07-28 rbfsvm extval.png")
 
 defaultSummary(ev.abc.sig)
 ggplot(ev.abc.sig, aes(x = pred, y = obs, color = cd.type)) + 
@@ -830,7 +830,7 @@ ggplot(ev.abc.sig, aes(x = pred, y = obs, color = cd.type)) +
   labs(title = "Radial SVM - External Validation", 
        x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        color = "Cyclodextrin")
-ggsave("./graphs/svm/2017-07-28 sigsvm extval.png")
+# ggsave("./graphs/svm/2017-07-28 sigsvm extval.png")
 
 #####
 
@@ -1047,7 +1047,7 @@ ggplot(poly.abc.tst.suz, aes(x = obs, y = pred, color = cd.type)) +
   labs(title = "Polynomial SVM - Suzuki", 
        x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        color = "Cyclodextrin")
-ggsave("./graphs/svm/polysvm suzuki tst.png")
+# ggsave("./graphs/svm/polysvm suzuki tst.png")
 
 ggplot(poly.abc.trn.suz, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
@@ -1057,7 +1057,7 @@ ggplot(poly.abc.trn.suz, aes(x = obs, y = pred, color = cd.type)) +
   labs(title = "Polynomial SVM - Training, Suzuki", 
        x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        color = "Cyclodextrin")
-ggsave("./graphs/svm/polysvm suzuki trn.png")
+# ggsave("./graphs/svm/polysvm suzuki trn.png")
 
 ggplot(ev.abc.poly, aes(x = obs, y = pred, color = cd.type)) + 
   geom_point() + 
@@ -1067,7 +1067,7 @@ ggplot(ev.abc.poly, aes(x = obs, y = pred, color = cd.type)) +
   labs(title = "Polynomial SVM - External Validation, Suzuki", 
        x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
        color = "Cyclodextrin")
-ggsave("./graphs/svm/polysvm suzuki extval.png")
+# ggsave("./graphs/svm/polysvm suzuki extval.png")
 
 
 # Error in { : 

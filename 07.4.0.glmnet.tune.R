@@ -26,10 +26,10 @@ tune.glm.alpha <- function(data, nfolds, alpha, seed) {
   for(i in 1:nfolds) {
     fold <- fold.list[[i]]
     
-    trn.x <- data[-fold, -1:-2]
-    trn.y <- data[-fold, 2]
-    tst.x <- data[fold, -1:-2]
-    tst.y <- data[fold, 2]
+    trn.x <- data[-fold, -1]
+    trn.y <- data[-fold, 1]
+    tst.x <- data[fold, -1]
+    tst.y <- data[fold, 1]
     
     glm.mod <- glmnet(x = trn.x, y = trn.y, 
                       alpha = alpha, 
@@ -59,10 +59,10 @@ tune.glm.dfmax <- function(data, nfolds, max, seed) {
   for(i in 1:nfolds) {
     fold <- fold.list[[i]]
     
-    trn.x <- data[-fold, -1:-2]
-    trn.y <- data[-fold, 2]
-    tst.x <- data[fold, -1:-2]
-    tst.y <- data[fold, 2]
+    trn.x <- data[-fold, -1]
+    trn.y <- data[-fold, 1]
+    tst.x <- data[fold, -1]
+    tst.y <- data[fold, 1]
     
     glm.mod <- glmnet(x = trn.x, y = trn.y, 
                       dfmax = max, 
