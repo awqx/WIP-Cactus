@@ -1,0 +1,161 @@
+---
+title: "Cyclodextrin QSPR in R"
+output: 
+  html_document:
+    toc: yes
+  html_notebook:
+    theme: united
+    toc: yes
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "~/SREP LAB/qsar/reports")
+
+library(tidyverse)
+library(caret)
+
+# data <- readRDS("./data/padel.pp.RDS")
+
+```
+## Overview
+
+This procedure assumes that you're working with the git repo [awqx/wip-cactus] (https://github.com/awqx/wip-cactus). This will not include tuning or model building.
+
+Necessary software:
+* R and RStudio
+* PaDEL-Descriptor
+
+```{r}
+# These packages will come in handy
+library(caret) 
+library(tidyverse)
+
+```
+
+
+## Importing and cleaning data
+
+Depending on the format of the data, importing will vary greatly between users. Use whatever method is appropriate to gather all the required molecule names into a character vector. Cleaning should remove all special characters, spaces, etc. 
+
+```{r, eval = FALSE}
+# In the simplest case, you only have a few guest molecules to test
+# These can simply be assigned to a character vector by hand 
+guest <- c("acetominophen, triamcinolone, dexamethasone")
+
+# To read a .csv or .xls, read.csv works 
+guest.csv <- read.csv("./to-be-analyzed.csv")
+# "drugs" is an arbitrary placeholder name - replace it as necessary
+guest <- guest.csv$drugs %>% as.character()
+
+```
+
+## Three-dimensional structures
+
+Now that the molecules have been cleaned, the 3D structural files should be obtained. Many different file types can hold structural data for molecules (SMILES, MOL, etc.), but SDFs were used here due to their intuitive formatting. The National Cancer Institute's CADD Group hosts a variety of programs under [CACTUS](https://cactus.nci.nih.gov/), the **CA**DD Group **C**hemoinformatics **T**ools and **U**ser **S**ervices, including their Chemical Identifier Resolver (which will be abbreviated as CIR, here, though that isn't an official name). The resolver is both useful and simple to use - simply input a name, and a molecular structure file is returned.
+
+The function `download.cactus.results` both retrieves a molecule from CIR as well as outputs a data.frame indicating success or failure. The function is designed to only handle one name at a time, so it `guest` must be fed through `lapply`. At this step, it may take multiple tries to get a desired molecule, as some molecules are only searchable under certain names (e.g., you can use CIR with "Tylenol" but not "Actamin", despite both terms referring to acetominophen). Some more uncommon drugs may be absent from the database entirely. 
+
+```{r, eval = FALSE}
+# Create a directory for downloading
+filepath <- "./guests"
+dir.create(filepath)
+
+source("./03.cactus.functions.R")
+
+results.dwnld <-
+  do.call(
+    rbind,
+    lapply(
+      guest,
+      download.cactus.results,
+      path = filepath,
+      chemical.format = "SDF"
+    )
+  ) 
+
+```
+
+### Retrieving names from SDFs
+
+Ignore this step if not applicable to your dataset. 
+
+For a special case that merges the previous steps (importing and retrieving structural data), sometimes the target database already comes pre-packaged in a single SDF, such as the DrugBank database of approved drugs. In some cases, PaDEL-descriptor (see the following section) will be able to automatically retrieve the names of the molecules from the SDF encoding. But in certain cases, such as the aforementioned DrugBank data, the names are hidden in the SDF data and it becomes necessary to manually retrieve the names.
+
+SDFs follow predictable formatting patterns, but cleaning can still get complicated. 
+
+```{r, eval = FALSE}
+###
+# Cleaning from DrugBank
+###
+# Import the master SDF (an SDF containing multiple molecules) using read.csv
+
+
+
+```
+
+## Molecular descriptors
+
+A wide variety of molecular descriptors (including fingerprints) can be obtained from [PaDEL-Descriptor](http://yapcwsoft.com/dd/padeldescriptor/). The software is fairly intuitive - simply point the program at the directory of molecular structure files (or a single .SDF), select the correct settings, and wait. 
+
+Make sure to direct *Molecules directory/file* to the correct location. The setting can handle either a folder of SDFs or a single compiled SDF (like the one created by DrugBank). The descriptor output file should also be specified. Beside checking off the correct settings, *Max. running time per molecule* should be adjusted to equal 200 000 (200 seconds). The program is fast enough that if a molecule approaches 200 seconds, it's likely not to evaluate at all. 
+
+```{r pressure, echo=FALSE, fig.cap="Settings to be checked off", out.width = '100%'}
+knitr::include_graphics("images/interface.png")
+```
+
+## Pre-processing
+
+The results from descriptor calculation have to go through processing to prepare the data for the model. All the descriptors are transformed with centering and scaling, which essentially fixes the values to have a mean of 0 and a standard deviation of 1. Additionally, certain descriptors with high correlation or very little variation are removed. The necessary settings can be found under the `./pre-process` folder. 
+
+```{r, eval = F}
+pp.settings <- readRDS("./pre-process/pp.settings.RDS") # transformation parameters 
+too.high <- readRDS("./pre-process/high.cor.RDS") # highly correlated variables
+zero.pred <- readRDS("./pre-process/zero.pred.RDS") # predictors with near-zero variance
+zero.pred2 <- readRDS("./pre-process/zero.pred2.RDS") # the second round of removing near-zero variance, as some variables slip through the cracks
+
+# Import the results from PaDEL-descriptor 
+padel <- read.csv("./descriptors.csv")
+
+# Remove rows with NAs
+desc <- padel[complete.cases(padel), ]
+# Removing descriptors that are not helpful
+desc <- desc[ , !colnames(desc) %in% zero.pred]
+# saving the names of the guests, because the next steps require all numbers
+guest <- desc[ , 1] 
+desc <- desc[ , -1]
+# Multipling the dataset by three, each with variables indicating what CD-type should be used
+desc <- rbind(desc %>% mutate(alpha = 1, beta = 0, gamma = 0), 
+              desc %>% mutate(alpha = 0, beta = 1, gamma = 0), 
+              desc %>% mutate(alpha = 0, beta = 0, gamma = 1))
+# applying the pre-processing transformations
+pp <- predict(pp.settings, desc, na.remove = T)
+
+pp <- pp[ , !colnames(pp) %in% too.high]
+pp <- pp[ , !colnames(pp) %in% zero.pred2]
+
+prepared <- cbind(guest, pp) # This step should result in 712 columns
+colnames(prepared)[1] <- "guest"
+
+```
+
+## Predictions
+
+Every model type has its own specific input parameters and prediction call. I've already tuned these parameters to work with the data. 
+
+If pressed for type, predict using SVM and GLMNet. Otherwise, an ensemble prediction using all 5 models works a bit better. 
+
+### Cubist
+
+A decision tree based model where, instead of independent decision trees being made like in Random Forest, trees "grow" on top of one another. 
+
+```{r}
+
+```
+
+
+### GLMNet
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
