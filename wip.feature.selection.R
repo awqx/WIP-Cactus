@@ -1,3 +1,4 @@
+install.packages("pso")
 library(caret)
 library(devtools)
 library(doParallel)
@@ -56,6 +57,7 @@ saveRDS(ga.final, "./feature.select/GAFS names.RDS")
 
 
 # Particle Swarm Optimization ---------------------------------------------
+
 
 
 # PLS ---------------------------------------------------------------------
