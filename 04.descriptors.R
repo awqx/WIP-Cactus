@@ -1,3 +1,6 @@
+# Run this script after the SDFs have been run through PaDEL descriptor
+# The .csv files should be saved under descriptors/ 
+
 # install.packages("rcdk")
 # install.packages("rJava")
 # source("http://bioconductor.org/biocLite.R") # Sources the biocLite.R installation script. 
@@ -17,7 +20,7 @@ library(tidyverse)
 #     Convert to 3D, MM2, retain 3D coordinates
 #     Use filename 
 
-dataset <- readRDS("./dwnld/combined.data.RDS")
+dataset <- readRDS("./dwnld/02.combined.data.RDS")
 
 #     Alpha-CD ------------------------------------------------------------
 
@@ -28,7 +31,7 @@ alpha.padel.raw <- read_csv("./descriptors/padel.alpha.csv") %>%
   rename(guest = Name)
 alpha.padel <- inner_join(alpha.dg, alpha.padel.raw, by = "guest")
 
-# Total: 209 guests
+# Total: 209/235 guests passed PaDEL, or 88.9%
 
 #     Beta-CD -------------------------------------------------------------
 
@@ -39,7 +42,7 @@ beta.padel.raw <- read_csv("./descriptors/padel.beta.csv") %>%
   rename(guest = Name)
 beta.padel <- inner_join(beta.dg, beta.padel.raw, by = "guest")
 
-# Total: 321 guest molecules
+# Total: 321/337 = 90.7% yield
 
 #     Gamma-CD ------------------------------------------------------------
 
@@ -49,7 +52,7 @@ gamma.padel.raw <- read_csv("./descriptors/padel.gamma.csv") %>%
   rename(guest = Name)
 gamma.padel <- inner_join(gamma.dg, gamma.padel.raw, by = "guest")
 
-# Total: 17 guest molecules
+# Total: 17/17 = 100% yield
 
 # Suzuki Only -------------------------------------------------------------
 
@@ -65,16 +68,9 @@ suz.padel <- rbind(suz.a.padel, suz.b.padel)
 
 all.padel <- rbind(alpha.padel, beta.padel, gamma.padel)
 saveRDS(all.padel, "./descriptors/all.padel.RDS")
-saveRDS(alpha.padel, "./descriptors/alpha.padel.RDS")
-saveRDS(beta.padel, "./descriptors/beta.padel.RDS")
-saveRDS(gamma.padel, "./descriptors/gamma.padel.RDS")
+write.csv(all.padel, "./descriptors/all.padel.csv")
 
 saveRDS(suz.padel, "./descriptors/suz.padel.RDS")
-
-write.csv(all.padel, "./descriptors/all.padel.csv")
-write.csv(alpha.padel, "./descriptors/alpha.padel.csv")
-write.csv(beta.padel, "./descriptors/beta.padel.csv")
-write.csv(gamma.padel, "./descriptors/gamma.padel.csv")
 write.csv(suz.padel, "./descriptors/suz.padel.csv")
 
 # Rcdk Descriptors --------------------------------------------------------

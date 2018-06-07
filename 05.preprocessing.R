@@ -61,27 +61,24 @@ colnames(padel.pp) <- str_replace(colnames(padel.pp), "-", ".")
 
 #     Creating External Validation Set ----------------------------------------
 
+dir.create("./data")
 set.seed(4)
 ext.val.ind <- sample(x = 1:nrow(padel.pp), 
                       size = round(0.15 * nrow(padel.pp)))
 ext.val <- padel.pp[ext.val.ind, ]
 padel.pp.all <- padel.pp
 padel.pp <- padel.pp[-ext.val.ind, ]
+saveRDS(ext.val, "./data/ext.val.RDS")
 
 #     Data Organization and Saving --------------------------------------------
 
-sprse.padel <- sparse.model.matrix(~., padel.pp)
-mat.padel <- as.matrix(padel.pp)
+saveRDS(padel.pp, "./data/padel.pp.RDS")
 
 dir.create("./pre-process")
 saveRDS(pp.settings, "./pre-process/pp.settings.RDS")
-
-dir.create("./data")
-saveRDS(padel.pp, "./data/padel.pp.RDS")
-saveRDS(sprse.padel, "./data/sprse.padel.RDS")
-saveRDS(mat.padel, "./data/mat.padel.RDS")
-
-saveRDS(ext.val, "./data/ext.val.RDS")
+saveRDS(too.high, "./pre-process/high.cor.RDS")
+saveRDS(zero.pred, "./pre-process/zero.pred.RDS")
+saveRDS(zero.pred2, "./pre-process/zero.pred2.RDS")
 
 # Suzuki Only -------------------------------------------------------------
 

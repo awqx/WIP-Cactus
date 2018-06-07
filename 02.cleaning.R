@@ -213,8 +213,10 @@ ri.squeaky.clean <- ri.squeaky.clean %>%
 
 #     Save Output ---------------------------------------------------------
 
-saveRDS(ri.clean, file = "./dwnld/0ri.clean.RDS")
-saveRDS(ri.squeaky.clean, file = "./dwnld/ri.squeaky.clean.RDS")
+# The difference between these files is that squeaky clean is more
+# picky about the pH
+saveRDS(ri.clean, file = "./dwnld/02.ri.clean.RDS")
+saveRDS(ri.squeaky.clean, file = "./dwnld/02.ri.squeaky.clean.RDS")
 
 #####
 # Suzuki ------------------------------------------------------------------
@@ -264,7 +266,6 @@ suz.clean <- rbind(suz.clean.dg.alpha, suz.clean.dg.beta)
 
 #     Save Output ---------------------------------------------------------
 
-save(suz.clean, file = "./dwnld/02.suz.clean.RData")
 saveRDS(suz.clean, file = "./dwnld/02.suz.clean.RDS")
 
 #####
@@ -303,10 +304,12 @@ comb.b <- comb.b[ , list(host = host, DelG = mean(DelG),
 
 comb.dg <- rbind(comb.a, comb.b, ri.c)
 comb.dg.nodup <- comb.dg[!duplicated(comb.dg), ] # filtering for unique
-suz.df <- rbind(suz.a, suz.b)
-saveRDS(comb.dg, "./dwnld/full.combined.ri.suzuki.RDS")
-saveRDS(comb.dg.nodup, "./dwnld/combined.data.RDS")
-saveRDS(suz.df, "./dwnld/suzuki.only.RDS")
+
+# The full combined data contains everything, where replicated points
+# are all included
+saveRDS(comb.dg, "./dwnld/02.full.combined.ri.suzuki.RDS")
+saveRDS(comb.dg.nodup, "./dwnld/02.combined.data.RDS")
+
 
 # Information about Data
 # Total: 615
@@ -318,7 +321,7 @@ saveRDS(suz.df, "./dwnld/suzuki.only.RDS")
 #####
 # Duplicate Cases ---------------------------------------------------------
 
-# Just a quick cisualization of differences between duplicated cases
+# Just a quick visualization of differences between duplicated cases
 # Not necessary for model-building
 
 ri.clean.sub <- ri.clean %>% select(., guest, DelG, host, pH, T.K) %>%

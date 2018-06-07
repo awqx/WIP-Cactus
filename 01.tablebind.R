@@ -34,8 +34,8 @@ ri.bound.df <- rbindlist(list(ri.delcp, ri.delcp.none))
 
 saveRDS(ri.bound.df, "./dwnld/ri.bound.df.RDS")
 
-
 # Version 1 (Suzuki) ------------------------------------------------------
+
 suzuki.list <- readRDS("./dwnld/suzuki.list.RDS")
 
 index11 <- suzuki.list %>% 
