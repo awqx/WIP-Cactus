@@ -15,7 +15,8 @@ split.train.test <- function(times, data, info, path) {
     
     # Generate representative test set
     tst.ind <- maxDissim(a = data.init, b = data, 
-                         n = round(nrow(data)*0.2))
+                         n = round(nrow(data)*0.2), 
+                         na.rm = T)
     tst.data <- data[tst.ind, ]
     trn.data <- data[-tst.ind, ]
     
@@ -42,8 +43,8 @@ preprocess.splits <- function(filepath, writepath) {
     dirpath <- paste0(writepath, n)
     dir.create(dirpath)
     data <- readRDS(paste0(filepath, files[n]))
-    info <- data %>% select(guest, DelG)
-    desc <- data %>% select(-guest, -DelG)
+    info <- data %>% dplyr::select(guest, DelG)
+    desc <- data %>% dplyr::select(-guest, -DelG)
     
     # Removing predictors with near-zero variance
     zero.pred <- nearZeroVar(desc)
@@ -79,8 +80,6 @@ preprocess.splits <- function(filepath, writepath) {
     message("Pre-processing of split ", n, " completed.")
   }
 }
-
-preprocess <- function()
 
 # Splitting Data ----------------------------------------------------------
 
@@ -127,13 +126,13 @@ saveRDS(beta.md, "./model.data/beta.md.RDS")
 
 # Loading data
 alpha <- readRDS("./model.data/alpha.md.RDS") %>% 
-  select(-guest:-data.source)
+  dplyr::select(., -guest:-data.source)
 alpha.info <- readRDS("./model.data/alpha.md.RDS") %>%
-  select(guest, DelG)
+  dplyr::select(guest, DelG)
 beta <- readRDS("./model.data/beta.md.RDS") %>%
-  select(-guest:-data.source)
+  dplyr::select(-guest:-data.source)
 beta.info <- readRDS("./model.data/beta.md.RDS") %>%
-  select(guest, DelG)
+  dplyr::select(guest, DelG)
 
 # Splitting data
 set.seed(101)
