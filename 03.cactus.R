@@ -82,7 +82,7 @@ dir.create("./molecules")
 dir.create("./molecules/alphaCD")
 dir.create("./molecules/betaCD")
 dir.create("./molecules/gammaCD")
-dataset <-readRDS("./dwnld/combined.data.RDS")
+dataset <-readRDS("./dwnld/02.combined.data.RDS")
 
 # Reading dataset for guest molecules specific to host
 alpha.guest <- dataset %>% filter(host == "alpha") %>% .$guest
@@ -296,6 +296,8 @@ for(i in 1:nrow(pattern.replacement)) {
 }
 wip.sdf$guest <- str_replace(wip.sdf$guest, "\u03b2", "beta")
 # Problem with beta replacement
+wip.sdf$guest <- str_replace(wip.sdf$guest, "4-nitrophenyl-beta-d-glucoside", 
+                             "4-nitrophenyl beta-d-glucoside")
 wip.sdf$guest <- str_replace(wip.sdf$guest, "4-nitrophenyl-beta-d-xyloside", 
                              "(2S,3R,4S,5R)-2-(4-nitrophenoxy)oxane-3,4,5-triol")
 wip.sdf$guest <- str_replace(wip.sdf$guest, pattern = '4-nitrophenyl-beta-d-galactoside', 
@@ -304,6 +306,7 @@ wip.sdf$guest <- str_replace(wip.sdf$guest, pattern = '4-nitrophenyl-beta-d-gluc
                              'N-[(2R,3R,4R,5S,6R)-4,5-dihydroxy-6-(hydroxymethyl)-2-[(4-nitrophenyl)methoxy]oxan-3-yl]acetamide')
 
 # Cactus Download (2) -----------------------------------------------------
+
 alpha.guest2 <- wip.sdf %>% filter(host == "alpha") %>% .$guest
 beta.guest2 <- wip.sdf %>% filter(host == "beta") %>% .$guest
 gamma.guest2 <- wip.sdf %>% filter(host == "gamma") %>% .$guest
@@ -348,7 +351,7 @@ results2.all <- rbind(results2.alpha, results2.beta, results2.gamma)
 results2.fail <- results2.all %>% filter(downloaded == "no")
 saveRDS(results2.all, "./molecules/cactus.dwnld.2.RDS")
 
-# 5 alpha, 13 beta, 3 gamma did not download 
+# 4 alpha, 13 beta, 3 gamma did not download 
 
 #####
 # Old Functions that may be Useful ----------------------------------------

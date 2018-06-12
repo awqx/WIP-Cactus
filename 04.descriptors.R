@@ -19,59 +19,80 @@ library(tidyverse)
 #     Standardize tautomer
 #     Convert to 3D, MM2, retain 3D coordinates
 #     Use filename 
-
+source("03.1.molecule.renaming.R")
 dataset <- readRDS("./dwnld/02.combined.data.RDS")
+# Cleaning the dataset to match the cactus files
+for(i in 1:nrow(pattern.replacement)) {
+  dataset$guest <- str_replace(dataset$guest, pattern = pattern.reg[i, "pattern"], 
+                               replacement = pattern.reg[i, "replacement"])
+}
+dataset$guest <- str_replace(dataset$guest, "\u03b2", "beta")
+# Problem with beta replacement
+dataset$guest <- str_replace(dataset$guest, "4-nitrophenyl-beta-d-glucoside",
+                             "4-nitrophenyl beta-d-glucoside")
+dataset$guest <- str_replace(dataset$guest, "4-nitrophenyl-beta-d-xyloside",
+                             "(2S,3R,4S,5R)-2-(4-nitrophenoxy)oxane-3,4,5-triol")
+dataset$guest <- str_replace(dataset$guest, pattern = '4-nitrophenyl-beta-d-galactoside',
+                             '4-Nitrophenylgalactoside')
+dataset$guest <- str_replace(dataset$guest, pattern = '4-nitrophenyl-beta-d-glucosamide',
+                             'N-[(2R,3R,4R,5S,6R)-4,5-dihydroxy-6-(hydroxymethyl)-2-[(4-nitrophenyl)methoxy]oxan-3-yl]acetamide')
+
 
 #     Alpha-CD ------------------------------------------------------------
 
 # SDFs that fail to process:
 #     Phenol?, p-cresol
 alpha.dg <- dataset %>% filter(host == "alpha")
-alpha.padel.raw <- read_csv("./descriptors/padel.alpha.csv") %>%
+alpha.padel.raw <- read_csv("./descriptors/alpha.csv") %>%
   rename(guest = Name)
 alpha.padel <- inner_join(alpha.dg, alpha.padel.raw, by = "guest")
 
-# Total: 209/235 guests passed PaDEL, or 88.9%
+# Total: 213/241 guests passed PaDEL, or 88.4%
 
 #     Beta-CD -------------------------------------------------------------
 
 # SDFs that fail to process:
 #     Barbital, p-cresol, thianapthene, 4-hydroxyacetophenone
 beta.dg <- dataset %>% filter(host == "beta")
-beta.padel.raw <- read_csv("./descriptors/padel.beta.csv") %>%
+beta.padel.raw <- read_csv("./descriptors/beta.csv") %>%
   rename(guest = Name)
 beta.padel <- inner_join(beta.dg, beta.padel.raw, by = "guest")
 
-# Total: 321/337 = 90.7% yield
+# Total: 324/354 = 91.5% yield
 
 #     Gamma-CD ------------------------------------------------------------
 
 # No SDFs failed to process
-gamma.dg <- dataset %>% filter(host == "gamma")
-gamma.padel.raw <- read_csv("./descriptors/padel.gamma.csv") %>%
-  rename(guest = Name)
-gamma.padel <- inner_join(gamma.dg, gamma.padel.raw, by = "guest")
+# gamma.dg <- dataset %>% filter(host == "gamma")
+# gamma.padel.raw <- read_csv("./descriptors/padel.gamma.csv") %>%
+#   rename(guest = Name)
+# gamma.padel <- inner_join(gamma.dg, gamma.padel.raw, by = "guest")
 
 # Total: 17/17 = 100% yield
 
-# Suzuki Only -------------------------------------------------------------
+# Right now, there isn't enough data for gamma-CD to create a reliable model
+# so the descriptors won't be analyzed...yet
 
-suz <- readRDS("./dwnld/suzuki.only.RDS")
-suz.a <- suz %>% filter(host == "alpha")
-suz.b <- suz %>% filter(host == "beta")
-
-suz.a.padel <- inner_join(suz.a, alpha.padel.raw)
-suz.b.padel <- inner_join(suz.b, beta.padel.raw)
-suz.padel <- rbind(suz.a.padel, suz.b.padel)
+# # Suzuki Only -------------------------------------------------------------
+# 
+# suz <- readRDS("./dwnld/suzuki.only.RDS")
+# suz.a <- suz %>% filter(host == "alpha")
+# suz.b <- suz %>% filter(host == "beta")
+# 
+# suz.a.padel <- inner_join(suz.a, alpha.padel.raw)
+# suz.b.padel <- inner_join(suz.b, beta.padel.raw)
+# suz.padel <- rbind(suz.a.padel, suz.b.padel)
 
 #     Saving Files --------------------------------------------------------
 
-all.padel <- rbind(alpha.padel, beta.padel, gamma.padel)
-saveRDS(all.padel, "./descriptors/all.padel.RDS")
-write.csv(all.padel, "./descriptors/all.padel.csv")
+# all.padel <- rbind(alpha.padel, beta.padel, gamma.padel)
+# saveRDS(all.padel, "./descriptors/all.padel.RDS")
+# write.csv(all.padel, "./descriptors/all.padel.csv")
+saveRDS(alpha.padel, "./descriptors/alpha.padel.RDS")
+saveRDS(beta.padel, "./descriptors/beta.padel.RDS")
 
-saveRDS(suz.padel, "./descriptors/suz.padel.RDS")
-write.csv(suz.padel, "./descriptors/suz.padel.csv")
+# saveRDS(suz.padel, "./descriptors/suz.padel.RDS")
+# write.csv(suz.padel, "./descriptors/suz.padel.csv")
 
 # Rcdk Descriptors --------------------------------------------------------
 
