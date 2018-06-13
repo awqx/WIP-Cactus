@@ -355,3 +355,37 @@ ggplot(results.combos, aes(x = alpha, y = dfmax, fill = rsquared)) +
   labs(title = "GLMNet tuning for beta-CD", x = "Alpha", y = "Maximum degrees of freedom", 
        fill = "R2")
 ggsave("./tuning/glmnet/beta/tune.png", dpi = 450)
+
+# More fine-tuning
+df.range <- 10*(5:15)
+glm.combos2 <- expand.grid(alpha.range, df.range)
+colnames(glm.combos2) <- c("alpha", "dfmax")
+alpha.combos <- glm.combos2$alpha
+df.combos <- glm.combos2$dfmax
+
+set.seed(1001)
+system.time(
+  results.combos2 <- do.call(
+    rbind,
+    mapply(
+      FUN = tune.glm,
+      a = alpha.combos,
+      max = df.combos,
+      MoreArgs = 
+        list(nfolds = 10, data = trn), 
+      SIMPLIFY = F
+    )
+  )
+)
+
+# user  system elapsed 
+# 83.19    0.03   84.11 
+
+# No significant differences worth reporting
+
+ggplot(results.combos2, aes(x = alpha, y = dfmax, fill = rsquared)) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = terrain.colors(20)) + 
+  theme_bw() + 
+  labs(title = "GLMNet tuning for beta-CD", x = "Alpha", y = "Maximum degrees of freedom", 
+       fill = "R2")
