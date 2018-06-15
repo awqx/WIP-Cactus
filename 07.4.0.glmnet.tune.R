@@ -1,60 +1,92 @@
+dir.create("./tuning/glmnet")
+
 # Libraries ---------------------------------------------------------------
 
 library(caret)
 library(ggplot2)
 library(glmnet)
-library(Matrix)
+# library(Matrix)
 library(tidyverse)
-
-
-# Loading Data ------------------------------------------------------------
-
-dir.create("./tuning/glmnet")
-
-df.raw <- readRDS("./data/padel.pp.RDS")
-df <- df.raw %>% select(-guest:-host) %>%
-  select(-data.source)
-mat <- sparse.model.matrix(~., df)
 
 # Functions ---------------------------------------------------------------
 
+# # For a matrix 
 tune.glm.alpha <- function(data, nfolds, alpha, seed) {
   set.seed(seed)
-  fold.list <- createFolds(y = data[ , 2], k = nfolds)
-  results <- c(rep(0.0, nfolds))
-  
+  fold.list <- createFolds(y = data[ , 1], k = nfolds)
+  r2.results <- c(rep(0.0, nfolds))
+  rmse.results <- c(rep(0.0, nfolds))
+
   for(i in 1:nfolds) {
     fold <- fold.list[[i]]
-    
+
     trn.x <- data[-fold, -1]
     trn.y <- data[-fold, 1]
     tst.x <- data[fold, -1]
     tst.y <- data[fold, 1]
-    
-    glm.mod <- glmnet(x = trn.x, y = trn.y, 
-                      alpha = alpha, 
+
+    glm.mod <- glmnet(x = trn.x, y = trn.y,
+                      alpha = alpha,
                       family = "mgaussian")
     glm.df <- predict.glmnet(glm.mod, tst.x,
                              s = tail(glm.mod$lambda, n = 1)) %>%
       cbind(tst.y) %>%
       data.frame() %>%
       rename(pred = X1, obs = tst.y)
-    
-    results[i] <- defaultSummary(glm.df)[2]
+
+    rmse.results[i] <- defaultSummary(glm.df)[1]
+    r2.results[i] <- defaultSummary(glm.df)[2]
   }
-  
-  return(data.frame( # Useful for records
-    data = deparse(substitute(data)), # Turns the variable name into char
+
+  return(data.frame(
     nfolds = nfolds,
     seed = seed,
     alpha = alpha,
-    rsquared = sum(results) / nfolds))
+    rsquared = sum(r2.results)/nfolds,
+    rmse = sum(rmse.results)/nfolds))
 }
+
+# tune.glm.alpha <- function(data, nfolds, alpha, seed) {
+#   set.seed(seed)
+#   fold.list <- createFolds(y = data[ , 2], k = nfolds)
+#   r2.results <- c(rep(0.0, nfolds))
+#   rmse.results <- c(rep(0.0, nfolds))
+#   
+#   for(i in 1:nfolds) {
+#     fold <- fold.list[[i]]
+#     
+#     trn.x <- data[-fold, -1:-2]
+#     trn.y <- data[-fold, 2]
+#     tst.x <- data[fold, -1:-2]
+#     tst.y <- data[fold, 2]
+#     
+#     glm.mod <- glmnet(x = trn.x, y = trn.y, 
+#                       alpha = alpha, 
+#                       family = "mgaussian")
+#     glm.df <- predict.glmnet(glm.mod, tst.x,
+#                              s = tail(glm.mod$lambda, n = 1)) %>%
+#       cbind(tst.y) %>%
+#       data.frame() %>%
+#       rename(pred = X1, obs = tst.y)
+#     
+#     rmse.results[i] <- defaultSummary(glm.df)[1]
+#     r2.results[i] <- defaultSummary(glm.df)[2]
+#   }
+#   
+#   return(data.frame( 
+#     nfolds = nfolds,
+#     seed = seed,
+#     alpha = alpha,
+#     rsquared = sum(r2.results)/nfolds, 
+#     rmse = sum(rmse.results)/nfolds))
+# }
+
 
 tune.glm.dfmax <- function(data, nfolds, max, seed) {
   set.seed(seed)
-  fold.list <- createFolds(y = data[ , 2], k = nfolds)
-  results <- c(rep(0.0, nfolds))
+  fold.list <- createFolds(y = data[ , 1], k = nfolds)
+  r2.results <- c(rep(0.0, nfolds))
+  rmse.results <- c(rep(0.0, nfolds))
   
   for(i in 1:nfolds) {
     fold <- fold.list[[i]]
@@ -73,111 +105,250 @@ tune.glm.dfmax <- function(data, nfolds, max, seed) {
       data.frame() %>%
       rename(pred = X1, obs = tst.y)
     
-    results[i] <- defaultSummary(glm.df)[2]
+    rmse.results[i] <- defaultSummary(glm.df)[1]
+    r2.results[i] <- defaultSummary(glm.df)[2]
   }
   
-  return(data.frame( # Useful for records
-    data = deparse(substitute(data)), # Turns the variable name into char
+  return(data.frame( 
     nfolds = nfolds,
     seed = seed,
     dfmax = max,
-    rsquared = sum(results) / nfolds))
+    rsquared = sum(r2.results)/nfolds, 
+    rmse = sum(rmse.results)/nfolds))
 }
 
-# Tuning ------------------------------------------------------------------
+tune.glm <- function(data, nfolds, a, max) {
+  fold.list <- createFolds(y = data[ , 1], k = nfolds)
+  r2.results <- c(rep(0.0, nfolds))
+  rmse.results <- c(rep(0.0, nfolds))
+  
+  for(i in 1:nfolds) {
+    fold <- fold.list[[i]]
+    
+    trn.x <- data[-fold, -1]
+    trn.y <- data[-fold, 1]
+    tst.x <- data[fold, -1]
+    tst.y <- data[fold, 1]
+    
+    glm.mod <- glmnet(x = trn.x, y = trn.y, 
+                      dfmax = max, alpha = a,
+                      pmax = 50, 
+                      family = "mgaussian")
+    glm.df <- predict.glmnet(glm.mod, tst.x,
+                             s = tail(glm.mod$lambda, n = 1)) %>%
+      cbind(tst.y) %>%
+      data.frame() %>%
+      rename(pred = X1, obs = tst.y)
+    
+    rmse.results[i] <- defaultSummary(glm.df)[1]
+    r2.results[i] <- defaultSummary(glm.df)[2]
+  }
+  
+  return(data.frame( 
+    nfolds = nfolds,
+    alpha = a,
+    dfmax = max,
+    rsquared = sum(r2.results)/nfolds, 
+    rmse = sum(rmse.results)/nfolds))
+}
 
-#     Seed 1 --------------------------------------------------------------
+# Alpha -------------------------------------------------------------------
+#     Loading Data --------------------------------------------------------
 
-glm.alpha <- do.call(rbind, lapply(seq(0, 1, 0.1),
-                                   FUN = tune.glm.alpha,
-                                   data = mat, nfolds = 10, seed = 1))
+# Reading data with all descriptors
+trn.all <- readRDS("./pre-process/alpha/1/pp.RDS") 
+colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
+trn.guest <- trn.all$guest
+trn.df <- select(trn.all, -guest)
 
-glm.dfmax <- do.call(rbind, lapply(2 ^ (2:9),
-                                   FUN = tune.glm.dfmax,
-                                   data = mat, nfolds = 10, seed = 1))
+rfe1 <- readRDS("./feature.selection/alpha/rfe1.RDS")
+trn.pred <- c("DelG", predictors(rfe1))
 
-#     Seed 2 --------------------------------------------------------------
+trn.df <- trn.df[ , colnames(trn.df) %in% trn.pred] 
+trn <- data.matrix(trn.df)
 
-glm2.alpha <- do.call(rbind, lapply(seq(0, 1, 0.1),
-                                   FUN = tune.glm.alpha,
-                                   data = mat, nfolds = 10, seed = 2))
+#     Estimation ----------------------------------------------------------
 
-glm2.dfmax <- do.call(rbind, lapply(2 ^ (2:9),
-                                   FUN = tune.glm.dfmax,
-                                   data = mat, nfolds = 10, seed = 2))
-
-#     Seed 3 --------------------------------------------------------------
-
-glm3.alpha <- do.call(rbind, lapply(seq(0, 1, 0.1),
-                                    FUN = tune.glm.alpha,
-                                    data = mat, nfolds = 10, seed = 3))
-
-glm3.dfmax <- do.call(rbind, lapply(2 ^ (2:9),
-                                    FUN = tune.glm.dfmax,
-                                    data = mat, nfolds = 10, seed = 3))
-
-#     Seed 4 --------------------------------------------------------------
-
-glm4.alpha <- do.call(rbind, lapply(seq(0, 1, 0.1),
-                                    FUN = tune.glm.alpha,
-                                    data = mat, nfolds = 10, seed = 4))
-
-glm4.dfmax <- do.call(rbind, lapply(2 ^ (2:9),
-                                    FUN = tune.glm.dfmax,
-                                    data = mat, nfolds = 10, seed = 4))
-
-#     Seed 5 --------------------------------------------------------------
-
-glm5.alpha <- do.call(rbind, lapply(seq(0, 1, 0.1),
-                                    FUN = tune.glm.alpha,
-                                    data = mat, nfolds = 10, seed = 5))
-
-glm5.dfmax <- do.call(rbind, lapply(2 ^ (2:9),
-                                    FUN = tune.glm.dfmax,
-                                    data = mat, nfolds = 10, seed = 5))
-
-#     Seed 6 --------------------------------------------------------------
-
-glm6.alpha <- do.call(rbind, lapply(seq(0, 1, 0.1),
-                                    FUN = tune.glm.alpha,
-                                    data = mat, nfolds = 10, seed = 6))
-
-glm6.dfmax <- do.call(rbind, lapply(2 ^ (2:9),
-                                    FUN = tune.glm.dfmax,
-                                    data = mat, nfolds = 10, seed = 6))
-
-#     Compilation ---------------------------------------------------------
-
-alpha.comp <- rbind(glm.alpha, glm2.alpha, glm3.alpha, 
-                    glm4.alpha, glm5.alpha, glm6.alpha)
-
-dfmax.comp <- rbind(glm.dfmax, glm2.dfmax, glm3.dfmax, 
-                    glm4.dfmax, glm5.dfmax, glm6.dfmax)
-
-saveRDS(alpha.comp, "./tuning/glmnet/alpha.results.RDS")
-saveRDS(dfmax.comp, "./tuning/glmnet/dfmax.results.RDS")
-
-# Graphs ------------------------------------------------------------------
-
-# Alpha
-temp <- alpha.comp
-temp$seed <- as.factor(temp$seed)
-ggplot(temp, aes(x = alpha, y = rsquared, group = seed, color = seed)) + 
+#     Alpha ---
+alpha.range <- seq(0, 1, 0.1)
+results1.alpha <- do.call(rbind, lapply(alpha.range, FUN = tune.glm.alpha, 
+                                        data = trn, nfolds = 10, seed = 101))
+results2.alpha <- do.call(rbind, lapply(alpha.range, FUN = tune.glm.alpha, 
+                                        data = trn, nfolds = 10, seed = 102)) 
+results3.alpha <- do.call(rbind, lapply(alpha.range, FUN = tune.glm.alpha, 
+                                        data = trn, nfolds = 10, seed = 103)) 
+results.alpha <- rbind(results1.alpha, results2.alpha, results3.alpha) %>%
+  mutate(seed = as.factor(seed))
+ggplot(results.alpha, aes(x = alpha, y = rsquared, 
+                          group = seed, color = seed)) + 
   geom_line() + 
-  theme_bw() + 
-  labs(x = "Alpha", y = "R-squared", 
-       title = "GLMnet - Tuning Alpha", 
-       color = "Random Seed")
-ggsave("./tuning/glmnet/2017-07-20 glmnet alpha.png")
+  theme_bw()
 
-# DFMax
-temp <- dfmax.comp
-temp$seed <- as.factor(temp$seed)
-ggplot(temp, aes(x = dfmax, y = rsquared, group = seed, color = seed)) + 
+# Maximum Degrees of Freedom ---
+
+df.range <- 2 ^(1:8)
+results1.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
+                                        data = trn, nfolds = 10, seed = 101)) 
+results2.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
+                                        data = trn, nfolds = 10, seed = 102)) 
+results3.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
+                                        data = trn, nfolds = 10, seed = 103)) 
+results.df <- rbind(results1.df, results2.df, results3.df) %>%
+  mutate(seed = as.factor(seed))
+ggplot(results.df, aes(x = dfmax, y = rsquared, 
+                          group = seed, color = seed)) + 
   geom_line() + 
+  theme_bw()
+
+dir.create("./tuning/glmnet/alpha")
+saveRDS(results.alpha, "./tuning/glmnet/alpha/alpha.RDS")
+saveRDS(results.df, "./tuning/glmnet/alpha/dfmax.RDS")
+
+#     Tuning --------------------------------------------------------------
+
+# 11 * 8 = 88 combinations
+
+glm.combos <- expand.grid(alpha.range, df.range)
+colnames(glm.combos) <- c("alpha", "dfmax")
+alpha.combos <- glm.combos$alpha
+df.combos <- glm.combos$dfmax
+
+set.seed(1001)
+system.time(
+  results.combos <- do.call(
+    rbind,
+    mapply(
+      FUN = tune.glm,
+      a = alpha.combos,
+      max = df.combos,
+      MoreArgs = 
+        list(nfolds = 10, data = trn), 
+      SIMPLIFY = F
+    )
+  )
+)
+
+# system.time output
+# user  system elapsed 
+# 9.72    0.03   10.23 
+
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+results.combos[order(results.combos$rmse), ] %>% head()
+
+# rsquared of 0.758, rmse = 4.24
+# alpha = 0, dfmax = 128
+
+# best rmse = 4.01 (r2 = 0.706)
+# alpha = 0, dfmax = 32
+
+saveRDS(results.combos, "./tuning/glmnet/alpha/tune.RDS")
+results.combos$alpha <- as.factor(results.combos$alpha)
+results.combos$dfmax <- as.factor(results.combos$dfmax)
+ggplot(results.combos, aes(x = alpha, y = dfmax, fill = rsquared)) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = terrain.colors(20)) + 
   theme_bw() + 
-  scale_x_continuous(trans = "log2") + 
-  labs(x = "Max Number of Variables", y = "R-squared", 
-       title = "GLMnet - Tuning Number of Variables", 
-       color = "Random Seed")
-ggsave("./tuning/glmnet/2017-07-20 glmnet dfmax.png")
+  labs(title = "GLMNet tuning for alpha-CD", x = "Alpha", y = "Maximum degrees of freedom", 
+       fill = "R2")
+ggsave("./tuning/glmnet/alpha/tune.png", dpi = 450)
+
+# Beta -------------------------------------------------------------------
+#     Loading Data --------------------------------------------------------
+
+# Reading data with all descriptors
+trn.all <- readRDS("./pre-process/beta/1/pp.RDS") 
+colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
+trn.guest <- trn.all$guest
+trn.df <- select(trn.all, -guest)
+
+rfe1 <- readRDS("./feature.selection/beta/rfe1.RDS")
+trn.pred <- c("DelG", predictors(rfe1))
+
+trn.df <- trn.df[ , colnames(trn.df) %in% trn.pred] 
+trn <- data.matrix(trn.df)
+
+#     Estimation ----------------------------------------------------------
+
+#     Alpha ---
+alpha.range <- seq(0, 1, 0.1)
+results1.alpha <- do.call(rbind, lapply(alpha.range, FUN = tune.glm.alpha, 
+                                        data = trn, nfolds = 10, seed = 101))
+results2.alpha <- do.call(rbind, lapply(alpha.range, FUN = tune.glm.alpha, 
+                                        data = trn, nfolds = 10, seed = 102)) 
+results3.alpha <- do.call(rbind, lapply(alpha.range, FUN = tune.glm.alpha, 
+                                        data = trn, nfolds = 10, seed = 103)) 
+results.alpha <- rbind(results1.alpha, results2.alpha, results3.alpha) %>%
+  mutate(seed = as.factor(seed))
+ggplot(results.alpha, aes(x = alpha, y = rsquared, 
+                          group = seed, color = seed)) + 
+  geom_line() + 
+  theme_bw()
+
+# Maximum Degrees of Freedom ---
+
+df.range <- 2 ^(2:8)
+results1.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
+                                     data = trn, nfolds = 10, seed = 101)) 
+results2.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
+                                     data = trn, nfolds = 10, seed = 102)) 
+results3.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
+                                     data = trn, nfolds = 10, seed = 103)) 
+results.df <- rbind(results1.df, results2.df, results3.df) %>%
+  mutate(seed = as.factor(seed))
+ggplot(results.df, aes(x = dfmax, y = rsquared, 
+                       group = seed, color = seed)) + 
+  geom_line() + 
+  theme_bw()
+
+dir.create("./tuning/glmnet/beta")
+saveRDS(results.alpha, "./tuning/glmnet/beta/alpha.RDS")
+saveRDS(results.df, "./tuning/glmnet/beta/dfmax.RDS")
+
+#     Tuning --------------------------------------------------------------
+
+# 11 * 7 = 77 combinations
+
+glm.combos <- expand.grid(alpha.range, df.range)
+colnames(glm.combos) <- c("alpha", "dfmax")
+alpha.combos <- glm.combos$alpha
+df.combos <- glm.combos$dfmax
+
+set.seed(1001)
+system.time(
+  results.combos <- do.call(
+    rbind,
+    mapply(
+      FUN = tune.glm,
+      a = alpha.combos,
+      max = df.combos,
+      MoreArgs = 
+        list(nfolds = 10, data = trn), 
+      SIMPLIFY = F
+    )
+  )
+)
+
+# system.time output
+# user  system elapsed 
+# 9.89    0.00   10.17 
+
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+results.combos[order(results.combos$rmse), ] %>% head()
+
+# rsquared of 0.758, rmse = 4.24
+# alpha = 0, dfmax = 256
+
+
+# rsquared of 0.706, rmse = 4.01
+# alpha = 0, dfmax = 64
+
+saveRDS(results.combos, "./tuning/glmnet/beta/tune.RDS")
+results.combos$alpha <- as.factor(results.combos$alpha)
+results.combos$dfmax <- as.factor(results.combos$dfmax)
+ggplot(results.combos, aes(x = alpha, y = dfmax, fill = rsquared)) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = terrain.colors(20)) + 
+  theme_bw() + 
+  labs(title = "GLMNet tuning for beta-CD", x = "Alpha", y = "Maximum degrees of freedom", 
+       fill = "R2")
+ggsave("./tuning/glmnet/beta/tune.png", dpi = 450)

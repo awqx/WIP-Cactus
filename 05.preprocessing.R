@@ -13,16 +13,16 @@ split.train.test <- function(times, data, info, path) {
     # Initialize a sample for reference for maxDissim
     data.init <- sample_n(data, 4)
     
-    # Generate representative test set
-    tst.ind <- maxDissim(a = data.init, b = data, 
+    # Generate representative training set
+    trn.ind <- maxDissim(a = data.init, b = data, 
                          n = round(nrow(data)*0.2), 
                          na.rm = T)
-    tst.data <- data[tst.ind, ]
-    trn.data <- data[-tst.ind, ]
+    tst.data <- data[-trn.ind, ]
+    trn.data <- data[trn.ind, ]
     
     # Adding the guest molecule name and correct DelG
-    tst <- cbind(info[tst.ind, ], tst.data)
-    trn <- cbind(info[-tst.ind, ], trn.data)
+    tst <- cbind(info[-trn.ind, ], tst.data)
+    trn <- cbind(info[trn.ind, ], trn.data)
     
     # Create logical file path name
     tst.path <- paste0(path, "tst", n, ".RDS")
@@ -46,10 +46,6 @@ preprocess.splits <- function(filepath, writepath) {
     info <- data %>% dplyr::select(guest, DelG)
     desc <- data %>% dplyr::select(-guest, -DelG)
     
-    # Removing predictors with near-zero variance
-    zero.pred <- nearZeroVar(desc)
-    desc <- desc[ , -zero.pred]
-    
     # Replacing inconvenient values
     desc <- do.call(data.frame, lapply(desc, 
                                        function(x)
@@ -57,15 +53,13 @@ preprocess.splits <- function(filepath, writepath) {
     
     # Initial pre-processing
     pp.settings <- preProcess(desc, na.remove = T, 
-                              method = c("knnImpute", "center", "scale"))
+                              method = c("knnImpute", "center", "scale"), 
+                              verbose = F)
     desc.pp <- predict(pp.settings, desc)
     
-    # More nearZeroVar analysis
-    zero.pred2 <- nearZeroVar(desc.pp)
-    if (length(zero.pred2) >= 1) {
-      desc.pp <- desc.pp[ , -zero.pred2]
-      saveRDS(zero.pred2, paste0(dirpath, "/zero.pred2.RDS"))
-    }
+    # Removing predictors with near-zero variance
+    zero.pred <- nearZeroVar(desc.pp)
+    desc.pp <- desc.pp[ , -zero.pred]
     
     # Removing highly correlated predictors
     too.high <- findCorrelation(cor(desc.pp), 0.95) # 0.95 mostly arbitrary
@@ -151,6 +145,7 @@ preprocess.splits(filepath = "./model.data/alpha/",
                   writepath = "./pre-process/alpha/")
 preprocess.splits(filepath = "./model.data/beta/", 
                   writepath = "./pre-process/beta/")
+
 
 # # Suzuki Only -------------------------------------------------------------
 # 
