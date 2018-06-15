@@ -186,7 +186,7 @@ ggplot(results.alpha, aes(x = alpha, y = rsquared,
 
 # Maximum Degrees of Freedom ---
 
-df.range <- 2 ^(1:7)
+df.range <- 2 ^(1:8)
 results1.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
                                         data = trn, nfolds = 10, seed = 101)) 
 results2.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
@@ -206,7 +206,7 @@ saveRDS(results.df, "./tuning/glmnet/alpha/dfmax.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-# 11 * 7 = 77 combinations
+# 11 * 8 = 88 combinations
 
 glm.combos <- expand.grid(alpha.range, df.range)
 colnames(glm.combos) <- c("alpha", "dfmax")
@@ -230,18 +230,16 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 14.81    0.00   14.93 
+# 9.72    0.03   10.23 
 
-# results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
-# results.combos[order(results.combos$rmse), ] %>% head()
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+results.combos[order(results.combos$rmse), ] %>% head()
 
-# rsquared of 0.510, rmse = 3.65
+# rsquared of 0.758, rmse = 4.24
 # alpha = 0, dfmax = 128
 
-# best rmse: see above
-
-# rsquared of 0.510, rmse = 3.69
-# alpha = 1.0, dfmax = 16
+# best rmse = 4.01 (r2 = 0.706)
+# alpha = 0, dfmax = 32
 
 saveRDS(results.combos, "./tuning/glmnet/alpha/tune.RDS")
 results.combos$alpha <- as.factor(results.combos$alpha)
@@ -332,20 +330,19 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 27.02    0.05   27.08 
+# 9.89    0.00   10.17 
 
-# results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
-# results.combos[order(results.combos$rmse), ] %>% head()
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+results.combos[order(results.combos$rmse), ] %>% head()
 
-# rsquared of 0.628, rmse = 3.21
-# alpha = 0.8, dfmax = 32
+# rsquared of 0.758, rmse = 4.24
+# alpha = 0, dfmax = 256
 
-# best rmse: see above
 
-# rsquared of 0.607, rmse = 3.19
-# alpha = 0.5, dfmax = 32
+# rsquared of 0.706, rmse = 4.01
+# alpha = 0, dfmax = 64
 
-saveRDS(results.combos, "./tuning/glmnet/alpha/tune.RDS")
+saveRDS(results.combos, "./tuning/glmnet/beta/tune.RDS")
 results.combos$alpha <- as.factor(results.combos$alpha)
 results.combos$dfmax <- as.factor(results.combos$dfmax)
 ggplot(results.combos, aes(x = alpha, y = dfmax, fill = rsquared)) + 
@@ -355,37 +352,3 @@ ggplot(results.combos, aes(x = alpha, y = dfmax, fill = rsquared)) +
   labs(title = "GLMNet tuning for beta-CD", x = "Alpha", y = "Maximum degrees of freedom", 
        fill = "R2")
 ggsave("./tuning/glmnet/beta/tune.png", dpi = 450)
-
-# More fine-tuning
-df.range <- 10*(5:15)
-glm.combos2 <- expand.grid(alpha.range, df.range)
-colnames(glm.combos2) <- c("alpha", "dfmax")
-alpha.combos <- glm.combos2$alpha
-df.combos <- glm.combos2$dfmax
-
-set.seed(1001)
-system.time(
-  results.combos2 <- do.call(
-    rbind,
-    mapply(
-      FUN = tune.glm,
-      a = alpha.combos,
-      max = df.combos,
-      MoreArgs = 
-        list(nfolds = 10, data = trn), 
-      SIMPLIFY = F
-    )
-  )
-)
-
-# user  system elapsed 
-# 83.19    0.03   84.11 
-
-# No significant differences worth reporting
-
-ggplot(results.combos2, aes(x = alpha, y = dfmax, fill = rsquared)) + 
-  geom_raster() + 
-  scale_fill_gradientn(colours = terrain.colors(20)) + 
-  theme_bw() + 
-  labs(title = "GLMNet tuning for beta-CD", x = "Alpha", y = "Maximum degrees of freedom", 
-       fill = "R2")
