@@ -7,7 +7,7 @@ source("./07.0.0.svm.functions.R")
 #     Loading Data --------------------------------------------------------
 
 # Reading data with all descriptors
-trn.all <- readRDS("./model.data/alpha/trn1.RDS") 
+trn.all <- readRDS("./pre-process/alpha/1/pp.RDS") 
 colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
@@ -60,7 +60,7 @@ ggplot(results.gamma, aes(x = gamma, color = seed, group = seed)) +
 
 #     Epsilon ---
 
-epsilon.range <- 2^(-5:1)
+epsilon.range <- 2^(-5:0)
 results1.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
                                           data = trn, kerneltype = "sigmoid",
                                           nfolds = 10, seed = 101)) 
@@ -99,6 +99,7 @@ results4.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
 results.coef <- rbind(results1.coef, results2.coef, 
                       results3.coef, results4.coef) %>%
   mutate(seed = as.factor(seed))
+# No massive differences, remove coef from final combination tuning
 ggplot(results.coef, aes(x = coef, color = seed, group = seed)) + 
   geom_line(aes(y = rsquared)) + 
   scale_x_continuous(trans = "log2") + 
@@ -114,13 +115,11 @@ saveRDS(results.coef, "./tuning/svm/alpha/sig.coef.RDS")
 # 7^3*4 = 1372 tuning combinations
 
 svm.combos <- expand.grid(cost.range, gamma.range, 
-                          epsilon.range, coef.range)
-colnames(svm.combos) <- c("cost", "gamma", "epsilon", "coef")
+                          epsilon.range)
+colnames(svm.combos) <- c("cost", "gamma", "epsilon")
 cost.combos <- svm.combos$cost
 gamma.combos <- svm.combos$gamma
 eps.combos <- svm.combos$epsilon
-coef.combos <- svm.combos$coef
-
 
 set.seed(1001)
 system.time(
@@ -131,25 +130,25 @@ system.time(
       cost = cost.combos, 
       e = eps.combos, 
       g = gamma.combos,
-      coef = coef.combos,
       MoreArgs = 
-        list(nfolds = 5, data = trn), 
+        list(nfolds = 5, data = trn, coef = 0), 
       SIMPLIFY = F
     )
   )
 )
 # system.time output
-# user      system      elapsed 
-# 96.48     0.10        100.75
+# user  system elapsed 
+# 39.09    0.14   43.14 
 
 saveRDS(results.combos, "./tuning/svm/alpha/sig.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared (0.409)
-# cost = 14, eps = 0.25, gamma = 0.003906253125, coef0 = 2 (rmse = 4.04)
-# Best rmse (same as above)
+# Best rsquared = 0.711, rmse = 4.36
+# cost = 2, eps = 0.125, gamma = 0.0078125, coef0 = 0
+# Best rmse = 3.34, r2 = 0.683
+# cost = 6, eps = 0.03125, gamma = 0.00390625, coef0 = 0 
 
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
@@ -157,7 +156,7 @@ results.combos[order(results.combos$rmse), ] %>% head()
 #     Loading Data --------------------------------------------------------
 
 # Reading data with all descriptors
-trn.all <- readRDS("./model.data/beta/trn1.RDS") 
+trn.all <- readRDS("./pre-process/beta/1/pp.RDS") 
 colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
@@ -211,7 +210,7 @@ ggplot(results.gamma, aes(x = gamma, color = seed, group = seed)) +
 
 #     Epsilon ---
 
-epsilon.range <- 2^(-5:1)
+epsilon.range <- 2^(-5:0)
 results1.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
                                           data = trn, kerneltype = "sigmoid",
                                           nfolds = 10, seed = 101)) 
@@ -290,14 +289,15 @@ system.time(
   )
 )
 # system.time output
-# user      system     elapsed 
-# 124.22    0.00       124.89 
+# user  system elapsed 
+# 52.47    0.13   53.85 
 
 saveRDS(results.combos, "./tuning/svm/beta/sig.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared (0.280)
-# not worth reporting
-# Best rmse (4.53)
+# Best rsquared = 0.731 (rmse = 5.15)
+# cost = 64, epsilon = 0.125, gamma = 0.015625, coef0 = 4
+# Best rmse = 3.65 (r2 = 0.685)
+# cost = 32, epsilon = 0.03125, gamma = 0.00390625, coef0 = 2
