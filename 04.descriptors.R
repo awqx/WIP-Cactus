@@ -6,6 +6,7 @@
 # source("http://bioconductor.org/biocLite.R") # Sources the biocLite.R installation script. 
 # biocLite("ChemmineR")
 # library(rcdk)
+library(stringr)
 library(tidyverse)
 
 # PaDEL-Descriptor --------------------------------------------------------
@@ -36,7 +37,6 @@ dataset$guest <- str_replace(dataset$guest, pattern = '4-nitrophenyl-beta-d-gala
                              '4-Nitrophenylgalactoside')
 dataset$guest <- str_replace(dataset$guest, pattern = '4-nitrophenyl-beta-d-glucosamide',
                              'N-[(2R,3R,4R,5S,6R)-4,5-dihydroxy-6-(hydroxymethyl)-2-[(4-nitrophenyl)methoxy]oxan-3-yl]acetamide')
-
 
 #     Alpha-CD ------------------------------------------------------------
 
