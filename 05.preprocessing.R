@@ -17,7 +17,7 @@ split.train.test <- function(times, data, info, path) {
     
     # Generate representative training set
     trn.ind <- maxDissim(a = data.init, b = data, 
-                         n = round(nrow(data)*0.2), 
+                         n = round(nrow(data)*0.75), 
                          na.rm = T)
     tst.data <- data[-trn.ind, ]
     trn.data <- data[trn.ind, ]
