@@ -132,7 +132,7 @@ tune.glm <- function(data, nfolds, a, max) {
     
     glm.mod <- glmnet(x = trn.x, y = trn.y, 
                       dfmax = max, alpha = a,
-                      pmax = 50, 
+                      pmax = ncol(trn.x), 
                       family = "mgaussian")
     glm.df <- predict.glmnet(glm.mod, tst.x,
                              s = tail(glm.mod$lambda, n = 1)) %>%
@@ -186,7 +186,7 @@ ggplot(results.alpha, aes(x = alpha, y = rsquared,
 
 # Maximum Degrees of Freedom ---
 
-df.range <- 2 ^(1:8)
+df.range <- c(0, 1, 5, 10, 25, 50, 75, 150)
 results1.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
                                         data = trn, nfolds = 10, seed = 101)) 
 results2.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
@@ -230,16 +230,15 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 9.72    0.03   10.23 
+# 42.95    0.10   44.36 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# rsquared of 0.758, rmse = 4.24
-# alpha = 0, dfmax = 128
+# rsquared of 0.651, rmse = 2.999
+# alpha = 0.5, dfmax = 50
 
-# best rmse = 4.01 (r2 = 0.706)
-# alpha = 0, dfmax = 32
+# best rmse = 2.999 (same as above)
 
 saveRDS(results.combos, "./tuning/glmnet/alpha/tune.RDS")
 results.combos$alpha <- as.factor(results.combos$alpha)
@@ -286,7 +285,7 @@ ggplot(results.alpha, aes(x = alpha, y = rsquared,
 
 # Maximum Degrees of Freedom ---
 
-df.range <- 2 ^(2:8)
+df.range <- c(0, 1, 2, 5, 10, 20, 50, 100)
 results1.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
                                      data = trn, nfolds = 10, seed = 101)) 
 results2.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
@@ -306,8 +305,7 @@ saveRDS(results.df, "./tuning/glmnet/beta/dfmax.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-# 11 * 7 = 77 combinations
-
+# 11 * 8 = 88 combinations
 glm.combos <- expand.grid(alpha.range, df.range)
 colnames(glm.combos) <- c("alpha", "dfmax")
 alpha.combos <- glm.combos$alpha
@@ -329,14 +327,17 @@ system.time(
 )
 
 # system.time output
-# user  system elapsed 
-# 9.89    0.00   10.17 
+#   user  system elapsed 
+# 18.59    0.00   18.63 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# rsquared of 0.758, rmse = 4.24
-# alpha = 0, dfmax = 256
+# rsquared of 0.744, rmse = 2.88
+# alpha = 0.7, dfmax = 20
+
+# rmse = 2.78, rsquared = 0.725
+# alpha = 1.0, dfmax = 20
 
 
 # rsquared of 0.706, rmse = 4.01

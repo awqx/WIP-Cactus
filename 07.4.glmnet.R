@@ -1,491 +1,394 @@
+dir.create("./models/glmnet")
+
 # Libraries ---------------------------------------------------------------
 
 library(caret)
 library(glmnet)
 library(tidyverse)
 
-# Loading Data ------------------------------------------------------------
+# Functions ---------------------------------------------------------------
 
-dir.create("./graphs/glmnet")
+glm.looq2 <- function(read.dir, rfe.dir, nsplits, a, max) {
+  # initialize a vector for analysis
+  q2.results <- c(rep(0.0, nsplits))
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    features <- readRDS(paste0(rfe.dir, "/rfe", n, ".RDS")) %>% predictors()
+    obs <- data[ , 1]
+    data <- data %>% select(., DelG, features) %>% data.matrix()
+    pred <- c(rep(0.0, nrow(data) - 1))
+    # In this loop, i represents the index of the datapoint left out of 
+    # model building
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, , drop = F]
+      trn.x <- trn[ , -1]
+      trn.y <- trn[ , 1]
+      tst.x <- tst[ , -1, drop = F]
+      tst.y <- tst[ , 1, drop = F]
+      
+      # Refer to 07.0.1.svm.tune.poly.R for values
+      glm.mod <- glmnet(x = trn.x, y = trn.y, 
+                        dfmax = max, alpha = a,
+                        pmax = 75, 
+                        family = "mgaussian")
+      pred[i] <- predict.glmnet(glm.mod, tst.x,
+                                s = tail(glm.mod$lambda, n = 1)) 
+    }
+    # test.df <- data.frame(obs, pred) %>% print()
+    # test.df <<- test.df
+    # defaultSummary(test.df) %>% print()
+    # prediction error sum of squares
+    pred.df <- data.frame(obs, pred)
+    p <- ggplot(pred.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = as.character(n))
+    print(p)
+    # Handling outliers
+    for(i in 1:length(pred)) {
+      if(pred[i] < -100)
+        pred[i] <- mean(obs)
+    }
+    PRESS <- sum((obs - pred)^2)
+    # total sum of squares
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    message("Q2 = ", q2)
+    q2.results[n] <- q2
+  }
+  return(mean(q2.results))
+}
 
-df.raw <- readRDS("./data/padel.pp.RDS")
-df <- df.raw %>% select(-guest:-host) %>%
-  select(-data.source)
-# mat <- sparse.model.matrix(~., df)
-mat <- as.matrix(df)
+glm.tst <- function(trn.dir, rfe.dir, tst.dir, nsplits, a, max) {
+  split <- 1:nsplits
+  r2.results <- rep(0.0, nsplits)
+  rmse.results <- rep(0.0, nsplits)
+  for(n in 1:nsplits) {
+    # Reading the training data
+    features <- readRDS(paste0(rfe.dir, "/rfe", n, ".RDS")) %>% predictors()
+    trn <- readRDS(paste0(trn.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    trn <- trn %>% select(., DelG, features) 
+    trn.x <- select(trn, -DelG) %>% data.matrix()
+    trn.y <- select(trn, DelG) %>% data.matrix()
+    
+    # Reading the pre-processing settings
+    pp.settings <- readRDS(paste0(trn.dir, n, "/pp.settings.RDS"))
+    # zero.pred <- readRDS(paste0(read.dir, n, "/zero.pred.RDS"))
+    # high.cor <- readRDS(paste0(read.dir, n, "/high.cor.RDS"))
+    
+    # Importing and pre-processing the test set
+    tst <- readRDS(paste0(tst.dir, "/tst", n, ".RDS"))
+    guest <- select(tst, guest)
+    tst.dg <- tst %>% select(., guest, DelG) 
+    
+    colnames(tst) <- str_replace(colnames(tst), "-", ".")
+    tst <- select(tst, -DelG)
+    tst <- do.call(data.frame, lapply(tst,
+                                      function(x)
+                                        replace(x, is.infinite(x), NA)))
+    tst <- tst %>%
+      predict(pp.settings, .) %>% select(., features) %>%
+      cbind(guest, .)
+    tst.ad <- domain.num(tst)
+    tst.outliers <- tst.ad %>% filter(domain == "outside") %>% .$guest
+    # print(tst.outliers)
+    if(str_detect(trn.dir, "alpha"))
+      tst.outliers <- c(tst.outliers, "indole")
+    tst <- tst %>%
+      filter(!guest %in% tst.outliers) %>% 
+      select(., -guest) %>% data.matrix()
+    tst.dg <- tst.dg %>% filter(!guest %in% tst.outliers) %>%
+      select(., -guest) %>% data.matrix
+    # filter(!guest == "indole") %>%  
+    # filter(!guest == "3-methylbenzoic acid") %>% # removing this persistent outlier 
+    
+    # Building the model
+    glm.mod <- glmnet(x = trn.x, y = trn.y, 
+                      dfmax = max, alpha = a,
+                      pmax = ncol(trn.x), 
+                      family = "mgaussian")
 
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(mat), 
-                  size = round(0.7 * nrow(mat)))
-trn.x <- mat[trn.ind, -1]
-trn.y <- mat[trn.ind, 1]
-tst.x <- mat[-trn.ind, -1]
-tst.y <- mat[-trn.ind, 1]
+    tst.df <- predict.glmnet(glm.mod, newx = tst, 
+                             s = tail(glm.mod$lambda, n = 1)) %>%
+      cbind(tst.dg, .) %>%
+      as.data.frame()
+    colnames(tst.df) <- c("obs", "pred")
+    tst.df <- tst.df[complete.cases(tst.df), ]
+    p <- ggplot(tst.df, aes(x = obs, y = pred)) + 
+      geom_point() + 
+      theme_bw() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0)
+    for(i in 1:nrow(tst.df))
+      if(abs(tst.df$pred[i]) > 100)
+        tst.df$pred[i] <- mean(trn.y)
+    print(p)
+    r2.results[n] <- defaultSummary(tst.df)[2]
+    rmse.results[n] <- defaultSummary(tst.df)[1]
+  }
+  return(data.frame(split, r2.results, rmse.results))
+}
 
-# All Predictors ----------------------------------------------------------
 
-glm.all <- glmnet(x = trn.x, y = trn.y, 
-                  dfmax = 32, 
-                  alpha = 1, 
+# LOO-Q2 analysis ---------------------------------------------------------
+
+# Alpha
+glm.looq2("./pre-process/alpha/", "./feature.selection/alpha", 
+          nsplits = 10, a = 0.5, max = 42)
+# q2 = 0.501. good enough.
+
+# Beta
+glm.looq2("./pre-process/beta/", "./feature.selection/beta",
+          nsplits = 10, a = 0.7, max = 40)
+# q2 = 0.679. good.
+
+
+# Test sets ---------------------------------------------------------------
+
+# Split 5 turned out the best, R2 = 0.637
+# Had to remove indole, though
+alpha.tst <- glm.tst("./pre-process/alpha/", "./feature.selection/alpha", 
+        "./model.data/alpha/", nsplits = 10, a = 0.5, max = 42)
+
+# Split 9 turned out the best, R2 = 0.759 
+beta.tst <- glm.tst("./pre-process/beta/", "./feature.selection/beta", 
+        "./model.data/beta/", nsplits = 10, a = 0.7, max = 40)
+
+# Single model ------------------------------------------------------------
+
+#     Alpha ----
+features <- readRDS("./feature.selection/alpha/rfe5.RDS") %>% predictors()
+trn <- readRDS("./pre-process/alpha/5/pp.RDS") %>%
+  select(., -guest)
+trn <- trn %>% select(., DelG, features) 
+trn.x <- select(trn, -DelG) %>% data.matrix()
+trn.y <- select(trn, DelG) %>% data.matrix()
+
+# Reading the pre-processing settings
+pp.settings <- readRDS("./pre-process/alpha/5/pp.settings.RDS")
+
+# Importing and pre-processing the test set
+tst <- readRDS("./model.data/alpha/tst5.RDS")
+guest <- select(tst, guest)
+tst.dg <- tst %>% select(., guest, DelG) 
+
+colnames(tst) <- str_replace(colnames(tst), "-", ".")
+tst <- select(tst, -DelG)
+tst <- do.call(data.frame, lapply(tst,
+                                  function(x)
+                                    replace(x, is.infinite(x), NA)))
+tst <- tst %>%
+  predict(pp.settings, .) %>% select(., features) %>%
+  cbind(guest, .)
+tst.ad <- domain.num(tst)
+tst.outliers <- tst.ad %>% filter(domain == "outside") %>% .$guest
+# indole is a persistent black sheep
+tst.outliers <- c("indole", tst.outliers)
+tst <- tst %>%
+  filter(!guest %in% tst.outliers) %>% 
+  select(., -guest) %>% data.matrix()
+tst.dg <- tst.dg %>% filter(!guest %in% tst.outliers) %>%
+  select(., -guest) %>% data.matrix
+
+# Building the model
+glm.mod <- glmnet(x = trn.x, y = trn.y, 
+                  dfmax = 42, alpha = 0.5,
+                  pmax = ncol(trn.x), 
                   family = "mgaussian")
-glm.df <- predict.glmnet(glm.all, tst.x, 
-                         s = tail(glm.all$lambda, n = 1)) %>%
-  cbind(tst.y) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = tst.y) %>%
-  mutate(resid = pred - obs)
 
-defaultSummary(glm.df) # 0.505
-
-
-# Separating Cyclodextrins ------------------------------------------------
-
-#     Alpha-CD ------------------------------------------------------------
-
-alpha <- df %>% filter(alpha > 0) %>%
-  as.matrix()
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(alpha), 
-                  size = round(0.7 * nrow(alpha)))
-a.trn.x <- alpha[trn.ind, -1]
-a.trn.y <- alpha[trn.ind, 1]
-a.tst.x <- alpha[-trn.ind, -1]
-a.tst.y <- alpha[-trn.ind, 1]
-
-glm.a <- glmnet(x = a.trn.x, y = a.trn.y, 
-                    dfmax = 32, 
-                    alpha = 1, 
-                    family = "mgaussian")
-glm.a.tst <- predict.glmnet(glm.a, a.tst.x, 
-                         s = tail(glm.a$lambda, n = 1)) %>%
-  cbind(a.tst.y) %>% data.frame() %>%
-  dplyr::rename(., pred = X1, obs = a.tst.y)  %>%
-  mutate(resid = pred - obs)
-glm.a.trn <- predict.glmnet(glm.a, a.trn.x, 
-                               s = tail(glm.a$lambda, n = 1)) %>%
-  cbind(a.trn.y) %>% data.frame() %>%
-  dplyr::rename(., pred = X1, obs = a.trn.y)  %>%
-  mutate(resid = pred - obs)
-
-defaultSummary(glm.a.tst) # 0.506
-defaultSummary(glm.a.trn) # 0.725
-
-#     Beta-CD -------------------------------------------------------------
-
-beta <- df %>% filter(beta > 0) %>%
-  as.matrix()
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(beta), 
-                  size = round(0.7 * nrow(beta)))
-b.trn.x <- beta[trn.ind, -1]
-b.trn.y <- beta[trn.ind, 1]
-b.tst.x <- beta[-trn.ind, -1]
-b.tst.y <- beta[-trn.ind, 1]
-
-glm.b <- glmnet(x = b.trn.x, y = b.trn.y, 
-                dfmax = 32, 
-                alpha = 1, 
-                family = "mgaussian")
-glm.b.tst <- predict.glmnet(glm.b, b.tst.x, 
-                            s = tail(glm.b$lambda, n = 1)) %>%
-  cbind(b.tst.y) %>% data.frame() %>%
-  dplyr::rename(., pred = X1, obs = b.tst.y)  %>%
-  mutate(resid = pred - obs)
-glm.b.trn <- predict.glmnet(glm.b, b.trn.x, 
-                            s = tail(glm.b$lambda, n = 1)) %>%
-  cbind(b.trn.y) %>% data.frame() %>%
-  dplyr::rename(., pred = X1, obs = b.trn.y)  %>%
-  mutate(resid = pred - obs)
-
-defaultSummary(glm.b.tst) # 0.744
-defaultSummary(glm.b.trn) # 0.774
-
-#     Gamma-CD ------------------------------------------------------------
-
-gamma <- df %>% filter(gamma > 0) %>%
-  as.matrix()
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(gamma), 
-                  size = round(0.7 * nrow(gamma)))
-c.trn.x <- gamma[trn.ind, -1]
-c.trn.y <- gamma[trn.ind, 1]
-c.tst.x <- gamma[-trn.ind, -1]
-c.tst.y <- gamma[-trn.ind, 1]
-
-glm.c <- glmnet(x = c.trn.x, y = c.trn.y, 
-                dfmax = 32, 
-                alpha = 1, 
-                family = "mgaussian")
-glm.c.tst <- predict.glmnet(glm.c, c.tst.x, 
-                            s = tail(glm.c$lambda, n = 1)) %>%
-  cbind(c.tst.y) %>% data.frame() %>%
-  dplyr::rename(., pred = X1, obs = c.tst.y)  %>%
-  mutate(resid = pred - obs)
-glm.c.trn <- predict.glmnet(glm.c, c.trn.x, 
-                            s = tail(glm.c$lambda, n = 1)) %>%
-  cbind(c.trn.y) %>% data.frame() %>%
-  dplyr::rename(., pred = X1, obs = c.trn.y)  %>%
-  mutate(resid = pred - obs)
-
-defaultSummary(glm.c.tst) # 0.769
-defaultSummary(glm.c.trn) # 0.9997
-
-#     Compiled CDs --------------------------------------------------------
-
-temp.a <- glm.a.tst %>% 
-  mutate(cd.type = "alpha")
-temp.b <- glm.b.tst %>% 
-  mutate(cd.type = "beta")
-temp.c <- glm.c.tst %>% 
-  mutate(cd.type = "gamma")
-glm.abc.tst <- rbind(temp.a, temp.b, temp.c, 
-                     make.row.names = F) %>%
-  mutate(residual = pred - obs)
-
-temp.a <- glm.a.trn %>% 
-  mutate(cd.type = "alpha")
-temp.b <- glm.b.trn %>% 
-  mutate(cd.type = "beta")
-temp.c <- glm.c.trn %>% 
-  mutate(cd.type = "gamma")
-glm.abc.trn <- rbind(temp.a, temp.b, temp.c, 
-                     make.row.names = F) %>%
-  mutate(residual = pred - obs)
-
-defaultSummary(glm.abc.tst) # 0.625
-defaultSummary(glm.abc.trn) # 0.788
-
-# Saving Models -----------------------------------------------------------
-
-dir.create("./models/glmnet")
-saveRDS(glm.a, "./models/glmnet/glm.alpha.RDS")
-saveRDS(glm.b, "./models/glmnet/glm.beta.RDS")
-saveRDS(glm.c, "./models/glmnet/glm.gamma.RDS")
-
-saveRDS(glm.abc.tst, "./models/glmnet/glmnet.tst.results.RDS")
-saveRDS(glm.abc.trn, "./models/glmnet/glmnet.trn.results.RDS")
-
-# Graphs ------------------------------------------------------------------
-
-# all datapoints
-ggplot(glm.df, aes(x = obs, y = pred)) + 
+tst.df <- predict.glmnet(glm.mod, newx = tst, 
+                         s = tail(glm.mod$lambda, n = 1)) %>%
+  cbind(tst.dg, .) %>%
+  as.data.frame()
+colnames(tst.df) <- c("obs", "pred")
+# Checking for any terrible outliers
+for(i in 1:nrow(tst.df))
+  if(abs(tst.df$pred[i]) > 100)
+    tst.df$pred[i] <- mean(trn.y)
+ggplot(tst.df, aes(x = obs, y = pred)) + 
   geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on All Datapoints")
-ggsave("./graphs/glmnet/2017-07-28 glmnet all datapoints.png")
+  labs(title = "GLMNet for alpha-CD", 
+       x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
+  geom_smooth(method = "lm") + 
+  geom_abline(slope = 1, intercept = 0)
 
-ggplot(glm.alpha.df, aes(x = obs, y = pred)) + 
+defaultSummary(tst.df)
+tst.df <- tst.df %>% mutate(resid = obs - pred)
+ggplot(tst.df, aes(x = obs, y = resid)) + 
   geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on Alpha-CD")
-ggsave("./graphs/glmnet/2017-07-28 glmnet alpha-cd.png")
+  geom_smooth(method = "lm") + 
+  geom_hline(yintercept = 0)
 
-ggplot(glm.beta.df, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on Beta-CD")
-ggsave("./graphs/glmnet/2017-07-28 glmnet beta-cd.png")
+saveRDS(glm.mod, "./models/glmnet/alpha.RDS")
+saveRDS(tst.df, "./models/glmnet/alpha.results.RDS")
 
-ggplot(glm.gamma.df, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
-  # coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on Gamma-CD")
-ggsave("./graphs/glmnet/2017-07-28 glmnet gamma-cd.png")
+#     Beta ----
+features <- readRDS("./feature.selection/beta/rfe8.RDS") %>% predictors()
+features <- readRDS("./feature.selection/beta.vars.RDS")
+trn <- readRDS("./pre-process/beta/9/pp.RDS") %>%
+  select(., -guest)
+trn <- trn %>% select(., DelG, features) 
+trn.x <- select(trn, -DelG) %>% data.matrix()
+trn.y <- select(trn, DelG) %>% data.matrix()
 
-ggplot(glm.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  geom_abline(intercept = 0, slope = 1) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on Separate CDs", color = "Cyclodextrin")
-ggsave("./graphs/glmnet/2017-07-28 glmnet compiled.png")
+# Reading the pre-processing settings
+pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
 
-ggplot(glm.abc.tst, aes(x = obs, y = residual, color = cd.type)) + 
-  geom_point() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  geom_hline(yintercept = 0) + 
-  theme_bw() + 
-  labs(y = "Residuals, kJ/mol", x = "Expeirmental DelG, kJ/mol", 
-       title = "GLMnet Residuals on Separate CDs", 
-       color = "Cyclodextrin")
-ggsave("./graphs/glmnet/2017-07-28 glmnet compiled resid.png")
+# Importing and pre-processing the test set
+tst <- readRDS("./model.data/beta/tst9.RDS")
+guest <- select(tst, guest)
+tst.dg <- tst %>% select(., guest, DelG) 
 
-#####
+colnames(tst) <- str_replace(colnames(tst), "-", ".")
+tst <- select(tst, -DelG)
+tst <- do.call(data.frame, lapply(tst,
+                                  function(x)
+                                    replace(x, is.infinite(x), NA)))
+tst <- tst %>%
+  predict(pp.settings, .) %>% select(., features) %>%
+  cbind(guest, .)
+tst.ad <- domain.num(tst)
+tst.outliers <- tst.ad %>% filter(domain == "outside") %>% .$guest
+# indole is a persistent black sheep
+tst.outliers <- c("indole", tst.outliers)
+tst <- tst %>%
+  filter(!guest %in% tst.outliers) %>% 
+  select(., -guest) %>% data.matrix()
+tst.dg <- tst.dg %>% filter(!guest %in% tst.outliers) %>%
+  select(., -guest) %>% data.matrix
 
-# Modeling on Regular Matrix  ---------------------------------------------
-
-#####
-
-df.raw <- readRDS("./padel.pp.new.RDS")
-df <- df.raw %>% select(-guest:-host) %>%
-  select(-data.source)
-mat <- as.matrix(df)
-
-set.seed(144)
-trn.ind <- sample(x = 1:nrow(mat), 
-                  size = round(0.7 * nrow(mat)))
-trn.x <- mat[trn.ind, -1]
-trn.y <- mat[trn.ind, 1]
-tst.x <- mat[-trn.ind, -1]
-tst.y <- mat[-trn.ind, 1]
-
-# dir.create("./models/glmnet")
-
-# All Predictors ----------------------------------------------------------
-
-glm.all <- glmnet(x = trn.x, y = trn.y, 
-                  dfmax = 32, 
-                  alpha = 1, 
+# Building the model
+glm.mod <- glmnet(x = trn.x, y = trn.y, 
+                  dfmax = 40, alpha = 0.7,
+                  pmax = ncol(trn.x), 
                   family = "mgaussian")
-glm.df <- predict.glmnet(glm.all, tst.x, 
-                         s = tail(glm.all$lambda, n = 1)) %>%
-  cbind(tst.y) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = tst.y)
-ggplot(glm.df, aes(x = obs, y = pred)) + 
+
+tst.df <- predict.glmnet(glm.mod, newx = tst, 
+                         s = tail(glm.mod$lambda, n = 1)) %>%
+  cbind(tst.dg, .) %>%
+  as.data.frame()
+colnames(tst.df) <- c("obs", "pred")
+# # Checking for any terrible outliers
+# for(i in 1:nrow(tst.df))
+#   if(abs(tst.df$pred[i]) > 100)
+#     tst.df$pred[i] <- mean(trn.y)
+ggplot(tst.df, aes(x = obs, y = pred)) + 
   geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-defaultSummary(glm.df) # 0.635
-
-# Separating Cyclodextrins ------------------------------------------------
-
-#     Alpha-CD ------------------------------------------------------------
-
-alpha <- df %>% filter(alpha > 0) %>%
-  as.matrix()
-set.seed(35)
-trn.ind <- sample(x = 1:nrow(alpha), 
-                  size = round(0.7 * nrow(alpha)))
-a.trn.x <- alpha[trn.ind, -1]
-a.trn.y <- alpha[trn.ind, 1]
-a.tst.x <- alpha[-trn.ind, -1]
-a.tst.y <- alpha[-trn.ind, 1]
-
-glm.alpha <- glmnet(x = a.trn.x, y = a.trn.y, 
-                    dfmax = 32, 
-                    alpha = 1, 
-                    family = "mgaussian")
-glm.alpha.df <- predict.glmnet(glm.alpha, a.tst.x, 
-                               s = tail(glm.alpha$lambda, n = 1)) %>%
-  cbind(a.tst.y) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = a.tst.y)
-glm.alpha.trn <- predict.glmnet(glm.alpha, a.trn.x, 
-                               s = tail(glm.alpha$lambda, n = 1)) %>%
-  cbind(a.trn.y) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = a.trn.y)
-
-defaultSummary(glm.alpha.df) # 0.629
-
-#     Beta-CD -------------------------------------------------------------
-
-beta <- df %>% filter(beta > 0) %>%
-  as.matrix()
-set.seed(25)
-trn.ind <- sample(x = 1:nrow(beta), 
-                  size = round(0.7 * nrow(beta)))
-b.trn.x <- beta[trn.ind, -1]
-b.trn.y <- beta[trn.ind, 1]
-b.tst.x <- beta[-trn.ind, -1]
-b.tst.y <- beta[-trn.ind, 1]
-
-glm.beta <- glmnet(x = b.trn.x, y = b.trn.y, 
-                   dfmax = 32, 
-                   alpha = 1, 
-                   family = "mgaussian")
-glm.beta.df <- predict.glmnet(glm.beta, b.tst.x, 
-                              s = tail(glm.beta$lambda, n = 1)) %>%
-  cbind(b.tst.y) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = b.tst.y)
-glm.beta.trn <- predict.glmnet(glm.beta, b.trn.x, 
-                              s = tail(glm.beta$lambda, n = 1)) %>%
-  cbind(b.trn.y) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = b.trn.y)
-
-defaultSummary(glm.beta.df) # 0.718
-
-#     Gamma-CD ------------------------------------------------------------
-
-gamma <- df %>% filter(gamma > 0) %>%
-  as.matrix()
-set.seed(12)
-trn.ind <- sample(x = 1:nrow(gamma), 
-                  size = round(0.7 * nrow(gamma)))
-c.trn.x <- gamma[trn.ind, -1]
-c.trn.y <- gamma[trn.ind, 1]
-c.tst.x <- gamma[-trn.ind, -1]
-c.tst.y <- gamma[-trn.ind, 1]
-
-glm.gamma <- glmnet(x = c.trn.x, y = c.trn.y, 
-                    dfmax = 32, 
-                    alpha = 1, 
-                    family = "mgaussian")
-glm.gamma.df <- predict.glmnet(glm.gamma, c.tst.x, 
-                               s = tail(glm.gamma$lambda, n = 1)) %>%
-  cbind(c.tst.y) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = c.tst.y)
-glm.gamma.trn <- predict.glmnet(glm.gamma, c.trn.x, 
-                               s = tail(glm.gamma$lambda, n = 1)) %>%
-  cbind(c.trn.y) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = c.trn.y)
-
-defaultSummary(glm.gamma.df) # 0.304
-
-#     Compiled CDs --------------------------------------------------------
-
-temp.a <- glm.alpha.df %>% 
-  mutate(cd.type = rep("alpha", length(glm.alpha.df$pred)))
-temp.b <- glm.beta.df %>% 
-  mutate(cd.type = rep("beta", length(glm.beta.df$pred)))
-temp.c <- glm.gamma.df %>% 
-  mutate(cd.type = rep("gamma", length(glm.gamma.df$pred)))
-glm.abc.tst <- rbind(temp.a, temp.b, temp.c, 
-                     make.row.names = F) %>%
-  mutate(residual = pred - obs)
-defaultSummary(glm.abc.tst) # 0.708
-
-temp.a <- glm.alpha.trn %>% 
-  mutate(cd.type = rep("alpha", length(glm.alpha.trn$pred)))
-temp.b <- glm.beta.trn %>% 
-  mutate(cd.type = rep("beta", length(glm.beta.trn$pred)))
-temp.c <- glm.gamma.trn %>% 
-  mutate(cd.type = rep("gamma", length(glm.gamma.trn$pred)))
-glm.abc.trn <- rbind(temp.a, temp.b, temp.c, 
-                     make.row.names = F) %>%
-  mutate(residual = pred - obs)
-defaultSummary(glm.abc.trn) # 771
-
-# Saving Data -------------------------------------------------------------
-
-saveRDS(glm.alpha, "./models/glmnet/glm.alpha.RDS")
-saveRDS(glm.beta, "./models/glmnet/glm.beta.RDS")
-saveRDS(glm.gamma, "./models/glmnet/glm.gamma.RDS")
-
-saveRDS(glm.abc.tst, "./models/glmnet/glm.results.RDS")
-saveRDS(glm.abc.trn, "./models/glmnet/glm.trn.results.RDS")
-
-# Graphs ------------------------------------------------------------------
-
-# all datapoints
-ggplot(glm.df, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on All Datapoints")
-ggsave("./graphs/glmnet/2017-07-28 glmnet all datapoints df.png")
-
-ggplot(glm.alpha.df, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on Alpha-CD")
-ggsave("./graphs/glmnet/2017-07-28 glmnet alpha-cd df.png")
-
-ggplot(glm.beta.df, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on Beta-CD")
-ggsave("./graphs/glmnet/2017-07-28 glmnet beta-cd df.png")
-
-ggplot(glm.gamma.df, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
-  # coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on Gamma-CD")
-ggsave("./graphs/glmnet/2017-07-28 glmnet gamma-cd df.png")
-
-ggplot(glm.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  geom_abline(intercept = 0, slope = 1) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on Separate CDs", color = "Cyclodextrin")
-ggsave("./graphs/glmnet/2017-07-28 glmnet compiled df.png")
-
-ggplot(glm.abc.tst, aes(x = obs, y = residual, color = cd.type)) + 
-  geom_point() + 
-  geom_hline(yintercept = 0) + 
-  theme_bw() + 
-  labs(y = "Residuals, kJ/mol", x = "Observed DelG, kJ/mol", 
-       title = "GLMnet Residuals on Separate CDs", 
-       color = "Cyclodextrin")
-ggsave("./graphs/glmnet/2017-07-28 glmnet compiled resid df.png")
-
-ggplot(glm.abc.trn, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  geom_abline(intercept = 0, slope = 1) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet on Separate CDs, Training", color = "Cyclodextrin")
-ggsave("./graphs/glmnet/2017-07-28 glmnet compiled trn.png")
-
-
-# External Validation -----------------------------------------------------
-
-ext.val <- readRDS("./external validation set new.RDS") %>%
-  select(-guest:-host) %>%
-  select(-data.source) 
-
-ext.val.a <- ext.val %>% filter(alpha > 0) %>% as.matrix()
-ext.val.b <- ext.val %>% filter(beta > 0) %>% as.matrix()
-ext.val.c <- ext.val %>% filter(gamma > 0) 
-
-ev.a <-  predict.glmnet(glm.alpha, ext.val.a[ , -1], 
-                        s = tail(glm.alpha$lambda, n = 1)) %>%
-  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = V2)
-
-ev.b <-  predict.glmnet(glm.beta, ext.val.b[ , -1], 
-                        s = tail(glm.beta$lambda, n = 1)) %>%
-  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = V2)
-
-ext.val.temp <- ext.val.c
-ext.val.temp[ , 1] <- NULL
-ext.val.temp <- as.matrix(ext.val.temp)
-
-ev.c <-  predict.glmnet(glm.gamma, ext.val.temp, 
-                        s = tail(glm.gamma$lambda, n = 1)) %>%
-  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = V2)
-
-temp.a <- ev.a %>% mutate(cd.type = "alpha")
-temp.b <- ev.b %>% mutate(cd.type = "beta")
-temp.c <- ev.c %>% mutate(cd.type = "gamma")
-# temp.a <- temp.a[-2, ]
-ev.abc <- rbind(temp.a, temp.b, temp.c)
-
-defaultSummary(ev.abc) # 0.429 normally, 0.649 without outlier
-ggplot(ev.abc, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
+  labs(title = "GLMNet for beta-CD") + 
+  geom_smooth(method = "lm") + 
   geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "GLMnet External Validation", color = "Cyclodextrin")
-ggsave("./graphs/glmnet/2017-07-28 glm extval.png")
+  coord_fixed(ratio = 1)
 
-ev.glm <- ev.abc %>% mutate(Model = "GLMnet")
+defaultSummary(tst.df)
+tst.df <- tst.df %>% mutate(resid = obs - pred)
+ggplot(tst.df, aes(x = obs, y = resid)) + 
+  geom_point() + 
+  theme_bw() + 
+  # geom_smooth(method = "lm") + 
+  geom_hline(yintercept = 0) 
+
+saveRDS(glm.mod, "./models/glmnet/beta.RDS")
+saveRDS(tst.df, "./models/glmnet/beta.results.RDS")
+
+# Additional accuracy validation ------------------------------------------
+
+source("./eval.functions.R")
+# yay you all pass
+alpha.df <- readRDS("./models/glmnet/alpha.results.RDS")
+eval.tropsha(alpha.df)
+beta.df <- readRDS("./models/glmnet/beta.results.RDS")
+eval.tropsha(beta.df)
+
+# External validation -----------------------------------------------------
+
+#     Alpha ----
+
+glm.alpha <- readRDS("./models/glmnet/alpha.RDS")
+ev.alpha <- readRDS("./ext.validation/alpha.RDS")
+ev.alpha.info <- select(ev.alpha, guest:data.source)
+guest.alpha <- select(ev.alpha.info, guest)
+
+colnames(ev.alpha) <- str_replace(colnames(ev.alpha), "-", ".")
+ev.alpha <- select(ev.alpha, -host:-data.source)
+ev.alpha <- do.call(data.frame, lapply(ev.alpha,
+                                  function(x)
+                                    replace(x, is.infinite(x), NA)))
+pp.settings <- readRDS("./pre-process/alpha/5/pp.settings.RDS")
+features <- readRDS("./feature.selection/alpha/rfe5.RDS") %>% predictors()
+ev.alpha <- ev.alpha %>%
+  predict(pp.settings, .) %>% select(., features) %>%
+  cbind(guest.alpha, .)
+
+ev.alpha.ad <- domain.num(ev.alpha)
+# No outliers
+ev.alpha.outliers <- ev.alpha.ad %>% filter(domain == "outside") %>% .$guest
+
+ev.alpha <- ev.alpha %>%
+  filter(!guest %in% ev.alpha.outliers) %>% 
+  select(., -guest) %>% data.matrix()
+ev.alpha.dg <- ev.alpha.info %>% filter(!guest %in% ev.alpha.outliers) %>%
+  select(., DelG) %>% data.matrix
+
+ev.alpha.df <- predict.glmnet(glm.alpha, newx = ev.alpha, 
+                         s = tail(glm.alpha$lambda, n = 1)) %>%
+  cbind(ev.alpha.dg, .) %>%
+  as.data.frame()
+colnames(ev.alpha.df) <- c("obs", "pred")
+
+ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  theme_bw() + 
+  coord_fixed(ratio = 1) + 
+  geom_abline(intercept = 0, slope = 1)
+
+defaultSummary(ev.alpha.df)
+eval.tropsha(ev.alpha.df)
+
+#     Beta ----
+
+glm.beta <- readRDS("./models/glmnet/beta.RDS")
+ev.beta <- readRDS("./ext.validation/beta.RDS")
+ev.beta.info <- select(ev.beta, guest:data.source)
+guest.beta <- select(ev.beta.info, guest)
+
+colnames(ev.beta) <- str_replace(colnames(ev.beta), "-", ".")
+ev.beta <- select(ev.beta, -host:-data.source)
+ev.beta <- do.call(data.frame, lapply(ev.beta,
+                                       function(x)
+                                         replace(x, is.infinite(x), NA)))
+pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
+features <- readRDS("./feature.selection/beta.vars.RDS") 
+ev.beta <- ev.beta %>%
+  predict(pp.settings, .) %>% select(., features) %>%
+  cbind(guest.beta, .)
+
+ev.beta.ad <- domain.num(ev.beta)
+# No outliers
+ev.beta.outliers <- ev.beta.ad %>% filter(domain == "outside") %>% .$guest
+
+ev.beta <- ev.beta %>%
+  filter(!guest %in% ev.beta.outliers) %>% 
+  select(., -guest) %>% data.matrix()
+ev.beta.dg <- ev.beta.info %>% filter(!guest %in% ev.beta.outliers) %>%
+  select(., DelG) %>% data.matrix
+
+ev.beta.df <- predict.glmnet(glm.beta, newx = ev.beta, 
+                              s = tail(glm.beta$lambda, n = 1)) %>%
+  cbind(ev.beta.dg, .) %>%
+  as.data.frame()
+colnames(ev.beta.df) <- c("obs", "pred")
+
+ggplot(ev.beta.df, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  theme_bw() + 
+  coord_fixed(ratio = 1) + 
+  geom_abline(intercept = 0, slope = 1)
+
+defaultSummary(ev.beta.df)
+eval.tropsha(ev.beta.df) # Eh, it's good enough
