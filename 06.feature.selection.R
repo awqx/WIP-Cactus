@@ -108,7 +108,7 @@ varimp.alpha <- data.frame(pred.alpha.uq, count.alpha) %>%
 
 # Cutoff is 5 because that indicates the variable appeared in at least half
 # of the RFE analyses (sort of arbitrary, but we gotta start somewhere)
-alpha.vars <- varimp.alpha %>% filter(frequency >= 5) %>% .$predictor
+alpha.vars <- varimp.alpha %>% filter(frequency >= 9) %>% .$predictor
 
 saveRDS(varimp.alpha, "./feature.selection/varimp.alpha.RDS")
 saveRDS(alpha.vars, "./feature.selection/alpha.vars.RDS")
