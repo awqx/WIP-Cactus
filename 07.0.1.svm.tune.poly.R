@@ -14,10 +14,8 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/alpha/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred]
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Estimation ----------------------------------------------------------
 
@@ -45,7 +43,7 @@ ggplot(results.cost, aes(x = cost, color = seed, group = seed)) +
 
 #     Gamma ---
 
-gamma.range <- c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1)
+gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1)
 results1.gamma <- do.call(rbind, lapply(gamma.range, FUN = tune.svm.gamma,
                           data = trn, kerneltype = "polynomial", 
                           nfolds = 10, seed = 101))
@@ -132,10 +130,10 @@ saveRDS(results.coef, "./tuning/svm/alpha/poly.deg.RDS")
 #     Tuning --------------------------------------------------------------
 
 coef.range <- c(0, 1, 5, 10, 20, 40, 75)
-cost.range <- c(1, 5, 10, 20, 40, 75, 150)
-deg.range <- 1:5
+cost.range <- c(1, 5, 10, 20, 40, 75)
+deg.range <- 1:4
 epsilon.range <- 2^(-6:0)
-gamma.range <- c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1)
+gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75)
 # 7*5*7*6*4 = 9604 tuning combinations
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range, coef.range, deg.range)
@@ -165,7 +163,7 @@ system.time(
 )
 # system.time output
 # user  system elapsed 
-# 528.11    0.07  529.56
+# 7908.05    7.72 8145.98 
 
 saveRDS(results.combos, "./tuning/svm/alpha/poly.tuning.RDS")
 
@@ -179,6 +177,9 @@ results.combos[order(results.combos$rmse), ] %>% head()
 # middle ground: r2 = 0.684, rmse = 4.02
 # degree = 4, cost = 10, epsilon = 0.125, gamma = 1, coef0 = 20
 
+# r2 = 0.604, rmse = 3.08
+# degree = 4, cost = 5, eps = 0.25, gammma = 0.01, coef0 = 1
+
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
 
@@ -191,10 +192,8 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/beta/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred]
+features <- readRDS("./feature.selection/beta.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Estimation ----------------------------------------------------------
 
@@ -308,6 +307,12 @@ saveRDS(results.coef, "./tuning/svm/beta/poly.deg.RDS")
 #     Tuning --------------------------------------------------------------
 
 # 5040 combinations
+cost.range <- c(1, 5, 10, 20, 50)
+deg.range <- 1:4
+coef.range <- c(0, 1, 2, 5, 10, 25)
+gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5)
+epsilon.range <- 2^(-4:0)
+# 3600 combos
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range, coef.range, deg.range)
 colnames(svm.combos) <- c("cost", "gamma", "epsilon", "coef", "degree")
@@ -337,14 +342,14 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 1723.71    0.14 1727.11 
+# 1633.64    1.28 1682.16 
 
 saveRDS(results.combos, "./tuning/svm/beta/poly.tuning.RDS")
 
-# results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
-# results.combos[order(results.combos$rmse), ] %>% head()
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared = 0.716, rmse = 2.98
-# degree = 3, cost = 4, eps = 0.125, gamma = 0.1, coef0 = 1
-# Best rmse = 2.71 (r2 = 0.698)
-# deg = 3, cost = 2, eps = 0.25, gamma = 0.05, coef0 = 1
+# Best rsquared = 0.761, rmse = 2.70
+# degree = 3, cost = 10, eps = 0.25, gamma = 0.001, coef0 = 25
+# Best rmse = 2.65 (r2 = 0.757)
+# deg = 4, cost = 10, eps = 0.25, gamma = 0.001, coef0 = 5
