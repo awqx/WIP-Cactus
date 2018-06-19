@@ -1,5 +1,6 @@
 dir.create("./models")
-dir.create("./models/svm")
+dir.create("./models/alpha")
+dir.create("./models/beta")
 
 # Libraries and Packages --------------------------------------------------
 
@@ -315,14 +316,17 @@ eval.tropsha(ev.beta.df)
 
 #         Saving models ----
 
-saveRDS(polysvm.alpha, "./models/svm/polysvm.alpha.RDS")
-saveRDS(polysvm.beta, "./models/svm/polysvm.beta.RDS")
+pp.settings <- readRDS("./pre-process/alpha/8/pp.settings.RDS")
+saveRDS(list(pp.settings, polysvm.alpha), "./models/alpha/polysvm.RDS")
+pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
+saveRDS(list(pp.settings, polysvm.beta), "./models/beta/polysvm.RDS")
 
 # And saving the external validation results
 dir.create("./results")
-dir.create("./results/svm")
-saveRDS(ev.alpha.df, "./results/svm/polysvm.alpha.df.RDS")
-saveRDS(ev.beta.df, "./results/svm/polysvm.beta.df.RDS")
+dir.create("./results/alpha")
+dir.create("./results/beta")
+saveRDS(ev.alpha.df, "./results/alpha/polysvm.df.RDS")
+saveRDS(ev.beta.df, "./results/beta/polysvm.df.RDS")
 
 # Radial ------------------------------------------------------------------
 
