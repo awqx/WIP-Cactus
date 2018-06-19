@@ -8,13 +8,16 @@ library(tidyverse)
 
 # Functions ---------------------------------------------------------------
 
-glm.looq2 <- function(read.dir, rfe.dir, nsplits, a, max) {
+glm.looq2 <- function(read.dir, nsplits, a, max) {
   # initialize a vector for analysis
   q2.results <- c(rep(0.0, nsplits))
+  if(str_detect(read.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
   for(n in 1:nsplits) {
     data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
       select(., -guest)
-    features <- readRDS(paste0(rfe.dir, "/rfe", n, ".RDS")) %>% predictors()
     obs <- data[ , 1]
     data <- data %>% select(., DelG, features) %>% data.matrix()
     pred <- c(rep(0.0, nrow(data) - 1))
@@ -31,7 +34,7 @@ glm.looq2 <- function(read.dir, rfe.dir, nsplits, a, max) {
       # Refer to 07.0.1.svm.tune.poly.R for values
       glm.mod <- glmnet(x = trn.x, y = trn.y, 
                         dfmax = max, alpha = a,
-                        pmax = 75, 
+                        pmax = ncol(trn.x), 
                         family = "mgaussian")
       pred[i] <- predict.glmnet(glm.mod, tst.x,
                                 s = tail(glm.mod$lambda, n = 1)) 
@@ -44,7 +47,9 @@ glm.looq2 <- function(read.dir, rfe.dir, nsplits, a, max) {
     p <- ggplot(pred.df, aes(x = obs, y = pred)) + 
       theme_bw() + 
       geom_point() + 
-      labs(title = as.character(n))
+      labs(title = n) + 
+      geom_abline(intercept = 0, slope = 1) + 
+      coord_fixed()
     print(p)
     # Handling outliers
     for(i in 1:length(pred)) {
@@ -61,70 +66,46 @@ glm.looq2 <- function(read.dir, rfe.dir, nsplits, a, max) {
   return(mean(q2.results))
 }
 
-glm.tst <- function(trn.dir, rfe.dir, tst.dir, nsplits, a, max) {
+glm.tst <- function(pp.dir, tst.dir, nsplits, a, max) {
   split <- 1:nsplits
   r2.results <- rep(0.0, nsplits)
   rmse.results <- rep(0.0, nsplits)
+  if(str_detect(pp.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
   for(n in 1:nsplits) {
     # Reading the training data
-    features <- readRDS(paste0(rfe.dir, "/rfe", n, ".RDS")) %>% predictors()
-    trn <- readRDS(paste0(trn.dir, n, "/pp.RDS")) %>%
+    trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
       select(., -guest)
-    trn <- trn %>% select(., DelG, features) 
-    trn.x <- select(trn, -DelG) %>% data.matrix()
+    trn.x <- select(trn, features) %>% data.matrix()
     trn.y <- select(trn, DelG) %>% data.matrix()
     
-    # Reading the pre-processing settings
-    pp.settings <- readRDS(paste0(trn.dir, n, "/pp.settings.RDS"))
-    # zero.pred <- readRDS(paste0(read.dir, n, "/zero.pred.RDS"))
-    # high.cor <- readRDS(paste0(read.dir, n, "/high.cor.RDS"))
-    
-    # Importing and pre-processing the test set
-    tst <- readRDS(paste0(tst.dir, "/tst", n, ".RDS"))
-    guest <- select(tst, guest)
-    tst.dg <- tst %>% select(., guest, DelG) 
-    
-    colnames(tst) <- str_replace(colnames(tst), "-", ".")
-    tst <- select(tst, -DelG)
-    tst <- do.call(data.frame, lapply(tst,
-                                      function(x)
-                                        replace(x, is.infinite(x), NA)))
-    tst <- tst %>%
-      predict(pp.settings, .) %>% select(., features) %>%
-      cbind(guest, .)
-    tst.ad <- domain.num(tst)
-    tst.outliers <- tst.ad %>% filter(domain == "outside") %>% .$guest
-    # print(tst.outliers)
-    if(str_detect(trn.dir, "alpha"))
-      tst.outliers <- c(tst.outliers, "indole")
-    tst <- tst %>%
-      filter(!guest %in% tst.outliers) %>% 
-      select(., -guest) %>% data.matrix()
-    tst.dg <- tst.dg %>% filter(!guest %in% tst.outliers) %>%
-      select(., -guest) %>% data.matrix
-    # filter(!guest == "indole") %>%  
-    # filter(!guest == "3-methylbenzoic acid") %>% # removing this persistent outlier 
-    
+    # Reading and pre-processing the test set
+    tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
+                              feat = features, n = n)
+    tst.y <- data.matrix(tst)[ , 1, drop = F]
+    tst.x <- data.matrix(tst)[ , -1]
     # Building the model
     glm.mod <- glmnet(x = trn.x, y = trn.y, 
                       dfmax = max, alpha = a,
                       pmax = ncol(trn.x), 
                       family = "mgaussian")
-
-    tst.df <- predict.glmnet(glm.mod, newx = tst, 
+    tst.df <- predict.glmnet(glm.mod, newx = tst.x, 
                              s = tail(glm.mod$lambda, n = 1)) %>%
-      cbind(tst.dg, .) %>%
+      cbind(tst.y, .) %>%
       as.data.frame()
     colnames(tst.df) <- c("obs", "pred")
+    for(i in 1:nrow(tst.df))
+      if(abs(tst.df$pred[i]) > 100)
+        tst.df$pred[i] <- mean(trn.y)
     tst.df <- tst.df[complete.cases(tst.df), ]
     p <- ggplot(tst.df, aes(x = obs, y = pred)) + 
       geom_point() + 
       theme_bw() + 
       labs(title = n) + 
-      geom_abline(slope = 1, intercept = 0)
-    for(i in 1:nrow(tst.df))
-      if(abs(tst.df$pred[i]) > 100)
-        tst.df$pred[i] <- mean(trn.y)
+      geom_abline(slope = 1, intercept = 0) + 
+      coord_fixed()
     print(p)
     r2.results[n] <- defaultSummary(tst.df)[2]
     rmse.results[n] <- defaultSummary(tst.df)[1]
@@ -136,259 +117,109 @@ glm.tst <- function(trn.dir, rfe.dir, tst.dir, nsplits, a, max) {
 # LOO-Q2 analysis ---------------------------------------------------------
 
 # Alpha
-glm.looq2("./pre-process/alpha/", "./feature.selection/alpha", 
-          nsplits = 10, a = 0.5, max = 42)
-# q2 = 0.501. good enough.
+# Either split 1 or 8
+# However, none actually pass the q2 test, which is unfortunate
+glm.looq2("./pre-process/alpha/", nsplits = 10, a = 0.8, max = 15)
 
 # Beta
-glm.looq2("./pre-process/beta/", "./feature.selection/beta",
-          nsplits = 10, a = 0.7, max = 40)
-# q2 = 0.679. good.
+glm.looq2("./pre-process/beta/", nsplits = 10, a = 0.6, max = 100) # 0.634
+glm.looq2("./pre-process/beta/", nsplits = 10, a = 1, max = 20) # 0.637
+# Both settings work fine...maybe consider two different models?
 
 
 # Test sets ---------------------------------------------------------------
 
-# Split 5 turned out the best, R2 = 0.637
-# Had to remove indole, though
-alpha.tst <- glm.tst("./pre-process/alpha/", "./feature.selection/alpha", 
-        "./model.data/alpha/", nsplits = 10, a = 0.5, max = 42)
+source("10.0.ad.functions.R")
+# Split 5 or 7 turned out the best, R2 = 0.714, .609 
+alpha.tst <- glm.tst("./pre-process/alpha/", "./model.data/alpha/", 
+                     nsplits = 10, a = 0.8, max = 15)
 
-# Split 9 turned out the best, R2 = 0.759 
-beta.tst <- glm.tst("./pre-process/beta/", "./feature.selection/beta", 
-        "./model.data/beta/", nsplits = 10, a = 0.7, max = 40)
+# All passed except 4 (0.592)
+# Split 6 turned out the best, r2 = 0.758
+beta.tst <- glm.tst("./pre-process/beta/", "./model.data/beta/", 
+                    nsplits = 10, a = 1, max = 20)
 
 # Single model ------------------------------------------------------------
-
+source("./eval.functions.R")
 #     Alpha ----
-features <- readRDS("./feature.selection/alpha/rfe5.RDS") %>% predictors()
-trn <- readRDS("./pre-process/alpha/5/pp.RDS") %>%
+trn.alpha <- readRDS("./pre-process/alpha/7/pp.RDS") %>%
   select(., -guest)
-trn <- trn %>% select(., DelG, features) 
-trn.x <- select(trn, -DelG) %>% data.matrix()
-trn.y <- select(trn, DelG) %>% data.matrix()
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
+trn.alpha <- trn.alpha %>% select(., DelG, features) 
+trn.alpha.x <- select(trn.alpha, -DelG) %>% data.matrix()
+trn.alpha.y <- select(trn.alpha, DelG) %>% data.matrix()
 
-# Reading the pre-processing settings
-pp.settings <- readRDS("./pre-process/alpha/5/pp.settings.RDS")
-
-# Importing and pre-processing the test set
-tst <- readRDS("./model.data/alpha/tst5.RDS")
-guest <- select(tst, guest)
-tst.dg <- tst %>% select(., guest, DelG) 
-
-colnames(tst) <- str_replace(colnames(tst), "-", ".")
-tst <- select(tst, -DelG)
-tst <- do.call(data.frame, lapply(tst,
-                                  function(x)
-                                    replace(x, is.infinite(x), NA)))
-tst <- tst %>%
-  predict(pp.settings, .) %>% select(., features) %>%
-  cbind(guest, .)
-tst.ad <- domain.num(tst)
-tst.outliers <- tst.ad %>% filter(domain == "outside") %>% .$guest
-# indole is a persistent black sheep
-tst.outliers <- c("indole", tst.outliers)
-tst <- tst %>%
-  filter(!guest %in% tst.outliers) %>% 
-  select(., -guest) %>% data.matrix()
-tst.dg <- tst.dg %>% filter(!guest %in% tst.outliers) %>%
-  select(., -guest) %>% data.matrix
-
-# Building the model
-glm.mod <- glmnet(x = trn.x, y = trn.y, 
-                  dfmax = 42, alpha = 0.5,
-                  pmax = ncol(trn.x), 
+glm.alpha <- glmnet(x = trn.alpha.x, y = trn.alpha.y, 
+                  dfmax = 15, alpha = 0.8,
+                  pmax = ncol(trn.alpha.x), 
                   family = "mgaussian")
 
-tst.df <- predict.glmnet(glm.mod, newx = tst, 
-                         s = tail(glm.mod$lambda, n = 1)) %>%
-  cbind(tst.dg, .) %>%
-  as.data.frame()
-colnames(tst.df) <- c("obs", "pred")
-# Checking for any terrible outliers
-for(i in 1:nrow(tst.df))
-  if(abs(tst.df$pred[i]) > 100)
-    tst.df$pred[i] <- mean(trn.y)
-ggplot(tst.df, aes(x = obs, y = pred)) + 
+# Reading the pre-processing settings
+ev.alpha <- preprocess.ev("alpha", 7, features)
+ev.alpha.x <- ev.alpha[ , -1] %>% data.matrix()
+ev.alpha.y <- ev.alpha[ , 1] %>% data.matrix()
+
+ev.alpha.df <- predict.glmnet(glm.alpha, ev.alpha.x, 
+                              s = tail(glm.alpha$lambda, n = 1)) %>%
+  cbind(ev.alpha.y, .) %>% 
+  data.frame()
+colnames(ev.alpha.df) <- c("obs", "pred")
+ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   theme_bw() + 
   labs(title = "GLMNet for alpha-CD", 
        x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
-  geom_smooth(method = "lm") + 
-  geom_abline(slope = 1, intercept = 0)
-
-defaultSummary(tst.df)
-tst.df <- tst.df %>% mutate(resid = obs - pred)
-ggplot(tst.df, aes(x = obs, y = resid)) + 
-  geom_point() + 
-  theme_bw() + 
-  geom_smooth(method = "lm") + 
-  geom_hline(yintercept = 0)
-
-saveRDS(glm.mod, "./models/glmnet/alpha.RDS")
-saveRDS(tst.df, "./models/glmnet/alpha.results.RDS")
-
-#     Beta ----
-features <- readRDS("./feature.selection/beta/rfe8.RDS") %>% predictors()
-features <- readRDS("./feature.selection/beta.vars.RDS")
-trn <- readRDS("./pre-process/beta/9/pp.RDS") %>%
-  select(., -guest)
-trn <- trn %>% select(., DelG, features) 
-trn.x <- select(trn, -DelG) %>% data.matrix()
-trn.y <- select(trn, DelG) %>% data.matrix()
-
-# Reading the pre-processing settings
-pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
-
-# Importing and pre-processing the test set
-tst <- readRDS("./model.data/beta/tst9.RDS")
-guest <- select(tst, guest)
-tst.dg <- tst %>% select(., guest, DelG) 
-
-colnames(tst) <- str_replace(colnames(tst), "-", ".")
-tst <- select(tst, -DelG)
-tst <- do.call(data.frame, lapply(tst,
-                                  function(x)
-                                    replace(x, is.infinite(x), NA)))
-tst <- tst %>%
-  predict(pp.settings, .) %>% select(., features) %>%
-  cbind(guest, .)
-tst.ad <- domain.num(tst)
-tst.outliers <- tst.ad %>% filter(domain == "outside") %>% .$guest
-# indole is a persistent black sheep
-tst.outliers <- c("indole", tst.outliers)
-tst <- tst %>%
-  filter(!guest %in% tst.outliers) %>% 
-  select(., -guest) %>% data.matrix()
-tst.dg <- tst.dg %>% filter(!guest %in% tst.outliers) %>%
-  select(., -guest) %>% data.matrix
-
-# Building the model
-glm.mod <- glmnet(x = trn.x, y = trn.y, 
-                  dfmax = 40, alpha = 0.7,
-                  pmax = ncol(trn.x), 
-                  family = "mgaussian")
-
-tst.df <- predict.glmnet(glm.mod, newx = tst, 
-                         s = tail(glm.mod$lambda, n = 1)) %>%
-  cbind(tst.dg, .) %>%
-  as.data.frame()
-colnames(tst.df) <- c("obs", "pred")
-# # Checking for any terrible outliers
-# for(i in 1:nrow(tst.df))
-#   if(abs(tst.df$pred[i]) > 100)
-#     tst.df$pred[i] <- mean(trn.y)
-ggplot(tst.df, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  theme_bw() + 
-  labs(title = "GLMNet for beta-CD") + 
-  geom_smooth(method = "lm") + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(ratio = 1)
-
-defaultSummary(tst.df)
-tst.df <- tst.df %>% mutate(resid = obs - pred)
-ggplot(tst.df, aes(x = obs, y = resid)) + 
-  geom_point() + 
-  theme_bw() + 
   # geom_smooth(method = "lm") + 
-  geom_hline(yintercept = 0) 
-
-saveRDS(glm.mod, "./models/glmnet/beta.RDS")
-saveRDS(tst.df, "./models/glmnet/beta.results.RDS")
-
-# Additional accuracy validation ------------------------------------------
-
-source("./eval.functions.R")
-# yay you all pass
-alpha.df <- readRDS("./models/glmnet/alpha.results.RDS")
-eval.tropsha(alpha.df)
-beta.df <- readRDS("./models/glmnet/beta.results.RDS")
-eval.tropsha(beta.df)
-
-# External validation -----------------------------------------------------
-
-#     Alpha ----
-
-glm.alpha <- readRDS("./models/glmnet/alpha.RDS")
-ev.alpha <- readRDS("./ext.validation/alpha.RDS")
-ev.alpha.info <- select(ev.alpha, guest:data.source)
-guest.alpha <- select(ev.alpha.info, guest)
-
-colnames(ev.alpha) <- str_replace(colnames(ev.alpha), "-", ".")
-ev.alpha <- select(ev.alpha, -host:-data.source)
-ev.alpha <- do.call(data.frame, lapply(ev.alpha,
-                                  function(x)
-                                    replace(x, is.infinite(x), NA)))
-pp.settings <- readRDS("./pre-process/alpha/5/pp.settings.RDS")
-features <- readRDS("./feature.selection/alpha/rfe5.RDS") %>% predictors()
-ev.alpha <- ev.alpha %>%
-  predict(pp.settings, .) %>% select(., features) %>%
-  cbind(guest.alpha, .)
-
-ev.alpha.ad <- domain.num(ev.alpha)
-# No outliers
-ev.alpha.outliers <- ev.alpha.ad %>% filter(domain == "outside") %>% .$guest
-
-ev.alpha <- ev.alpha %>%
-  filter(!guest %in% ev.alpha.outliers) %>% 
-  select(., -guest) %>% data.matrix()
-ev.alpha.dg <- ev.alpha.info %>% filter(!guest %in% ev.alpha.outliers) %>%
-  select(., DelG) %>% data.matrix
-
-ev.alpha.df <- predict.glmnet(glm.alpha, newx = ev.alpha, 
-                         s = tail(glm.alpha$lambda, n = 1)) %>%
-  cbind(ev.alpha.dg, .) %>%
-  as.data.frame()
-colnames(ev.alpha.df) <- c("obs", "pred")
-
-ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  theme_bw() + 
-  coord_fixed(ratio = 1) + 
-  geom_abline(intercept = 0, slope = 1)
-
+  geom_abline(slope = 1, intercept = 0) + 
+  coord_fixed()
 defaultSummary(ev.alpha.df)
+# Passes everything except R2
 eval.tropsha(ev.alpha.df)
 
 #     Beta ----
+trn.beta <- readRDS("./pre-process/beta/6/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/beta.vars.RDS")
+colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
+trn.beta <- trn.beta %>% select(., DelG, features) 
+trn.beta.x <- select(trn.beta, -DelG) %>% data.matrix()
+trn.beta.y <- select(trn.beta, DelG) %>% data.matrix()
 
-glm.beta <- readRDS("./models/glmnet/beta.RDS")
-ev.beta <- readRDS("./ext.validation/beta.RDS")
-ev.beta.info <- select(ev.beta, guest:data.source)
-guest.beta <- select(ev.beta.info, guest)
+glm.beta <- glmnet(x = trn.beta.x, y = trn.beta.y, 
+                    dfmax = 20, alpha = 1,
+                    pmax = ncol(trn.beta.x), 
+                    family = "mgaussian")
 
-colnames(ev.beta) <- str_replace(colnames(ev.beta), "-", ".")
-ev.beta <- select(ev.beta, -host:-data.source)
-ev.beta <- do.call(data.frame, lapply(ev.beta,
-                                       function(x)
-                                         replace(x, is.infinite(x), NA)))
-pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
-features <- readRDS("./feature.selection/beta.vars.RDS") 
-ev.beta <- ev.beta %>%
-  predict(pp.settings, .) %>% select(., features) %>%
-  cbind(guest.beta, .)
+# Reading the pre-processing settings
+ev.beta <- preprocess.ev("beta", 6, features)
+ev.beta.x <- ev.beta[ , -1] %>% data.matrix()
+ev.beta.y <- ev.beta[ , 1] %>% data.matrix()
 
-ev.beta.ad <- domain.num(ev.beta)
-# No outliers
-ev.beta.outliers <- ev.beta.ad %>% filter(domain == "outside") %>% .$guest
-
-ev.beta <- ev.beta %>%
-  filter(!guest %in% ev.beta.outliers) %>% 
-  select(., -guest) %>% data.matrix()
-ev.beta.dg <- ev.beta.info %>% filter(!guest %in% ev.beta.outliers) %>%
-  select(., DelG) %>% data.matrix
-
-ev.beta.df <- predict.glmnet(glm.beta, newx = ev.beta, 
+ev.beta.df <- predict.glmnet(glm.beta, ev.beta.x, 
                               s = tail(glm.beta$lambda, n = 1)) %>%
-  cbind(ev.beta.dg, .) %>%
-  as.data.frame()
+  cbind(ev.beta.y, .) %>% 
+  data.frame()
 colnames(ev.beta.df) <- c("obs", "pred")
-
 ggplot(ev.beta.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   theme_bw() + 
-  coord_fixed(ratio = 1) + 
-  geom_abline(intercept = 0, slope = 1)
-
+  labs(title = "GLMNet for beta-CD", 
+       x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
+  # geom_smooth(method = "lm") + 
+  geom_abline(slope = 1, intercept = 0) + 
+  coord_fixed()
 defaultSummary(ev.beta.df)
-eval.tropsha(ev.beta.df) # Eh, it's good enough
+# Passes everything except R2
+eval.tropsha(ev.beta.df)
+
+# Saving models -----------------------------------------------------------
+
+# They both sort of suck, but whatever
+pp.settings <- readRDS("./pre-process/alpha/7/pp.settings.RDS")
+saveRDS(list(pp.settings, glm.alpha), "./models/alpha/glmnet.RDS")
+pp.settings <- readRDS("./pre-process/beta/6/pp.settings.RDS")
+saveRDS(list(pp.settings, glm.beta), "./models/beta/glmnet.RDS")
+
+saveRDS(ev.alpha.df, "./results/alpha/glmnet.df.RDS")
+saveRDS(ev.beta.df, "./results/beta/glmnet.df.RDS")

@@ -17,13 +17,13 @@ library(tidyverse)
 polysvm.looq2 <- function(read.dir, nsplits, cost, deg, coef, e, g) {
   # initialize a vector for analysis
   q2.results <- c(rep(0.0, nsplits))
+  if(str_detect(read.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
   for(n in 1:nsplits) {
     data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
       select(., -guest)
-    if(str_detect(read.dir, "alpha"))
-      features <- readRDS("./feature.selection/alpha.vars.RDS")
-    else
-      features <- readRDS("./feature.selection/beta.vars.RDS")
     obs <- data[ , 1]
     data <- data %>% select(., DelG, features)
     pred <- c(rep(0.0, nrow(data) - 1))
