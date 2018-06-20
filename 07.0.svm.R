@@ -1,6 +1,7 @@
 dir.create("./models")
 dir.create("./models/alpha")
 dir.create("./models/beta")
+source("./07.model.functions.R")
 
 # Libraries and Packages --------------------------------------------------
 
@@ -219,41 +220,20 @@ polysvm.alpha <- svm(x = trn.alpha.x, y = trn.alpha.y,
                      epsilon = 0.27, gamma = 0.01,
                      kernel = "polynomial")
 
-# Testing on external validation
-ev.alpha <- readRDS("./ext.validation/alpha.RDS")
-ev.alpha.info <- select(ev.alpha, guest:data.source)
+tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
+                               features, 8)
 
-colnames(ev.alpha) <- str_replace(colnames(ev.alpha), "-", ".")
-ev.alpha <- select(ev.alpha, -host:-data.source)
-ev.alpha <- do.call(data.frame, lapply(ev.alpha,
-                                       function(x)
-                                         replace(x, is.infinite(x), NA)))
-pp.settings <- readRDS("./pre-process/alpha/8/pp.settings.RDS")
-ev.alpha <- ev.alpha %>%
-  predict(pp.settings, .) %>% select(., features) %>%
-  cbind(select(ev.alpha.info, guest), .)
+tst.alpha.df <- predict(polysvm.alpha, tst.alpha[ , -1]) %>%
+  cbind(tst.alpha[ , 1], .) %>% data.frame()
+colnames(tst.alpha.df) <- c("obs", "pred")
 
-ev.alpha.ad <- domain.num(ev.alpha)
-# No outliers
-ev.alpha.outliers <- ev.alpha.ad %>% filter(domain == "outside") %>% .$guest
-
-ev.alpha <- ev.alpha %>%
-#   filter(!guest %in% ev.alpha.outliers) %>% 
-  select(., -guest)
-ev.alpha.dg <- ev.alpha.info %>% 
-  # filter(!guest %in% ev.alpha.outliers) %>%
-  select(., DelG) 
-
-ev.alpha.df <- predict(polysvm.alpha, ev.alpha) %>%
-  cbind(ev.alpha.dg, .)
-colnames(ev.alpha.df) <- c("obs", "pred")
-ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
-  theme_bw() + 
+# Yay, you pass
+eval.tropsha(tst.alpha.df)
+graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed()
-defaultSummary(ev.alpha.df)
-# rsquared = 0.732, RMSE = 2.48
+  theme_bw() + 
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1)
 
 #         Beta ----
 
@@ -269,65 +249,119 @@ polysvm.beta <- svm(x = trn.beta.x, y = trn.beta.y,
                      cost = 10, degree = 3, coef0 = 5,
                      epsilon = 0.25, gamma = 0.001,
                      kernel = "polynomial")
+tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
+                               features, 9)
 
-# Testing on external validation
-ev.beta <- readRDS("./ext.validation/beta.RDS")
-ev.beta.info <- select(ev.beta, guest:data.source)
+tst.beta.df <- predict(polysvm.beta, tst.beta[ , -1]) %>%
+  cbind(tst.beta[ , 1], .) %>% data.frame()
+colnames(tst.beta.df) <- c("obs", "pred")
 
-colnames(ev.beta) <- str_replace(colnames(ev.beta), "-", ".")
-ev.beta <- select(ev.beta, -host:-data.source)
-ev.beta <- do.call(data.frame, lapply(ev.beta,
-                                       function(x)
-                                         replace(x, is.infinite(x), NA)))
-pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
-ev.beta <- ev.beta %>%
-  predict(pp.settings, .) %>% select(., features) %>%
-  cbind(select(ev.beta.info, guest), .)
-
-ev.beta.ad <- domain.num(ev.beta)
-# No outliers
-ev.beta.outliers <- ev.beta.ad %>% filter(domain == "outside") %>% .$guest
-
-ev.beta <- ev.beta %>%
-  filter(!guest %in% ev.beta.outliers) %>% 
-  select(., -guest)
-ev.beta.dg <- ev.beta.info %>% 
-  filter(!guest %in% ev.beta.outliers) %>%
-  select(., DelG) 
-
-ev.beta.df <- predict(polysvm.beta, ev.beta) %>%
-  cbind(ev.beta.dg, .)
-colnames(ev.beta.df) <- c("obs", "pred")
-ggplot(ev.beta.df, aes(x = obs, y = pred)) + 
-  theme_bw() + 
+# Yay, you pass
+eval.tropsha(tst.beta.df)
+graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) + 
   geom_point() + 
-  geom_abline(intercept = 0, slope = 1) + 
-  coord_fixed()
-defaultSummary(ev.beta.df)
-# rsquared = 0.540, RMSE = 3.38
-# the r2 is brought down by one outlier, so this is probably safe
-
-#         Additional evaluation ----
-
-source("./eval.functions.R")
-# They all pass, except for beta on R^2 (but not too bad, so it's alright)
-eval.tropsha(ev.alpha.df)
-eval.tropsha(ev.beta.df)
+  theme_bw() + 
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1)
 
 #         Saving models ----
 
-pp.settings <- readRDS("./pre-process/alpha/8/pp.settings.RDS")
-saveRDS(list(pp.settings, polysvm.alpha), "./models/alpha/polysvm.RDS")
-pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
-saveRDS(list(pp.settings, polysvm.beta), "./models/beta/polysvm.RDS")
-
-# And saving the external validation results
 dir.create("./results")
 dir.create("./results/alpha")
 dir.create("./results/beta")
-saveRDS(ev.alpha.df, "./results/alpha/polysvm.df.RDS")
-saveRDS(ev.beta.df, "./results/beta/polysvm.df.RDS")
+
+pp.settings <- readRDS("./pre-process/alpha/8/pp.settings.RDS")
+saveRDS(list(pp.settings, polysvm.alpha), "./models/alpha/polysvm.RDS")
+saveRDS(tst.alpha.df, "./results/alpha/polysvm.RDS")
+graph.alpha + 
+  labs(x = "Experimental dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Polynomial SVM for Alpha")
+ggsave("./results/alpha/polysvm.png")
+
+
+pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
+saveRDS(list(pp.settings, polysvm.beta), "./models/beta/polysvm.RDS")
+saveRDS(tst.beta.df, "./results/beta/polysvm.RDS")
+graph.beta + 
+  labs(x = "Experimental dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Polynomial SVM for Beta")
+ggsave("./results/beta/polysvm.png")
 
 # Radial ------------------------------------------------------------------
 
 
+
+# External Validation -----------------------------------------------------
+
+# # Testing on external validation
+# ev.alpha <- readRDS("./ext.validation/alpha.RDS")
+# ev.alpha.info <- select(ev.alpha, guest:data.source)
+# 
+# colnames(ev.alpha) <- str_replace(colnames(ev.alpha), "-", ".")
+# ev.alpha <- select(ev.alpha, -host:-data.source)
+# ev.alpha <- do.call(data.frame, lapply(ev.alpha,
+#                                        function(x)
+#                                          replace(x, is.infinite(x), NA)))
+# pp.settings <- readRDS("./pre-process/alpha/8/pp.settings.RDS")
+# ev.alpha <- ev.alpha %>%
+#   predict(pp.settings, .) %>% select(., features) %>%
+#   cbind(select(ev.alpha.info, guest), .)
+# 
+# ev.alpha.ad <- domain.num(ev.alpha)
+# # No outliers
+# ev.alpha.outliers <- ev.alpha.ad %>% filter(domain == "outside") %>% .$guest
+# 
+# ev.alpha <- ev.alpha %>%
+# #   filter(!guest %in% ev.alpha.outliers) %>% 
+#   select(., -guest)
+# ev.alpha.dg <- ev.alpha.info %>% 
+#   # filter(!guest %in% ev.alpha.outliers) %>%
+#   select(., DelG) 
+# 
+# ev.alpha.df <- predict(polysvm.alpha, ev.alpha) %>%
+#   cbind(ev.alpha.dg, .)
+# colnames(ev.alpha.df) <- c("obs", "pred")
+# ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
+#   theme_bw() + 
+#   geom_point() + 
+#   geom_abline(intercept = 0, slope = 1) + 
+#   coord_fixed()
+# defaultSummary(ev.alpha.df)
+# # rsquared = 0.732, RMSE = 2.48
+
+# # Testing on external validation
+# ev.beta <- readRDS("./ext.validation/beta.RDS")
+# ev.beta.info <- select(ev.beta, guest:data.source)
+# 
+# colnames(ev.beta) <- str_replace(colnames(ev.beta), "-", ".")
+# ev.beta <- select(ev.beta, -host:-data.source)
+# ev.beta <- do.call(data.frame, lapply(ev.beta,
+#                                       function(x)
+#                                         replace(x, is.infinite(x), NA)))
+# pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
+# ev.beta <- ev.beta %>%
+#   predict(pp.settings, .) %>% select(., features) %>%
+#   cbind(select(ev.beta.info, guest), .)
+# 
+# ev.beta.ad <- domain.num(ev.beta)
+# # No outliers
+# ev.beta.outliers <- ev.beta.ad %>% filter(domain == "outside") %>% .$guest
+# 
+# ev.beta <- ev.beta %>%
+#   filter(!guest %in% ev.beta.outliers) %>% 
+#   select(., -guest)
+# ev.beta.dg <- ev.beta.info %>% 
+#   filter(!guest %in% ev.beta.outliers) %>%
+#   select(., DelG) 
+# 
+# ev.beta.df <- predict(polysvm.beta, ev.beta) %>%
+#   cbind(ev.beta.dg, .)
+# colnames(ev.beta.df) <- c("obs", "pred")
+# ggplot(ev.beta.df, aes(x = obs, y = pred)) + 
+#   theme_bw() + 
+#   geom_point() + 
+#   geom_abline(intercept = 0, slope = 1) + 
+#   coord_fixed()
+# defaultSummary(ev.beta.df)
+# # rsquared = 0.540, RMSE = 3.38
+# # the r2 is brought down by one outlier, so this is probably safe

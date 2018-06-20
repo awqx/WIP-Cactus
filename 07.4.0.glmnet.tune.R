@@ -161,10 +161,8 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn.df <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/alpha/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn.df <- trn.df[ , colnames(trn.df) %in% trn.pred] 
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+trn.df <- trn.df[ , colnames(trn.df) %in% c("DelG", features)] 
 trn <- data.matrix(trn.df)
 
 #     Estimation ----------------------------------------------------------
@@ -207,7 +205,6 @@ saveRDS(results.df, "./tuning/glmnet/alpha/dfmax.RDS")
 #     Tuning --------------------------------------------------------------
 
 # 11 * 8 = 88 combinations
-
 glm.combos <- expand.grid(alpha.range, df.range)
 colnames(glm.combos) <- c("alpha", "dfmax")
 alpha.combos <- glm.combos$alpha
@@ -230,15 +227,15 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 42.95    0.10   44.36 
+# 9.92    0.00    9.95 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# rsquared of 0.651, rmse = 2.999
-# alpha = 0.5, dfmax = 50
+# rsquared of 0.545, rmse = 3.36
+# alpha = 0.7, dfmax = 10
 
-# best rmse = 2.999 (same as above)
+# best rmse = same as above
 
 saveRDS(results.combos, "./tuning/glmnet/alpha/tune.RDS")
 results.combos$alpha <- as.factor(results.combos$alpha)
@@ -260,10 +257,8 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn.df <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/beta/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn.df <- trn.df[ , colnames(trn.df) %in% trn.pred] 
+features <- readRDS("./feature.selection/beta.vars.RDS")
+trn.df <- trn.df[ , colnames(trn.df) %in% c("DelG", features)] 
 trn <- data.matrix(trn.df)
 
 #     Estimation ----------------------------------------------------------
@@ -327,21 +322,17 @@ system.time(
 )
 
 # system.time output
-#   user  system elapsed 
-# 18.59    0.00   18.63 
+#  user  system elapsed 
+# 12.53    0.05   12.71 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# rsquared of 0.744, rmse = 2.88
-# alpha = 0.7, dfmax = 20
+# rsquared of 0.704, rmse = 2.96
+# alpha = 1, dfmax = 20
 
-# rmse = 2.78, rsquared = 0.725
-# alpha = 1.0, dfmax = 20
-
-
-# rsquared of 0.706, rmse = 4.01
-# alpha = 0, dfmax = 64
+# rmse = 2.94, rsquared = 0.684
+# alpha = 0.6, dfmax = 100
 
 saveRDS(results.combos, "./tuning/glmnet/beta/tune.RDS")
 results.combos$alpha <- as.factor(results.combos$alpha)
