@@ -3,6 +3,7 @@
 library(caret)
 library(randomForest)
 library(tidyverse)
+
 # Tuning Functions -----------------------------------------------------
 
 tune.rf.ntree <- function(data, nfolds, num, seed) {
@@ -160,18 +161,15 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/alpha/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred]
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 dir.create("./tuning/rforest")
-
 
 #     Estimation ----------------------------------------------------------
 
 # Number of trees ---
-ntree.range <- c(25, 50, 75, 100 * seq(1, 10, 3))
+ntree.range <- c(25, 50, 75, 100, 250, 500)
 results1.ntree <- do.call(rbind, lapply(ntree.range, 
                                         FUN = tune.rf.ntree, 
                                         data = trn, 
@@ -191,7 +189,7 @@ ggplot(results.ntree, aes(x = ntree, y = rsquared, color = seed)) +
   theme_bw()
 
 #     Node size ---
-node.range <- 2 ^ (0:5)
+node.range <- c(1, 2, 5, 10, 25, 50)
 results1.node <- do.call(rbind, lapply(node.range, 
                                        FUN = tune.rf.node, 
                                        data = trn, 
@@ -208,11 +206,10 @@ results.node <- rbind(results1.node, results2.node, results3.node) %>%
   mutate(seed = as.factor(seed))
 ggplot(results.node, aes(x = nodesize, y = rsquared, color = seed)) + 
   geom_line() + 
-  theme_bw() + 
-  scale_x_continuous(tran = "log2")
+  theme_bw()
 
 #     Number of variables (mtry) ---
-mtry.range <- c(1, 5, 10, 25, 50, 80)
+mtry.range <- c(1, 2, 4, 8, 12, 20)
 results1.mtry <- do.call(rbind, lapply(mtry.range, 
                                        FUN = tune.rf.mtry, 
                                        data = trn, 
@@ -256,16 +253,16 @@ system.time(
     )
   )
 )
-# user  system elapsed 
-# 63.50    0.07   65.61 
+#  user  system elapsed 
+# 67.88    0.13   68.71 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# best r2 = 0.741 (rmse = 3.26)
-# ntree = 25, nodesize = 4, mtry = 1
+# best r2 = 0.576 (rmse = 3.25)
+# ntree = 50, nodesize = 2, mtry = 1
 
-# best rmse = 3.15 (rsquared = 0.717)
-# ntree = 400, nodesize = 4, mtry = 10
+# best rmse = 3.17 (rsquared = 0.574)
+# ntree = 250, nodesize = 5, mtry = 4
 
 dir.create("./tuning/rforest/alpha")
 saveRDS(results.combos, "./tuning/rforest/alpha/tune.RDS")
@@ -284,15 +281,13 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/beta/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred]
+features <- readRDS("./feature.selection/beta.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Estimation ----------------------------------------------------------
 
 # Number of trees ---
-ntree.range <- c(25, 50, 75, 100 * seq(1, 10, 3))
+ntree.range <- c(25, 50, 75, 100, 250, 500)
 results1.ntree <- do.call(rbind, lapply(ntree.range, 
                                         FUN = tune.rf.ntree, 
                                         data = trn, 
@@ -312,7 +307,7 @@ ggplot(results.ntree, aes(x = ntree, y = rsquared, color = seed)) +
   theme_bw()
 
 #     Node size ---
-node.range <- 2 ^ (0:5)
+node.range <- c(1, 2, 5, 10, 25, 50)
 results1.node <- do.call(rbind, lapply(node.range, 
                                        FUN = tune.rf.node, 
                                        data = trn, 
@@ -329,11 +324,10 @@ results.node <- rbind(results1.node, results2.node, results3.node) %>%
   mutate(seed = as.factor(seed))
 ggplot(results.node, aes(x = nodesize, y = rsquared, color = seed)) + 
   geom_line() + 
-  theme_bw() + 
-  scale_x_continuous(tran = "log2")
+  theme_bw() 
 
 #     Number of variables (mtry) ---
-mtry.range <- c(1, 2, 5, 10, 15)
+mtry.range <- c(1, 2, 4, 8, 15, 20, 25)
 results1.mtry <- do.call(rbind, lapply(mtry.range, 
                                        FUN = tune.rf.mtry, 
                                        data = trn,  
@@ -376,16 +370,16 @@ system.time(
     )
   )
 )
-# user  system elapsed 
-# 88.94    0.23   93.04 
+#  user  system elapsed 
+# 452.75    1.22  466.45 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# best r2 = 0.826 (rmse = 3.43)
-# ntree = 1000, nodesize = 4, mtry = 5
+# best r2 = 0.789 (rmse = 2.56)
+# ntree = 25, nodesize = 10, mtry = 4
 
-# best rmse =  3.28 (rsquared = 0.705)
-# ntree = 1000, nodesize = 1, mtry = 5
+# best rmse =  2.47 (r2 = 0.777)
+# ntree = 100, nodesize = 1, mtry = 4
 
 dir.create("./tuning/rforest/beta")
 saveRDS(results.combos, "./tuning/rforest/beta/tune.RDS")
