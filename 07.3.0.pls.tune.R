@@ -125,10 +125,8 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/alpha/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred] 
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Method --------------------------------------------------------------
 
@@ -142,7 +140,7 @@ saveRDS(results.methods, "./tuning/pls/alpha/methods.RDS")
 
 #     Number of components ------------------------------------------------
 
-ncomp.range <- c(1, 2, 5, 10, 20, 25)
+ncomp.range <- c(1:5, 8, 13, 20)
 results1.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
                                           data = trn, nfolds = 10, seed = 101))
 results2.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
@@ -176,16 +174,16 @@ system.time(
 
 # system.time
 # user  system elapsed 
-# 3.89    0.00    3.93 
+# 4.77    0.02    4.84 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# r2 = 0.712, rmse = 3.38
-# ncomp = 10, method = "kernelpls"
+# r2 = 0.507, rmse = 3.46
+# ncomp = 8, method = "simpls"
 
-# r2 = 0.662, rmse = 3.36
-# ncomp = 25. methpd = widekernelpls
+# r2 = 0.502, rmse = 3.42
+# ncomp = 8. methpd = oscorelpls
 
 saveRDS(results.combos, "./tuning/pls/alpha/tune.RDS")
 results.combos <- results.combos %>%
@@ -194,7 +192,8 @@ ggplot(results.combos, aes(x = ncomp, y = method, fill = rsquared)) +
   geom_raster() + 
   scale_fill_gradientn(colours = terrain.colors(20)) + 
   theme_bw() + 
-  labs(title = "GLMNet tuning for alpha-CD", x = "Alpha", y = "Maximum degrees of freedom", 
+  labs(title = "PLS Tuning for Alpha", x = "Number of Components", 
+       y = "PLS Method", 
        fill = "R2")
 ggsave("./tuning/pls/alpha/tune.png", dpi = 450)
 
@@ -210,10 +209,8 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/beta/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred] 
+features <- readRDS("./feature.selection/beta.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Method --------------------------------------------------------------
 
@@ -227,7 +224,7 @@ saveRDS(results.methods, "./tuning/pls/beta/methods.RDS")
 
 #     Number of components ------------------------------------------------
 
-ncomp.range <- c(1, 2, 3, 5, 10, 15)
+ncomp.range <- c(1:5, 10, 15, 25)
 results1.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
                                         data = trn, nfolds = 10, seed = 101))
 results2.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
@@ -261,13 +258,13 @@ system.time(
 
 # system.time
 #  user  system elapsed 
-# 1.47    0.00    1.50 
+# 15.59    0.05   15.83 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# r2 = 0.733, rmse = 3.51
-# ncomp = 1, method = oscorepls
+# r2 = 0.644, rmse = 3.21
+# ncomp = 25, method = simpls
 
 
 saveRDS(results.combos, "./tuning/pls/beta/tune.RDS")
@@ -281,3 +278,5 @@ ggplot(results.combos, aes(x = ncomp, y = method, fill = rsquared)) +
        x = "Number of components", y = "Maximum degrees of freedom", 
        fill = "R2")
 ggsave("./tuning/pls/beta/tune.png", dpi = 450)
+
+# General peak around 25 number of components. May be able to push higher. 
