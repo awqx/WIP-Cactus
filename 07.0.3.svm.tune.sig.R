@@ -6,16 +6,13 @@ source("./07.0.0.svm.functions.R")
 
 #     Loading Data --------------------------------------------------------
 
-# Reading data with all descriptors
 trn.all <- readRDS("./pre-process/alpha/1/pp.RDS") 
 colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/alpha/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred]
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Estimation ----------------------------------------------------------
 
@@ -24,7 +21,7 @@ trn <- trn[ , colnames(trn) %in% trn.pred]
 
 #     Cost ---
 
-cost.range <- c(1, 2, 5, 10, 25, 50, 100)
+cost.range <- c(1:5, 10, 25, 50)
 results1.cost <- do.call(rbind, lapply(cost.range, FUN = tune.svm.cost, 
                                        data = trn, kerneltype = "sigmoid",
                                        nfolds = 10, seed = 101)) 
@@ -42,7 +39,7 @@ ggplot(results.cost, aes(x = cost, color = seed, group = seed)) +
 
 #     Gamma ---
 
-gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1)
+gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5)
 results1.gamma <- do.call(rbind, lapply(gamma.range, FUN = tune.svm.gamma,
                                         data = trn, kerneltype = "sigmoid", 
                                         nfolds = 10, seed = 101))
@@ -83,7 +80,7 @@ ggplot(results.epsilon, aes(x = epsilon, color = seed, group = seed)) +
 
 #     Coef ---
 
-coef.range <- c(0, 1, 2, 3, 4, 7, 10)
+coef.range <- c(0:5, 8, 13)
 results1.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
                                        data = trn, kerneltype = "sigmoid", 
                                        nfolds = 10, seed = 101)) 
@@ -110,7 +107,7 @@ saveRDS(results.coef, "./tuning/svm/alpha/sig.coef.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-# 2744 combos
+# 3072 combos
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range, coef.range)
 colnames(svm.combos) <- c("cost", "gamma", "epsilon")
@@ -135,17 +132,17 @@ system.time(
 )
 # system.time output
 #  user  system elapsed 
-# 88.03    0.05   89.92 
+# 182.17    0.38  200.66
 
 saveRDS(results.combos, "./tuning/svm/alpha/sig.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared = 0.679, rmse = 5.74
-# cost = 2, eps = 0.25, gamma = 0.001, coef0 = 0
-# Best rmse = 4.28, r2 = 0.430
-# cost = 1, eps = 1, gamma = 0.05, coef0 = 0 
+# Best rsquared = 0.526, rmse = 3.48
+# cost = 50, eps = 0.01, gamma = 0.001, coef0 = 0
+# Best rmse = 3.33, r2 = 0.520 (better overall)
+# cost = 25, eps = 0.01, gamma = 0.001, coef0 = 0 
 
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
@@ -158,10 +155,8 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/beta/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred]
+features <- readRDS("./feature.selection/beta.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Estimation ----------------------------------------------------------
 
@@ -170,7 +165,7 @@ trn <- trn[ , colnames(trn) %in% trn.pred]
 
 #     Cost ---
 
-cost.range <- c(1, 2, 5, 10, 25, 75, 150, 250)
+cost.range <- c(1, 2, 5, 10, 25, 50, 75)
 results1.cost <- do.call(rbind, lapply(cost.range, FUN = tune.svm.cost, 
                                        data = trn, kerneltype = "sigmoid",
                                        nfolds = 10, seed = 101)) 
@@ -188,7 +183,7 @@ ggplot(results.cost, aes(x = cost, color = seed, group = seed)) +
 
 #     Gamma ---
 
-gamma.range <- c(0.001, 0.01, 0.1, 0.25, 0.5, 1)
+gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25)
 results1.gamma <- do.call(rbind, lapply(gamma.range, FUN = tune.svm.gamma,
                                         data = trn, kerneltype = "sigmoid", 
                                         nfolds = 10, seed = 101))
@@ -228,7 +223,7 @@ ggplot(results.epsilon, aes(x = epsilon, color = seed, group = seed)) +
 
 #     Coef ---
 
-coef.range <- c(0, 1, 2, 3, 7, 10)
+coef.range <- c(0:5, 8, 13)
 results1.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
                                        data = trn, kerneltype = "sigmoid", 
                                        nfolds = 10, seed = 101)) 
@@ -255,7 +250,7 @@ saveRDS(results.coef, "./tuning/svm/beta/sig.coef.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-# 2016 tuning combinations
+# 1960 tuning combinations
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range, coef.range)
 colnames(svm.combos) <- c("cost", "gamma", "epsilon", "coef")
@@ -263,7 +258,6 @@ cost.combos <- svm.combos$cost
 gamma.combos <- svm.combos$gamma
 eps.combos <- svm.combos$epsilon
 coef.combos <- svm.combos$coef
-
 
 set.seed(1001)
 system.time(
@@ -283,14 +277,14 @@ system.time(
 )
 # system.time output
 # user  system elapsed 
-# 83.59    0.03   84.06
+# 172.59    0.34  188.20
 
 saveRDS(results.combos, "./tuning/svm/beta/sig.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared = 0.682 (rmse = 2.94)
-# cost = 250, epsilon = 0.25, gamma = 0.001, coef0 = 1
-# Best rmse = 2.84 (r2 = 0.634)
-# cost = 5, epsilon = 0.25, gamma = 0.01, coef0 = 0
+# Best rsquared = 0.656 (rmse = 3.20)
+# cost = 75, epsilon = 0.1, gamma = 0.001, coef0 = 0
+# Best rmse = 3.10 (r2 = 0.641)
+# cost = 2, epsilon = 0.01, gamma = 0.01, coef0 = 0

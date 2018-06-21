@@ -111,35 +111,30 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 27.20    0.03   27.97
+# 44.71    0.06   45.40 
 
 saveRDS(results.combos, "./tuning/svm/alpha/rbf.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared = 0.903 (rmse = 2.72)
-# cost = 100, eps = 0, gamma = 0.05
-# Best rmse = 2.36 (rsquared = 0.787)
-# cost = 5, eps = 0.01, gamma = 0.05
-# Middle ground: rmse = 2.43, r2 = 0.819
-# cost = 5, eps = 0.05, gamma - 0.05
+# Best rsquared = 0.626 (rmse = 2.99)
+# cost = 5, eps = 0.25, gamma = 0.05
+# Best rmse = 2.95 (rsquared = 0.590)
+# cost = 10, eps = 0.01, gamma = 0.01
 
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
 
 #     Loading Data --------------------------------------------------------
 
-# Reading data with all descriptors
 trn.all <- readRDS("./pre-process/beta/1/pp.RDS") 
 colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/beta/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred]
+features <- readRDS("./feature.selection/beta.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Estimation ----------------------------------------------------------
 
@@ -211,7 +206,9 @@ saveRDS(results.epsilon, "./tuning/svm/beta/rbf.epsilon.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-# 7*7*8= 392 tuning combinations
+cost.range <- c(1, 2, 5, 10, 25, 50)
+gamma.range <- c(0.001, 0.05, 0.05, 0.1, 0.25, 0.5)
+epsilon.range <- c(0, 0.01, 0.05, 0.1, 0.25, 0.5)
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range)
 colnames(svm.combos) <- c("cost", "gamma", "epsilon")
@@ -237,16 +234,16 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 20.70    0.05   21.00 
+#  40.92    0.04   41.19 
 
 saveRDS(results.combos, "./tuning/svm/beta/rbf.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared = 0.838 (rmse = 2.66)
-# cost = 50, eps = 0.5, gamma = 0.05 
-# Best rmse = 2.43 (r2 = 0.706)
-# cost = 50, eps = 0.25, gamma = 0.05
+# Best rsquared = 0.755 (rmse = 2.88)
+# cost = 5, eps = 0.25, gamma = 0.05 
+# Best rmse = 2.72 (r2 = 0.737)
+# cost = 2, eps = 0.1, gamma = 0.05
 # middle ground: r2 = 0.832, rmse = 2.56
 # cost = 25, eps = 0.25, gamma = 0.05
