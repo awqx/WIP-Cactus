@@ -1,3 +1,7 @@
+library(caret)
+library(tidyverse)
+source("10.0.ad.functions.R")
+source("eval.functions.R")
 # Both pp.dir and tst.dir should end in a backslash
 # n refers to the split number
 preprocess.tst.mod <- function(pp.dir, tst.dir, feat, n) {

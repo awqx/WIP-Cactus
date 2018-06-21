@@ -5,6 +5,7 @@ dir.create("./models/glmnet")
 library(caret)
 library(glmnet)
 library(tidyverse)
+source("./07.model.functions.R")
 
 # Functions ---------------------------------------------------------------
 
@@ -129,7 +130,6 @@ glm.looq2("./pre-process/beta/", nsplits = 10, a = 1, max = 20) # 0.637
 
 # Test sets ---------------------------------------------------------------
 
-source("10.0.ad.functions.R")
 # Split 5 or 7 turned out the best, R2 = 0.714, .609 
 alpha.tst <- glm.tst("./pre-process/alpha/", "./model.data/alpha/", 
                      nsplits = 10, a = 0.8, max = 15)
@@ -140,9 +140,10 @@ beta.tst <- glm.tst("./pre-process/beta/", "./model.data/beta/",
                     nsplits = 10, a = 1, max = 20)
 
 # Single model ------------------------------------------------------------
-source("./eval.functions.R")
+
 #     Alpha ----
-trn.alpha <- readRDS("./pre-process/alpha/7/pp.RDS") %>%
+
+trn.alpha <- readRDS("./pre-process/alpha/5/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/alpha.vars.RDS")
 colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
@@ -155,29 +156,28 @@ glm.alpha <- glmnet(x = trn.alpha.x, y = trn.alpha.y,
                   pmax = ncol(trn.alpha.x), 
                   family = "mgaussian")
 
-# Reading the pre-processing settings
-ev.alpha <- preprocess.ev("alpha", 7, features)
-ev.alpha.x <- ev.alpha[ , -1] %>% data.matrix()
-ev.alpha.y <- ev.alpha[ , 1] %>% data.matrix()
+tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
+                                features, 5) %>% data.matrix()
+tst.alpha.x <- tst.alpha[ , -1]
+tst.alpha.y <- tst.alpha[ , 1, drop = F]
 
-ev.alpha.df <- predict.glmnet(glm.alpha, ev.alpha.x, 
-                              s = tail(glm.alpha$lambda, n = 1)) %>%
-  cbind(ev.alpha.y, .) %>% 
-  data.frame()
-colnames(ev.alpha.df) <- c("obs", "pred")
-ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  theme_bw() + 
-  labs(title = "GLMNet for alpha-CD", 
-       x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
-  # geom_smooth(method = "lm") + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed()
-defaultSummary(ev.alpha.df)
-# Passes everything except R2
-eval.tropsha(ev.alpha.df)
+tst.alpha.df <- predict.glmnet(glm.alpha, tst.alpha.x, 
+                               s = tail(glm.alpha$lambda, n = 1)) %>%
+  cbind(tst.alpha.y, .) %>% data.frame()
+colnames(tst.alpha.df) <- c("obs", "pred")
+eval.tropsha(tst.alpha.df)
+
+graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) +
+  geom_point() +
+  theme_bw() +
+  coord_fixed()  +
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Experimental dG, kJ/mol", 
+       title = "GLMNet for Alpha")
+print(graph.alpha)
 
 #     Beta ----
+
 trn.beta <- readRDS("./pre-process/beta/6/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/beta.vars.RDS")
@@ -191,35 +191,83 @@ glm.beta <- glmnet(x = trn.beta.x, y = trn.beta.y,
                     pmax = ncol(trn.beta.x), 
                     family = "mgaussian")
 
-# Reading the pre-processing settings
-ev.beta <- preprocess.ev("beta", 6, features)
-ev.beta.x <- ev.beta[ , -1] %>% data.matrix()
-ev.beta.y <- ev.beta[ , 1] %>% data.matrix()
+tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
+                                features, 6) %>% data.matrix()
+tst.beta.x <- tst.beta[ , -1]
+tst.beta.y <- tst.beta[ , 1, drop = F]
 
-ev.beta.df <- predict.glmnet(glm.beta, ev.beta.x, 
-                              s = tail(glm.beta$lambda, n = 1)) %>%
-  cbind(ev.beta.y, .) %>% 
-  data.frame()
-colnames(ev.beta.df) <- c("obs", "pred")
-ggplot(ev.beta.df, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  theme_bw() + 
-  labs(title = "GLMNet for beta-CD", 
-       x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
-  # geom_smooth(method = "lm") + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed()
-defaultSummary(ev.beta.df)
-# Passes everything except R2
-eval.tropsha(ev.beta.df)
+tst.beta.df <- predict.glmnet(glm.beta, tst.beta.x, 
+                               s = tail(glm.beta$lambda, n = 1)) %>%
+  cbind(tst.beta.y, .) %>% data.frame()
+colnames(tst.beta.df) <- c("obs", "pred")
+eval.tropsha(tst.beta.df)
+
+graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) +
+  geom_point() +
+  theme_bw() +
+  coord_fixed()  +
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Experimental dG, kJ/mol", 
+       title = "GLMNet for Beta")
+print(graph.beta)
 
 # Saving models -----------------------------------------------------------
 
-# They both sort of suck, but whatever
 pp.settings <- readRDS("./pre-process/alpha/7/pp.settings.RDS")
 saveRDS(list(pp.settings, glm.alpha), "./models/alpha/glmnet.RDS")
+saveRDS(tst.alpha.df, "./results/alpha/glmnet.RDS")
+print(graph.alpha)
+ggsave("./results/alpha/glmnet.png")
+
+
 pp.settings <- readRDS("./pre-process/beta/6/pp.settings.RDS")
 saveRDS(list(pp.settings, glm.beta), "./models/beta/glmnet.RDS")
+saveRDS(tst.beta.df, "./results/beta/glmnet.RDS")
+print(graph.beta)
+ggsave("./results/beta/glmnet.png")
 
-saveRDS(ev.alpha.df, "./results/alpha/glmnet.df.RDS")
-saveRDS(ev.beta.df, "./results/beta/glmnet.df.RDS")
+# External validation -----------------------------------------------------
+
+# # Reading the pre-processing settings
+# ev.alpha <- preprocess.ev("alpha", 7, features)
+# ev.alpha.x <- ev.alpha[ , -1] %>% data.matrix()
+# ev.alpha.y <- ev.alpha[ , 1] %>% data.matrix()
+# 
+# ev.alpha.df <- predict.glmnet(glm.alpha, ev.alpha.x, 
+#                               s = tail(glm.alpha$lambda, n = 1)) %>%
+#   cbind(ev.alpha.y, .) %>% 
+#   data.frame()
+# colnames(ev.alpha.df) <- c("obs", "pred")
+# ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
+#   geom_point() + 
+#   theme_bw() + 
+#   labs(title = "GLMNet for alpha-CD", 
+#        x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
+#   # geom_smooth(method = "lm") + 
+#   geom_abline(slope = 1, intercept = 0) + 
+#   coord_fixed()
+# defaultSummary(ev.alpha.df)
+# # Passes everything except R2
+# eval.tropsha(ev.alpha.df)
+# 
+# # Reading the pre-processing settings
+# ev.beta <- preprocess.ev("beta", 6, features)
+# ev.beta.x <- ev.beta[ , -1] %>% data.matrix()
+# ev.beta.y <- ev.beta[ , 1] %>% data.matrix()
+# 
+# ev.beta.df <- predict.glmnet(glm.beta, ev.beta.x, 
+#                              s = tail(glm.beta$lambda, n = 1)) %>%
+#   cbind(ev.beta.y, .) %>% 
+#   data.frame()
+# colnames(ev.beta.df) <- c("obs", "pred")
+# ggplot(ev.beta.df, aes(x = obs, y = pred)) + 
+#   geom_point() + 
+#   theme_bw() + 
+#   labs(title = "GLMNet for beta-CD", 
+#        x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
+#   # geom_smooth(method = "lm") + 
+#   geom_abline(slope = 1, intercept = 0) + 
+#   coord_fixed()
+# defaultSummary(ev.beta.df)
+# # Passes everything except R2
+# eval.tropsha(ev.beta.df)

@@ -4,7 +4,7 @@ library(caret)
 library(randomForest)
 library(tidyverse)
 
-source("./model.functions.R")
+source("./07.model.functions.R")
 
 # Functions ---------------------------------------------------------------
 
@@ -63,7 +63,7 @@ rf.looq2 <- function(read.dir, rfe.dir, nsplits, ntree, node, m) {
   return(mean(q2.results))
 }
 
-rf.tst <- function(pp.dir, rfe.dir, tst.dir, nsplits, ntree, node, m) {
+rf.tst <- function(pp.dir, tst.dir, nsplits, ntree, node, m) {
   split <- 1:nsplits
   # initialize a vector for analysis
   r2.results <- c(rep(0.0, nsplits))
@@ -126,12 +126,10 @@ rf.looq2("./pre-process/beta/", "./feature.selection/beta",
 # Test sets ---------------------------------------------------------------
 
 # Split 5 is the best, r2 = 0.769, rmse = 2.18
-alpha.tst <- rf.tst("./pre-process/alpha/", "./feature.selection/alpha", 
-                    "./model.data/alpha/", nsplits = 10, ntree = 250, node = 5, m = 4)
+alpha.tst <- rf.tst("./pre-process/alpha/", "./model.data/alpha/", nsplits = 10, ntree = 250, node = 5, m = 4)
 # Split 8 is the best, r2 = 0.855, rmse = 2.01
 # split 9 is also pretty good, r2 = 0.845, rmse = 1.94
-beta.tst <- rf.tst("./pre-process/beta/", "./feature.selection/beta", 
-                    "./model.data/beta/", nsplits = 10, ntree = 25, node = 10, m = 4)
+beta.tst <- rf.tst("./pre-process/beta/", "./model.data/beta/", nsplits = 10, ntree = 25, node = 10, m = 4)
 
 # Single models -----------------------------------------------------------
 
@@ -205,7 +203,7 @@ ggsave("./results/alpha/rf.png")
 
 
 pp.settings <- readRDS("./pre-process/beta/8/pp.settings.RDS")
-saveRDS(list(pp.settings, glm.beta), "./models/beta/rf.RDS")
+saveRDS(list(pp.settings, rf.beta), "./models/beta/rf.RDS")
 saveRDS(tst.beta.df, "./results/beta/rf.RDS")
 print(graph.beta)
 ggsave("./results/beta/rf.png")
