@@ -12,7 +12,7 @@ use.rfe <- function(path) {
   pred <- trn %>% dplyr::select(., -guest, -DelG)
   obs <- trn$DelG
   
-  ctrl <- rfeControl(functions = treebagFuncs, 
+  ctrl <- rfeControl(functions = rfFuncs, 
                      method = "repeatedcv", 
                      repeats = 5, 
                      verbose = T)
