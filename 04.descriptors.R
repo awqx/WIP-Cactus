@@ -108,22 +108,23 @@ dataset$guest <- str_replace(dataset$guest, pattern = '4-nitrophenyl-beta-d-gluc
 # SDFs that fail to process:
 #     Phenol?, p-cresol
 alpha.dg <- dataset %>% filter(host == "alpha")
-alpha.padel.raw <- read_csv("./descriptors/alpha.csv") %>%
+# alpha.csv is original. alpha-ob.csv is obminimized
+alpha.padel.raw <- read_csv("./descriptors/alpha-ob.csv") %>%
   rename(guest = Name)
 alpha.padel <- inner_join(alpha.dg, alpha.padel.raw, by = "guest")
 
-# Total: 213/241 guests passed PaDEL, or 88.4%
+# Total: 214/241 guests passed PaDEL, or 88.4%
 
 #     Beta-CD -------------------------------------------------------------
 
 # SDFs that fail to process:
 #     Barbital, p-cresol, thianapthene, 4-hydroxyacetophenone
 beta.dg <- dataset %>% filter(host == "beta")
-beta.padel.raw <- read_csv("./descriptors/beta.csv") %>%
+beta.padel.raw <- read_csv("./descriptors/beta-ob.csv") %>%
   rename(guest = Name)
 beta.padel <- inner_join(beta.dg, beta.padel.raw, by = "guest")
 
-# Total: 324/354 = 91.5% yield
+# Total: 320/354 = 90.4% yield
 
 #     Gamma-CD ------------------------------------------------------------
 

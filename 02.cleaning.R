@@ -387,3 +387,29 @@ ggplot(ri.dmfh2o.wide, aes(x = DelG, y = dG.h20)) +
   geom_abline(intercept = 0, slope = 1) + 
   coord_fixed() + 
   theme_bw()
+
+
+# Connors (Gamma-CD) ------------------------------------------------------
+
+# file found from University of Wisconsin archives
+gamma.raw <- read.csv("./dwnld/connors-gamma.csv")
+colnames(gamma.raw) <- c("guest", "charge", "ka")
+
+# cleaning for neutral charge
+gamma <- gamma.raw %>% filter(charge == "0")
+
+# Unit conversion
+# According to Connors, T = 298 K 
+convert.ka.delg <- function(ka) {
+  lnk <- log(ka)
+  return(-8.314 * 298 * lnk / 1000)
+}
+gamma <- gamma %>% select(., -charge) %>%
+  mutate(ka = convert.ka.delg(as.numeric(ka))) %>% 
+  rename(DelG = ka) %>%
+  mutate(guest = as.character(guest))
+
+# Checking DelG
+ggplot(gamma, aes(x = DelG)) + 
+  geom_histogram()
+

@@ -1,3 +1,13 @@
+make.regex <- function(string) {
+  new.string <- str_replace(string, pattern = "\\(", 
+                            replacement = "\\\\(")
+  new.string <- str_replace(new.string, pattern = "\\)", 
+                            replacement = "\\\\)")
+  # new.string <- str_replace(new.string, pattern = "\\Î²|\\B\\s+H\\+|\u03b2", # alternatives: \\Î²|\\B\\s+H\\+
+  #                           replacement = "\\(Î²|\u03b2\\)")
+  return(new.string)
+}
+
 fixed.sdf <- data.frame(
   pattern = "biebricht scarlet",
   replacement = "biebrich scarlet",
