@@ -1,1082 +1,621 @@
+dir.create("./models")
+dir.create("./models/alpha")
+dir.create("./models/beta")
+source("./07.model.functions.R")
+
 # Libraries and Packages --------------------------------------------------
 
 library(caret)
 library(e1071)
 library(kernlab)
-library(Matrix)
-library(stats)
-library(stringr)
+# library(Matrix)
+# library(stats)
+# library(stringr)
 library(tidyverse)
 
-# Loading Data ------------------------------------------------------------
-
-dir.create("./models")
-dir.create("./models/svm")
-df.raw <- readRDS("./data/padel.pp.RDS") 
-df <- df.raw %>%
-  select(., -guest:-host) %>%
-  select(., -data.source)
-
-set.seed(25)
-trn.ind <- sample(x = 1:nrow(df), size = round(0.7 * nrow(df)))
-trn <- df[trn.ind, ]
-tst <- df[-trn.ind, ]
-trn.x <- trn[ , -1]
-trn.y <- trn[ , 1]
-tst.x <- tst[ , -1]
-tst.y <- tst[ , 1]
-
-# Polynomial Kernel -------------------------------------------------------
-#     All Data ------------------------------------------------------------
-
-svm.all <- svm(x = trn.x, 
-               y = trn.y, 
-               coef0 = 1.5, 
-               cost = 4096, 
-               epsilon = 0.1, 
-               kernel = "polynomial", 
-               gamma = 0.03, 
-               degree = 2)
-
-svm.all.tst <- predict(svm.all, tst.x) %>%
-  cbind(tst.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = tst.y) %>%
-  mutate(resid = obs - pred)
-
-svm.all.trn <- predict(svm.all, trn.x) %>%
-  cbind(trn.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = trn.y) %>%
-  mutate(resid = obs - pred)
-
-defaultSummary(svm.all.tst) # 0.470
-defaultSummary(svm.all.trn) # 0.990
-
-#     Alpha-CD ------------------------------------------------------------
-
-alpha <- df %>% filter(alpha > 0)
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(alpha), size = round(0.7 * nrow(alpha)))
-a.trn.x <- alpha[trn.ind, -1]
-a.trn.y <- alpha[trn.ind, 1]
-
-a.tst.x <- alpha[-trn.ind, -1]
-a.tst.y <- alpha[-trn.ind, 1]
-
-svm.alpha <- svm(x = a.trn.x, 
-                 y = a.trn.y, 
-                 coef0 = 2, 
-                 cost = 2048, 
-                 epsilon = 0.1, 
-                 kernel = "polynomial", 
-                 gamma = 0.03, 
-                 degree = 2)
-
-svm.a.tst <- predict(svm.alpha, a.tst.x) %>%
-  cbind(a.tst.y) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = a.tst.y) %>%
-  mutate(resid = obs - pred)
-
-svm.a.trn <- predict(svm.alpha, a.trn.x) %>%
-  cbind(a.trn.y) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = a.trn.y)%>%
-  mutate(resid = obs - pred)
-
-defaultSummary(svm.a.tst) # 0.607
-defaultSummary(svm.a.trn) # 0.993
-
-saveRDS(svm.alpha, "./models/svm/polysvm.alpha.RDS")
-
-#     Beta-CD -------------------------------------------------------------
-
-beta <- df %>% filter(beta > 0)
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(beta), size = round(0.7 * nrow(beta)))
-b.trn.x <- beta[trn.ind, -1]
-b.trn.y <- beta[trn.ind, 1]
-
-b.tst.x <- beta[-trn.ind, -1]
-b.tst.y <- beta[-trn.ind, 1]
-
-svm.beta <- svm(x = b.trn.x, 
-                y = b.trn.y, 
-                coef0 = 2, 
-                cost = 2048, 
-                epsilon = 0.1, 
-                kernel = "polynomial", 
-                gamma = 0.03, 
-                degree = 2)
-
-svm.b.tst <- predict(svm.beta, b.tst.x) %>%
-  cbind(b.tst.y) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = b.tst.y) %>%
-  mutate(resid = obs - pred)
-svm.b.trn <- predict(svm.beta, b.trn.x) %>%
-  cbind(b.trn.y) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
-  mutate(resid = obs - pred)
-defaultSummary(svm.b.tst) # 0.634
-defaultSummary(svm.b.trn) # 0.998
-
-saveRDS(svm.beta, "./models/svm/polysvm.beta.RDS")
-
-#     Gamma-CD ------------------------------------------------------------
-
-gamma <- df %>% filter(gamma > 0)
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(gamma), size = round(0.7 * nrow(gamma)))
-c.trn.x <- gamma[trn.ind, -1]
-c.trn.y <- gamma[trn.ind, 1]
-
-c.tst.x <- gamma[-trn.ind, -1]
-c.tst.y <- gamma[-trn.ind, 1]
-
-svm.gamma <- svm(x = c.trn.x, 
-                 y = c.trn.y, 
-                 coef0 = 2, 
-                 cost = 2048, 
-                 epsilon = 0.1, 
-                 kernel = "polynomial", 
-                 gamma = 0.03, 
-                 degree = 2)
-
-svm.c.tst <- predict(svm.gamma, c.tst.x) %>%
-  cbind(c.tst.y) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = c.tst.y) %>%
-  mutate(resid = obs - pred)
-
-svm.c.trn <- predict(svm.gamma, c.trn.x) %>%
-  cbind(c.trn.y) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = c.trn.y)%>%
-  mutate(resid = obs - pred)
-
-defaultSummary(svm.c.tst) # 0.214
-defaultSummary(svm.c.trn) # 0.99986
-
-saveRDS(svm.gamma, "./models/svm/polysvm.gamma.RDS")
-
-#     Compiled CDs --------------------------------------------------------
-
-temp.a <- svm.a.tst %>% mutate(cd.type = "alpha")
-temp.b <- svm.b.tst %>% mutate(cd.type = "beta")
-temp.c <- svm.c.tst %>% mutate(cd.type = "gamma")
-poly.abc.tst <- rbind(temp.a, temp.b, temp.c, make.row.names = F)
-
-temp.a <- svm.a.trn %>% mutate(cd.type = "alpha")
-temp.b <- svm.b.trn %>% mutate(cd.type = "beta")
-temp.c <- svm.c.trn %>% mutate(cd.type = "gamma")
-poly.abc.trn <- rbind(temp.a, temp.b, temp.c, make.row.names = F) 
-
-defaultSummary(poly.abc.tst) # 0.614
-defaultSummary(poly.abc.trn) # 0.997
-
-saveRDS(poly.abc.tst, "./models/svm/polysvm.tst.results.RDS")
-saveRDS(poly.abc.trn, "./models/svm/polysvm.trn.results.RDS")
-
-#####
-# Radial Basis Kernel -----------------------------------------------------
-#     All ------------------------------------------------------------
-
-rbf.all <- svm(x = trn.x, 
-               y = trn.y,
-               cost = 4, 
-               epsilon = 0.5, 
-               kernel = "radial", 
-               gamma = 0.001)
-
-rbf.all.tst <- predict(rbf.all, tst.x) %>%
-  cbind(tst.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = tst.y) %>%
-  mutate(resid = obs - pred)
-
-rbf.all.trn <- predict(rbf.all, trn.x) %>%
-  cbind(trn.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = trn.y) %>%
-  mutate(resid = obs - pred)
-
-defaultSummary(rbf.all.tst) # 0.567
-defaultSummary(rbf.all.trn) # 0.791
-
-#     Alpha ---------------------------------------------------------
-
-rbf.alpha <- svm(x = a.trn.x,
-             y = a.trn.y, 
-             kernel = "radial", 
-             cost = 4, 
-             gamma = 0.001, 
-             epsilon = 0.5)
-rbf.a.tst <- predict(rbf.alpha, a.tst.x) %>%
-  cbind(a.tst.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = a.tst.y) %>%
-  mutate(resid = obs - pred)
-
-rbf.a.trn <- predict(rbf.alpha, a.trn.x) %>%
-  cbind(a.trn.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = a.trn.y) %>%
-  mutate(resid = obs - pred)
-
-defaultSummary(rbf.a.tst) # 0.564
-defaultSummary(rbf.a.trn) # 0.783
-
-#     Beta -----------------------------------------------------------
-
-rbf.beta <- svm(x = b.trn.x,
-                 y = b.trn.y, 
-                 kernel = "radial", 
-                 cost = 4, 
-                 gamma = 0.001, 
-                 epsilon = 0.5)
-
-rbf.b.tst <- predict(rbf.beta, b.tst.x) %>%
-  cbind(b.tst.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = b.tst.y) %>%
-  mutate(resid = obs - pred)
-
-rbf.b.trn <- predict(rbf.beta, b.trn.x) %>%
-  cbind(b.trn.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
-  mutate(resid = obs - pred)
-
-defaultSummary(rbf.b.tst) # 0.735
-defaultSummary(rbf.b.trn) # 0.7996
-#     Gamma ----------------------------------------------------------
-
-rbf.gamma <- svm(x = c.trn.x,
-                y = c.trn.y, 
-                kernel = "radial", 
-                cost = 4, 
-                gamma = 0.001, 
-                epsilon = 0.5)
-
-rbf.c.tst <- predict(rbf.gamma, c.tst.x) %>%
-  cbind(c.tst.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = c.tst.y) %>%
-  mutate(resid = obs - pred)
-
-rbf.c.trn <- predict(rbf.gamma, c.trn.x) %>%
-  cbind(c.trn.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = c.trn.y) %>%
-  mutate(resid = obs - pred)
-
-defaultSummary(rbf.c.tst) # 0.279
-defaultSummary(rbf.c.trn) # 0.905
-
-#     Compiled CDs --------------------------------------------------------
-
-temp.a <- rbf.a.tst %>% mutate(cd.type = "alpha")
-temp.b <- rbf.b.tst %>% mutate(cd.type = "beta")
-temp.c <- rbf.c.tst %>% mutate(cd.type = "gamma")
-rbf.abc.tst <- rbind(temp.a, temp.b, temp.c, make.row.names = F)
-
-temp.a <- rbf.a.trn %>% mutate(cd.type = "alpha")
-temp.b <- rbf.b.trn %>% mutate(cd.type = "beta")
-temp.c <- rbf.c.trn %>% mutate(cd.type = "gamma")
-rbf.abc.trn <- rbind(temp.a, temp.b, temp.c, make.row.names = F)
-
-defaultSummary(rbf.abc.tst) # 0.625
-defaultSummary(rbf.abc.trn) # 0.806
-
-saveRDS(rbf.alpha, "./models/svm/rbf.alpha.RDS")
-saveRDS(rbf.beta, "./models/svm/rbf.beta.RDS")
-saveRDS(rbf.gamma, "./models/svm/rbf.gamma.RDS")
-
-# Sigmoid Kernel -----------------------------------------------------
-
-#     All ------------------------------------------------------------
-
-sig.all <- svm(x = trn.x, 
-               y = trn.y,
-               cost = 1, 
-               epsilon = 0.125, 
-               kernel = "sigmoid", 
-               gamma = 0.001)
-
-sig.all.tst <- predict(sig.all, tst.x) %>%
-  cbind(tst.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = tst.y) %>%
-  mutate(resid = obs - pred)
-
-sig.all.trn <- predict(sig.all, trn.x) %>%
-  cbind(trn.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = trn.y) %>%
-  mutate(resid = obs - pred)
-
-defaultSummary(sig.all.tst) # 0.470
-defaultSummary(sig.all.trn) # 0.474
-
-#     Alpha ---------------------------------------------------------
-
-sig.alpha <- svm(x = a.trn.x,
-                 y = a.trn.y, 
-                 kernel = "sigmoid", 
-                 cost = 1, 
-                 gamma = 0.001, 
-                 epsilon = 0.125)
-sig.a.tst <- predict(sig.alpha, a.tst.x) %>%
-  cbind(a.tst.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = a.tst.y) %>%
-  mutate(resid = obs - pred)
-
-sig.a.trn <- predict(sig.alpha, a.trn.x) %>%
-  cbind(a.trn.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = a.trn.y) %>%
-  mutate(resid = obs - pred)
-
-defaultSummary(sig.a.tst) # 0.420
-defaultSummary(sig.a.trn) # 0.496
-
-#     Beta -----------------------------------------------------------
-
-sig.beta <- svm(x = b.trn.x,
-                y = b.trn.y, 
-                kernel = "sigmoid", 
-                cost = 1, 
-                gamma = 0.001, 
-                epsilon = 0.125)
-
-sig.b.tst <- predict(sig.beta, b.tst.x) %>%
-  cbind(b.tst.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = b.tst.y) %>%
-  mutate(resid = obs - pred)
-
-sig.b.trn <- predict(sig.beta, b.trn.x) %>%
-  cbind(b.trn.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
-  mutate(resid = obs - pred)
-
-defaultSummary(sig.b.tst) # 0.6997
-defaultSummary(sig.b.trn) # 0.635
-
-#     Gamma ----------------------------------------------------------
-
-sig.gamma <- svm(x = c.trn.x,
-                 y = c.trn.y, 
-                 kernel = "sigmoid", 
-                 cost = 1, 
-                 gamma = 0.001, 
-                 epsilon = 0.125)
-
-sig.c.tst <- predict(sig.gamma, c.tst.x) %>%
-  cbind(c.tst.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = c.tst.y) %>%
-  mutate(resid = obs - pred)
-
-sig.c.trn <- predict(sig.gamma, c.trn.x) %>%
-  cbind(c.trn.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = c.trn.y) %>%
-  mutate(resid = obs - pred)
-
-defaultSummary(sig.c.tst) # 0.222
-defaultSummary(sig.c.trn) # 0.737
-
-#     Compiled CDs --------------------------------------------------------
-
-temp.a <- sig.a.tst %>% mutate(cd.type = "alpha")
-temp.b <- sig.b.tst %>% mutate(cd.type = "beta")
-temp.c <- sig.c.tst %>% mutate(cd.type = "gamma")
-sig.abc.tst <- rbind(temp.a, temp.b, temp.c, make.row.names = F)
-
-temp.a <- sig.a.trn %>% mutate(cd.type = "alpha")
-temp.b <- sig.b.trn %>% mutate(cd.type = "beta")
-temp.c <- sig.c.trn %>% mutate(cd.type = "gamma")
-sig.abc.trn <- rbind(temp.a, temp.b, temp.c, make.row.names = F)
-
-defaultSummary(sig.abc.tst) # 0.494
-defaultSummary(sig.abc.trn) # 0.575
-
-# Not saving the model because it's the worst of the SVMs
-# saveRDS(sig.alpha, "./models/svm/sig.alpha.RDS")
-# saveRDS(sig.beta, "./models/svm/sig.beta.RDS")
-# saveRDS(sig.gamma, "./models/svm/sig.gamma.RDS")
-
-# Plots -------------------------------------------------------------------
-
-# Notes: Outlier is 3-methylbenzoic acid
-dir.create("./graphs")
-dir.create("./graphs/svm")
-
-#     Polynomial ----------------------------------------------------------
-#         Test Set --------------------------------------------------------
-
-ggplot(svm.all.tst, aes(x = obs, y = pred)) + 
+# Functions ---------------------------------------------------------------
+
+polysvm.looq2 <- function(read.dir, nsplits, cost, deg, coef, e, g) {
+  # initialize a vector for analysis
+  q2.results <- c(rep(0.0, nsplits))
+  if(str_detect(read.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    obs <- data[ , 1]
+    data <- data %>% select(., DelG, features)
+    pred <- c(rep(0.0, nrow(data) - 1))
+    # In this loop, i represents the index of the datapoint left out of 
+    # model building
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, ]
+      x <- trn[ , -1]
+      y <- trn[ , 1]
+    
+      # Refer to 07.0.1.svm.tune.poly.R for values
+      svm.cv <- svm(x = x, y = y,
+                    cost = cost, degree = deg, coef0 = coef,
+                    epsilon = e, gamma = g,
+                    kernel = "polynomial")
+      pred[i] <- predict(svm.cv, tst[ , -1]) 
+    }
+    # test.df <- data.frame(obs, pred) %>% print()
+    # test.df <<- test.df
+    # defaultSummary(test.df) %>% print()
+    # prediction error sum of squares
+    for(i in 1:length(pred)) {
+      if(abs(pred[i]) > 50)
+        pred[i] <- mean(obs)
+    }
+    pred.df <- data.frame(obs, pred)
+    p <- ggplot(pred.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0)
+    print(p)
+    PRESS <- sum((obs - pred)^2)
+    # total sum of squares
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    message("Q2 = ", q2)
+    q2.results[n] <- q2
+  }
+  return(mean(q2.results))
+}
+# pp.dir, tst.dir should end in a backslash
+polysvm.tst <- function(pp.dir, tst.dir, nsplits, cost, deg, coef, e, g) {
+  split <- 1:nsplits
+  r2.results <- c(rep(0.0, nsplits))
+  rmse.results <- c(rep(0.0, nsplits))
+  
+  if(str_detect(pp.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
+  
+  for(n in 1:nsplits) {
+    trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    trn.y <- trn[ , 1]
+    trn.x <- trn %>% select(., features)
+    
+    tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
+                          feat = features, n = n)
+    tst.y <- tst[ , 1]
+    tst.x <- tst[ , -1]
+    # Refer to 07.0.1.svm.tune.poly.R for values
+    svm.cv <- svm(x = trn.x, y = trn.y,
+                  cost = cost, degree = deg, coef0 = coef,
+                  epsilon = e, gamma = g,
+                  kernel = "polynomial")
+    tst.df <- predict(svm.cv, tst.x) %>%
+      cbind(tst.y, .) %>% as.data.frame() 
+    colnames(tst.df) <- c("obs", "pred")
+    p <- ggplot(tst.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0) + 
+      coord_fixed()
+    print(p)
+    for(i in 1:nrow(tst.df))
+      if(abs(tst.df$pred[i]) > 100)
+        tst.df$pred[i] <- mean(trn.y)
+    print(defaultSummary(tst.df))
+    r2.results[n] <- defaultSummary(tst.df)[2]
+    rmse.results[n] <- defaultSummary(tst.df)[1]
+  }
+  return(data.frame(split, r2.results, rmse.results))
+}
+
+rbfsvm.looq2 <- function(read.dir, nsplits, cost, e, g) {
+  # initialize a vector for analysis
+  q2.results <- c(rep(0.0, nsplits))
+  if(str_detect(read.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    obs <- data[ , 1]
+    data <- data %>% select(., DelG, features)
+    pred <- c(rep(0.0, nrow(data) - 1))
+    # In this loop, i represents the index of the datapoint left out of 
+    # model building
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, ]
+      x <- trn[ , -1]
+      y <- trn[ , 1]
+      
+      # Refer to 07.0.1.svm.tune.poly.R for values
+      svm.cv <- svm(x = x, y = y,
+                    cost = cost, epsilon = e, gamma = g,
+                    kernel = "radial")
+      pred[i] <- predict(svm.cv, tst[ , -1]) 
+    }
+    # test.df <- data.frame(obs, pred) %>% print()
+    # test.df <<- test.df
+    # defaultSummary(test.df) %>% print()
+    # prediction error sum of squares
+    for(i in 1:length(pred)) {
+      if(abs(pred[i]) > 50)
+        pred[i] <- mean(obs)
+    }
+    pred.df <- data.frame(obs, pred)
+    p <- ggplot(pred.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0)
+    print(p)
+    PRESS <- sum((obs - pred)^2)
+    # total sum of squares
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    message("Q2 = ", q2)
+    q2.results[n] <- q2
+  }
+  return(mean(q2.results))
+}
+# pp.dir, tst.dir should end in a backslash
+rbfsvm.tst <- function(pp.dir, tst.dir, nsplits, cost, e, g) {
+  split <- 1:nsplits
+  r2.results <- c(rep(0.0, nsplits))
+  rmse.results <- c(rep(0.0, nsplits))
+  
+  if(str_detect(pp.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
+  
+  for(n in 1:nsplits) {
+    trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    trn.y <- trn[ , 1]
+    trn.x <- trn %>% select(., features)
+    
+    tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
+                              feat = features, n = n)
+    tst.y <- tst[ , 1]
+    tst.x <- tst[ , -1]
+    # Refer to 07.0.1.svm.tune.poly.R for values
+    svm.cv <- svm(x = trn.x, y = trn.y,
+                  cost = cost, epsilon = e, gamma = g,
+                  kernel = "radial")
+    tst.df <- predict(svm.cv, tst.x) %>%
+      cbind(tst.y, .) %>% as.data.frame() 
+    colnames(tst.df) <- c("obs", "pred")
+    p <- ggplot(tst.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0) + 
+      coord_fixed()
+    print(p)
+    for(i in 1:nrow(tst.df))
+      if(abs(tst.df$pred[i]) > 100)
+        tst.df$pred[i] <- mean(trn.y)
+    print(defaultSummary(tst.df))
+    r2.results[n] <- defaultSummary(tst.df)[2]
+    rmse.results[n] <- defaultSummary(tst.df)[1]
+  }
+  return(data.frame(split, r2.results, rmse.results))
+}
+
+sigsvm.looq2 <- function(read.dir, nsplits, cost, coef, e, g) {
+  # initialize a vector for analysis
+  q2.results <- c(rep(0.0, nsplits))
+  if(str_detect(read.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    obs <- data[ , 1]
+    data <- data %>% select(., DelG, features)
+    pred <- c(rep(0.0, nrow(data) - 1))
+    # In this loop, i represents the index of the datapoint left out of 
+    # model building
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, ]
+      x <- trn[ , -1]
+      y <- trn[ , 1]
+      
+      # Refer to 07.0.1.svm.tune.poly.R for values
+      svm.cv <- svm(x = x, y = y,
+                    cost = cost, coef0 = coef,
+                    epsilon = e, gamma = g,
+                    kernel = "sigmoid")
+      pred[i] <- predict(svm.cv, tst[ , -1]) 
+    }
+    # test.df <- data.frame(obs, pred) %>% print()
+    # test.df <<- test.df
+    # defaultSummary(test.df) %>% print()
+    # prediction error sum of squares
+    for(i in 1:length(pred)) {
+      if(abs(pred[i]) > 50)
+        pred[i] <- mean(obs)
+    }
+    pred.df <- data.frame(obs, pred)
+    p <- ggplot(pred.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0)
+    print(p)
+    PRESS <- sum((obs - pred)^2)
+    # total sum of squares
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    message("Q2 = ", q2)
+    q2.results[n] <- q2
+  }
+  return(mean(q2.results))
+}
+# pp.dir, tst.dir should end in a backslash
+sigsvm.tst <- function(pp.dir, tst.dir, nsplits, cost, coef, e, g) {
+  split <- 1:nsplits
+  r2.results <- c(rep(0.0, nsplits))
+  rmse.results <- c(rep(0.0, nsplits))
+  
+  if(str_detect(pp.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
+  
+  for(n in 1:nsplits) {
+    trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    trn.y <- trn[ , 1]
+    trn.x <- trn %>% select(., features)
+    
+    tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
+                              feat = features, n = n)
+    tst.y <- tst[ , 1]
+    tst.x <- tst[ , -1]
+    # Refer to 07.0.1.svm.tune.poly.R for values
+    svm.cv <- svm(x = trn.x, y = trn.y,
+                  cost = cost, coef0 = coef,
+                  epsilon = e, gamma = g,
+                  kernel = "sigmoid")
+    tst.df <- predict(svm.cv, tst.x) %>%
+      cbind(tst.y, .) %>% as.data.frame() 
+    colnames(tst.df) <- c("obs", "pred")
+    p <- ggplot(tst.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0) + 
+      coord_fixed()
+    print(p)
+    for(i in 1:nrow(tst.df))
+      if(abs(tst.df$pred[i]) > 100)
+        tst.df$pred[i] <- mean(trn.y)
+    print(defaultSummary(tst.df))
+    r2.results[n] <- defaultSummary(tst.df)[2]
+    rmse.results[n] <- defaultSummary(tst.df)[1]
+  }
+  return(data.frame(split, r2.results, rmse.results))
+}
+# Polynomial --------------------------------------------------------------
+
+#     LOOCV-Q2 ------------------------------------------------------------
+
+# Alpha models 1, 3, 4, 5, 6, 7, 8, 10 pass
+# Narrow misses for the rest (would all round to 0.5)
+# avg = 0.521
+polysvm.looq2(read.dir = "./pre-process/alpha/", nsplits = 10, 
+              cost = 4, deg = 5, coef = 1, e = 0.27, g = 0.01)
+
+# All beta models pass the Q2 test
+# Average Q2 = 0.691
+polysvm.looq2(read.dir = "./pre-process/beta/", nsplits = 10, 
+              cost = 10, deg = 3, coef = 5, e = 0.25, g = 0.001)
+
+#     Test sets -----------------------------------------------------------
+
+# Split 8 does the best
+alpha.tst <- polysvm.tst("./pre-process/alpha/", "./model.data/alpha/", nsplits = 10,
+            cost = 4, deg = 5, coef = 1, e = 0.27, g = 0.01)
+
+# Split 9 does the best here
+# Many other splits suffer from a persistent outlier
+# without the outlier, split 7 does the best
+beta.tst <- polysvm.tst("./pre-process/beta/", "./model.data/beta/", nsplits = 10,
+            cost = 10, deg = 3, coef = 5, e = 0.25, g = 0.001)
+
+#     Single models -------------------------------------------------------
+
+#         Alpha ----
+
+trn.alpha <- readRDS("./pre-process/alpha/8/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
+trn.alpha <- trn.alpha %>% select(., DelG, features) 
+trn.alpha.x <- select(trn.alpha, -DelG) 
+trn.alpha.y <- select(trn.alpha, DelG) 
+
+polysvm.alpha <- svm(x = trn.alpha.x, y = trn.alpha.y,
+                     cost = 4, degree = 5, coef0 = 1,
+                     epsilon = 0.27, gamma = 0.01,
+                     kernel = "polynomial")
+
+tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
+                               features, 8)
+
+tst.alpha.df <- predict(polysvm.alpha, tst.alpha[ , -1]) %>%
+  cbind(tst.alpha[ , 1], .) %>% data.frame()
+colnames(tst.alpha.df) <- c("obs", "pred")
+
+# Yay, you pass
+eval.tropsha(tst.alpha.df)
+graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
   theme_bw() + 
-  coord_fixed(xlim = c(-33, 5), ylim = c(-40, 5)) + 
-  labs(title = "Polynomial SVM", 
-       x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol")
-# ggsave("./graphs/svm/polysvm all.png")
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1)
 
-# ggplot_build(p)$data
-ggplot(svm.a.tst, aes(x = obs, y = pred)) + 
-  geom_point(color = "#F8766D") + 
-  geom_abline(slope = 1, intercept = 0) + 
+#         Beta ----
+
+trn.beta <- readRDS("./pre-process/beta/9/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/beta.vars.RDS")
+colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
+trn.beta <- trn.beta %>% select(., DelG, features) 
+trn.beta.x <- select(trn.beta, -DelG) 
+trn.beta.y <- select(trn.beta, DelG) 
+
+polysvm.beta <- svm(x = trn.beta.x, y = trn.beta.y,
+                     cost = 10, degree = 3, coef0 = 5,
+                     epsilon = 0.25, gamma = 0.001,
+                     kernel = "polynomial")
+tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
+                               features, 9)
+
+tst.beta.df <- predict(polysvm.beta, tst.beta[ , -1]) %>%
+  cbind(tst.beta[ , 1], .) %>% data.frame()
+colnames(tst.beta.df) <- c("obs", "pred")
+
+# Yay, you pass
+eval.tropsha(tst.beta.df)
+graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) + 
+  geom_point() + 
   theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(title = "Polynomial SVM - Alpha-CD", 
-       x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol")
-# ggsave("./graphs/svm/polysvm alpha.png")
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1)
 
-ggplot(svm.b.tst, aes(x = obs, y = pred)) + 
-  geom_point(color = "#00BA38") + 
-  geom_abline(slope = 1, intercept = 0) + 
+#         Saving models ----
+
+dir.create("./results")
+dir.create("./results/alpha")
+dir.create("./results/beta")
+
+pp.settings <- readRDS("./pre-process/alpha/8/pp.settings.RDS")
+saveRDS(list(pp.settings, polysvm.alpha), "./models/alpha/polysvm.RDS")
+saveRDS(tst.alpha.df, "./results/alpha/polysvm.RDS")
+graph.alpha + 
+  labs(x = "Experimental dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Polynomial SVM for Alpha")
+ggsave("./results/alpha/polysvm.png")
+
+
+pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
+saveRDS(list(pp.settings, polysvm.beta), "./models/beta/polysvm.RDS")
+saveRDS(tst.beta.df, "./results/beta/polysvm.RDS")
+graph.beta + 
+  labs(x = "Experimental dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Polynomial SVM for Beta")
+ggsave("./results/beta/polysvm.png")
+
+# Radial ------------------------------------------------------------------
+
+#     LOOCV-Q2 ------------------------------------------------------------
+
+# All pass, average = 0.558
+rbfsvm.looq2(read.dir = "./pre-process/alpha/", nsplits = 10, 
+             cost = 5, e = 0.25, g = 0.05)
+
+# All pass, average = 0.703
+rbfsvm.looq2(read.dir = "./pre-process/beta/", nsplits = 10, 
+             cost = 10, e = 0.01, g = 0.01)
+
+#     Test sets -----------------------------------------------------------
+
+# Using split 10, because it captures some of the lower range
+alpha.tst <- rbfsvm.tst("./pre-process/alpha/", "./model.data/alpha/", 
+                        nsplits = 10, cost = 5, e = 0.25, g = 0.05)
+
+# Split 7
+beta.tst <- rbfsvm.tst("./pre-process/beta/", "./model.data/beta/", nsplits = 10,
+                        cost = 10, e = 0.01, g = 0.01)
+
+#     Single models -------------------------------------------------------
+
+#         Alpha ----
+
+trn.alpha <- readRDS("./pre-process/alpha/10/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
+trn.alpha <- trn.alpha %>% select(., DelG, features) 
+trn.alpha.x <- select(trn.alpha, -DelG) 
+trn.alpha.y <- select(trn.alpha, DelG) 
+
+rbfsvm.alpha <- svm(x = trn.alpha.x, y = trn.alpha.y,
+                     cost = 5, epsilon = 0.25, gamma = 0.05,
+                     kernel = "radial")
+
+tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
+                                features, 10)
+
+tst.alpha.df <- predict(rbfsvm.alpha, tst.alpha[ , -1]) %>%
+  cbind(tst.alpha[ , 1], .) %>% data.frame()
+colnames(tst.alpha.df) <- c("obs", "pred")
+
+# Yay, you pass
+eval.tropsha(tst.alpha.df)
+graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) + 
+  geom_point() + 
   theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(title = "Polynomial SVM - Beta-CD", 
-       x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol")
-# ggsave("./graphs/svm/polysvm beta.png")
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1)
 
-ggplot(svm.c.tst, aes(x = obs, y = pred)) + 
-  geom_point(color = "#619CFF") + 
-  geom_abline(slope = 1, intercept = 0) + 
+#         Beta ----
+
+trn.beta <- readRDS("./pre-process/beta/7/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/beta.vars.RDS")
+colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
+trn.beta <- trn.beta %>% select(., DelG, features) 
+trn.beta.x <- select(trn.beta, -DelG) 
+trn.beta.y <- select(trn.beta, DelG) 
+
+rbfsvm.beta <- svm(x = trn.beta.x, y = trn.beta.y,
+                    cost = 19, epsilon = 0.01, gamma = 0.01,
+                    kernel = "radial")
+
+tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
+                                features, 7)
+
+tst.beta.df <- predict(rbfsvm.beta, tst.beta[ , -1]) %>%
+  cbind(tst.beta[ , 1], .) %>% data.frame()
+colnames(tst.beta.df) <- c("obs", "pred")
+
+# Yay, you pass
+eval.tropsha(tst.beta.df)
+graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) + 
+  geom_point() + 
   theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(title = "Polynomial SVM - Gamma-CD", 
-       x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol")
-# ggsave("./graphs/svm/polysvm gamma.png")
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1)
 
-ggplot(poly.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
+#         Saving models ----
+
+pp.settings <- readRDS("./pre-process/alpha/10/pp.settings.RDS")
+saveRDS(list(pp.settings, rbfsvm.alpha), "./models/alpha/rbfsvm.RDS")
+saveRDS(tst.alpha.df, "./results/alpha/rbfsvm.RDS")
+graph.alpha + 
+  labs(x = "Experimental dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Radial SVM for Alpha")
+ggsave("./results/alpha/rbfsvm.png")
+
+
+pp.settings <- readRDS("./pre-process/beta/7/pp.settings.RDS")
+saveRDS(list(pp.settings, rbfsvm.beta), "./models/beta/rbfsvm.RDS")
+saveRDS(tst.beta.df, "./results/beta/rbfsvm.RDS")
+graph.beta + 
+  labs(x = "Experimental dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Radial SVM for Beta")
+ggsave("./results/beta/rbfsvm.png")
+
+
+# Sigmoid -----------------------------------------------------------------
+
+#     LOOCV-Q2 ------------------------------------------------------------
+
+# None pass. 1 and 8 come the closest
+sigsvm.looq2(read.dir = "./pre-process/alpha/", nsplits = 10, 
+             cost = 15, coef = 0, e = 0.05, g = 0.001)
+
+# All pass, average = 0.635
+sigsvm.looq2(read.dir = "./pre-process/beta/", nsplits = 10, 
+             cost = 75, coef = 0, e = 0.1, g = 0.001)
+
+#     Test sets -----------------------------------------------------------
+
+# Split 5
+alpha.tst <- sigsvm.tst("./pre-process/alpha/", "./model.data/alpha/", 
+                        nsplits = 10, cost = 15, coef = 0, e = 0.05, g = 0.001)
+
+# Split 1
+beta.tst <- sigsvm.tst("./pre-process/beta/", "./model.data/beta/", nsplits = 10,
+                       cost = 75, coef = 0, e = 0.1, g = 0.001)
+
+#     Single models -------------------------------------------------------
+
+#         Alpha ----
+
+trn.alpha <- readRDS("./pre-process/alpha/5/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
+trn.alpha <- trn.alpha %>% select(., DelG, features) 
+trn.alpha.x <- select(trn.alpha, -DelG) 
+trn.alpha.y <- select(trn.alpha, DelG) 
+
+sigsvm.alpha <- svm(x = trn.alpha.x, y = trn.alpha.y,
+                    cost = 15, coef = 0, e = 0.05, g = 0.001,
+                    kernel = "sigmoid")
+
+tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
+                                features, 5)
+
+tst.alpha.df <- predict(sigsvm.alpha, tst.alpha[ , -1]) %>%
+  cbind(tst.alpha[ , 1], .) %>% data.frame()
+colnames(tst.alpha.df) <- c("obs", "pred")
+
+# Yay, you pass
+eval.tropsha(tst.alpha.df)
+graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
   theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(title = "Polynomial SVM - Compiled CD Types", 
-       x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/svm/polysvm compiled.png")
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Sigmoid SVM for Alpha")
 
-ggplot(poly.abc.tst, aes(x = pred, y = obs, color = cd.type)) +
-  geom_point() + 
-  coord_fixed() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  geom_abline(slope = 1, intercept = defaultSummary(poly.abc.tst)[1]) + 
-  geom_abline(slope = 1, intercept = -defaultSummary(poly.abc.tst)[1]) + 
-  coord_fixed() + 
-  theme_bw()
-#         Training Set ----------------------------------------------------
+#         Beta ----
 
-ggplot(svm.all.trn, aes(x = obs, y = pred)) + 
+trn.beta <- readRDS("./pre-process/beta/1/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/beta.vars.RDS")
+colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
+trn.beta <- trn.beta %>% select(., DelG, features) 
+trn.beta.x <- select(trn.beta, -DelG) 
+trn.beta.y <- select(trn.beta, DelG) 
+
+sigsvm.beta <- svm(x = trn.beta.x, y = trn.beta.y,
+                   cost = 75, coef = 0, e = 0.1, g = 0.001,
+                   kernel = "sigmoid")
+
+tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
+                               features, 1)
+
+tst.beta.df <- predict(sigsvm.beta, tst.beta[ , -1]) %>%
+  cbind(tst.beta[ , 1], .) %>% data.frame()
+colnames(tst.beta.df) <- c("obs", "pred")
+
+# Yay, you pass
+eval.tropsha(tst.beta.df)
+graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) + 
   geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
   theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(title = "Polynomial SVM - Training", 
-       x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol")
-# ggsave("./graphs/svm/polysvm all trn.png")
-
-# ggplot_build(p)$data
-ggplot(svm.a.trn, aes(x = obs, y = pred)) + 
-  geom_point(color = "#F8766D") + 
-  geom_abline(slope = 1, intercept = 0) + 
-  theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(title = "Polynomial SVM - Alpha-CD, Training", 
-       x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol")
-# ggsave("./graphs/svm/polysvm alpha trn.png")
-
-ggplot(svm.b.trn, aes(x = obs, y = pred)) + 
-  geom_point(color = "#00BA38") + 
-  geom_abline(slope = 1, intercept = 0) + 
-  theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(title = "Polynomial SVM - Beta-CD, Training", 
-       x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol")
-# ggsave("./graphs/svm/polysvm beta trn.png")
-
-ggplot(svm.c.trn, aes(x = obs, y = pred)) + 
-  geom_point(color = "#619CFF") + 
-  geom_abline(slope = 1, intercept = 0) + 
-  theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(title = "Polynomial SVM - Gamma-CD, Training", 
-       x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol")
-# ggsave("./graphs/svm/polysvm gamma trn.png")
-
-ggplot(poly.abc.trn, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  theme_bw() + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  labs(title = "Polynomial SVM - Compiled CD Types, Training", 
-       x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/svm/polysvm compiled trn.png")
-
-#     RBF -----------------------------------------------------------------
-#         Test Set --------------------------------------------------------
-
-ggplot(rbf.all.tst, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Radial SVM - All Data Points") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/rbf all data points.png")
-
-ggplot(rbf.a.tst, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Radial SVM - Alpha CD") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/rbf alpha cd.png")
-
-ggplot(rbf.b.tst, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Radial SVM - Beta CD") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/rbf beta cd.png")
-
-ggplot(rbf.c.tst, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Radial SVM - Gamma CD") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/rbf gamma cd.png")
-
-ggplot(rbf.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Radial SVM - Compiled CDs", 
-       color = "Cyclodextrin") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/rbf compiled cd.png")
-
-#         Training Set ----------------------------------------------------
-
-ggplot(rbf.all.trn, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Radial SVM - All Data, Training") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/rbf all data points trn.png")
-
-ggplot(rbf.a.trn, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Radial SVM - Alpha CD, Training") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/rbf alpha cdtrn.png")
-
-ggplot(rbf.b.trn, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Radial SVM - Beta CD, Training") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/rbf beta cd trn.png")
-
-ggplot(rbf.c.trn, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Radial SVM - Gamma CD, Training") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/rbf gamma cd trn.png")
-
-ggplot(rbf.abc.trn, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Radial SVM - Compiled CDs, Training", 
-       color = "Cyclodextrin") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/rbf compiled cd trn.png")
-
-#     Sigmoid -------------------------------------------------------------
-#         Test Set --------------------------------------------------------
-
-ggplot(sig.all.tst, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Sigmoid SVM - All Data Points") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/sig all data points.png")
-
-ggplot(sig.a.tst, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Sigmoid SVM - Alpha CD") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/sig alpha cd.png")
-
-ggplot(sig.b.tst, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Sigmoid SVM - Beta CD") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/sig beta cd.png")
-
-ggplot(sig.c.tst, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Sigmoid SVM - Gamma CD") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/sig gamma cd.png")
-
-ggplot(sig.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Sigmoid SVM - Compiled CDs", 
-       color = "Cyclodextrin") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/sig compiled cd.png")
-
-#         Training Set ----------------------------------------------------
-
-ggplot(sig.all.trn, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Sigmoid SVM - All Data, Training") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/sig all data points trn.png")
-
-ggplot(sig.a.trn, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Sigmoid SVM - Alpha CD, Training") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/sig alpha cdtrn.png")
-
-ggplot(sig.b.trn, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Sigmoid SVM - Beta CD, Training") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/sig beta cd trn.png")
-
-ggplot(sig.c.trn, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Sigmoid SVM - Gamma CD, Training") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/sig gamma cd trn.png")
-
-ggplot(sig.abc.trn, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Sigmoid SVM - Compiled CDs, Training", 
-       color = "Cyclodextrin") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw()
-# ggsave("./graphs/svm/sig compiled cd trn.png")
-
-#####
-# External  Validation ----------------------------------------------------
-
-#####
-
-ext.val <- readRDS("./data/ext.val.RDS") %>%
-  select(-guest:-host) %>%
-  select(-data.source) 
-
-ext.val.a <- ext.val %>% filter(alpha > 0) 
-ext.val.b <- ext.val %>% filter(beta > 0)
-ext.val.c <- ext.val %>% filter(gamma > 0) 
-
-ev.a <-  predict(svm.alpha, ext.val.a[ , -1]) %>%
-  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-ev.b <-  predict(svm.beta, ext.val.b[ , -1]) %>%
-  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-ev.c <-  predict(svm.gamma, ext.val.c[ , -1]) %>%
-  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-temp.a <- ev.a %>% mutate(cd.type = "alpha")
-temp.b <- ev.b %>% mutate(cd.type = "beta")
-temp.c <- ev.c %>% mutate(cd.type = "gamma")
-# temp.a <- temp.a[-2, ]
-ev.abc.poly <- rbind(temp.a, temp.b, temp.c) %>%
-  mutate(resid = pred - obs)
-# Saving another copy for compiling
-ev.svm <- ev.abc.poly %>%
-  select(-resid) %>%
-  mutate(Model = "SVM")
-
-ev.a <-  predict(rbf.alpha, ext.val.a[ , -1]) %>%
-  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-ev.b <-  predict(rbf.beta, ext.val.b[ , -1]) %>%
-  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-ev.c <-  predict(rbf.gamma, ext.val.c[ , -1]) %>%
-  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-temp.a <- ev.a %>% mutate(cd.type = "alpha")
-temp.b <- ev.b %>% mutate(cd.type = "beta")
-temp.c <- ev.c %>% mutate(cd.type = "gamma")
-# temp.a <- temp.a[-2, ]
-ev.abc.rbf <- rbind(temp.a, temp.b, temp.c) %>%
-  mutate(resid = pred - obs)
-
-ev.a <-  predict(sig.alpha, ext.val.a[ , -1]) %>%
-  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-ev.b <-  predict(sig.beta, ext.val.b[ , -1]) %>%
-  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-ev.c <-  predict(sig.gamma, ext.val.c[ , -1]) %>%
-  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-temp.a <- ev.a %>% mutate(cd.type = "alpha")
-temp.b <- ev.b %>% mutate(cd.type = "beta")
-temp.c <- ev.c %>% mutate(cd.type = "gamma")
-# temp.a <- temp.a[-2, ]
-ev.abc.sig <- rbind(temp.a, temp.b, temp.c) %>%
-  mutate(resid = pred - obs)
-
-#     Plots ---------------------------------------------------------------
-
-defaultSummary(ev.abc.poly) # 0.358 normally, 0.595 without outlier
-ggplot(ev.abc.poly, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(title = "Polynomial SVM - External Validation", 
-       x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/svm/2017-07-28 polysvm extval.png")
-
-defaultSummary(ev.abc.rbf)
-ggplot(ev.abc.rbf, aes(x = pred, y = obs, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(title = "Radial SVM - External Validation", 
-       x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/svm/2017-07-28 rbfsvm extval.png")
-
-defaultSummary(ev.abc.sig)
-ggplot(ev.abc.sig, aes(x = pred, y = obs, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(title = "Radial SVM - External Validation", 
-       x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/svm/2017-07-28 sigsvm extval.png")
-
-#####
-
-# Suzuki Only -------------------------------------------------------------
-
-#####
-
-# Loading Data ------------------------------------------------------------
-
-suz.raw <- readRDS("./suz.pp.RDS") 
-suz <- suz.raw %>%
-  select(., -guest, -host, -data.source)
-
-set.seed(25)
-trn.ind <- sample(x = 1:nrow(suz), size = round(0.7 * nrow(suz)))
-trn <- suz[trn.ind, ]
-tst <- suz[-trn.ind, ]
-trn.x <- trn[ , -1]
-trn.y <- trn[ , 1]
-tst.x <- tst[ , -1]
-tst.y <- tst[ , 1]
-
-
-# Polynomial Kernel -------------------------------------------------------
-
-#     All Predictors ------------------------------------------------------
-
-svm.all <- svm(x = trn.x, 
-               y = trn.y, 
-               coef0 = 1.5, 
-               cost = 4096, 
-               epsilon = 0.1, 
-               kernel = "polynomial", 
-               gamma = 0.03, 
-               degree = 2)
-
-svm.all.tst <- predict(svm.all, tst.x) %>%
-  cbind(tst.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = tst.y) %>%
-  mutate(resid = obs - pred)
-
-svm.all.trn <- predict(svm.all, trn.x) %>%
-  cbind(trn.y) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = trn.y) %>%
-  mutate(resid = obs - pred)
-
-defaultSummary(svm.all.tst) # 0.807
-defaultSummary(svm.all.trn) # 0.9997
-
-#     Alpha-CD ------------------------------------------------------------
-
-alpha <- suz %>% filter(alpha > 0)
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(alpha), size = round(0.7 * nrow(alpha)))
-a.trn.x <- alpha[trn.ind, -1]
-a.trn.y <- alpha[trn.ind, 1]
-
-a.tst.x <- alpha[-trn.ind, -1]
-a.tst.y <- alpha[-trn.ind, 1]
-
-svm.alpha <- svm(x = a.trn.x, 
-                 y = a.trn.y, 
-                 coef0 = 2, 
-                 cost = 2048, 
-                 epsilon = 0.1, 
-                 kernel = "polynomial", 
-                 gamma = 0.03, 
-                 degree = 2)
-
-svm.a.tst <- predict(svm.alpha, a.tst.x) %>%
-  cbind(a.tst.y) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = a.tst.y) %>%
-  mutate(resid = obs - pred)
-
-svm.a.trn <- predict(svm.alpha, a.trn.x) %>%
-  cbind(a.trn.y) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = a.trn.y)%>%
-  mutate(resid = obs - pred)
-
-defaultSummary(svm.a.tst) # 0.796
-defaultSummary(svm.a.trn) # 0.9997
-
-saveRDS(svm.alpha, "./models/svm/polysvm.alpha.suzuki.RDS")
-
-#     Beta-CD -------------------------------------------------------------
-
-beta <- suz %>% filter(beta > 0)
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(beta), size = round(0.7 * nrow(beta)))
-b.trn.x <- beta[trn.ind, -1]
-b.trn.y <- beta[trn.ind, 1]
-
-b.tst.x <- beta[-trn.ind, -1]
-b.tst.y <- beta[-trn.ind, 1]
-
-svm.beta <- svm(x = b.trn.x, 
-                y = b.trn.y, 
-                coef0 = 2, 
-                cost = 2048, 
-                epsilon = 0.1, 
-                kernel = "polynomial", 
-                gamma = 0.03, 
-                degree = 2)
-
-svm.b.tst <- predict(svm.beta, b.tst.x) %>%
-  cbind(b.tst.y) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = b.tst.y) %>%
-  mutate(resid = obs - pred)
-svm.b.trn <- predict(svm.beta, b.trn.x) %>%
-  cbind(b.trn.y) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
-  mutate(resid = obs - pred)
-defaultSummary(svm.b.tst) # 0.853
-defaultSummary(svm.b.trn) # 0.9997
-
-saveRDS(svm.beta, "./models/svm/polysvm.beta.suzukiRDS")
-
-#     Gamma-CD ------------------------------------------------------------
-
-# Suzuki dataset contains no gamma-Cd
-
-#     Compiled CDs --------------------------------------------------------
-
-temp.a <- svm.a.tst %>% mutate(cd.type = "alpha")
-temp.b <- svm.b.tst %>% mutate(cd.type = "beta")
-poly.abc.tst.suz <- rbind(temp.a, temp.b, make.row.names = F)
-
-temp.a <- svm.a.trn %>% mutate(cd.type = "alpha")
-temp.b <- svm.b.trn %>% mutate(cd.type = "beta")
-poly.abc.trn.suz <- rbind(temp.a, temp.b, make.row.names = F) 
-
-defaultSummary(poly.abc.tst.suz) # 0.856
-defaultSummary(poly.abc.trn.suz) # 0.9997
-
-saveRDS(poly.abc.tst.suz, "./models/svm/polysvm.tst.suzuki.RDS")
-saveRDS(poly.abc.trn.suz, "./models/svm/polysvm.trn.suzuki.RDS")
-
-# External Validation -----------------------------------------------------
-
-ext.val <- readRDS("./suz.extval.RDS") %>%
-  select(-guest, -host, -data.source) 
-
-ext.val.a <- ext.val %>% filter(alpha > 0) 
-ext.val.b <- ext.val %>% filter(beta > 0)
-ext.val.c <- ext.val %>% filter(gamma > 0) 
-
-ev.a <-  predict(svm.alpha, ext.val.a[ , -1]) %>%
-  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>% 
-  mutate(cd.type = "alpha")
-
-ev.b <-  predict(svm.beta, ext.val.b[ , -1]) %>%
-  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(cd.type = "beta")
-
-ev.abc.poly <- rbind(ev.a, ev.b) %>%
-  mutate(resid = pred - obs)
-
-defaultSummary(ev.abc.poly) # 0.845
-
-# Suzuki Only Data --------------------------------------------------------
-
-suz <- readRDS("./suzuki.clean.RDS") %>%
-  select(-guest)
-suz.sprse <- sparse.model.matrix(~., suz)
-set.seed(1)
-trn.ind <- sample(x = 1:nrow(suz.sprse), 
-                  size = round(0.7 * nrow(suz.sprse)))
-suz.sprse.trn <- suz.sprse[trn.ind, ]
-suz.sprse.trn.x <- suz.sprse.trn[ , -1:-2]
-suz.sprse.trn.y <- suz.sprse.trn[ , 2]
-suz.sprse.tst <- suz.sprse[-trn.ind, ]
-suz.sprse.tst.x <- suz.sprse.tst[ , -1:-2]
-suz.sprse.tst.y <- suz.sprse.tst[ , 2]
-
-suz.svm.all <- svm(x = suz.sprse.trn.x, 
-                   y = suz.sprse.trn.y, 
-                   coef0 = 2, 
-                   cost = 1024, 
-                   epsilon = 0.1, 
-                   kernel = "polynomial", 
-                   gamma = 0.5, 
-                   degree = 2)
-
-suz.svm.all.tst <- predict(suz.svm.all, suz.sprse.tst.x) %>%
-  cbind(suz.sprse.tst.y) %>%
-  data.frame() %>%
-  rename(., pred = `.`, obs = suz.sprse.tst.y)
-suz.svm.all.trn <- predict(suz.svm.all, suz.sprse.trn.x) %>%
-  cbind(suz.sprse.trn.y) %>%
-  data.frame() %>%
-  rename(., pred = `.`, obs = suz.sprse.trn.y)
-
-defaultSummary(suz.svm.all.tst) # 2.84 # 0.680
-
-ggplot(suz.svm.all.tst, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(intercept = 0, slope = 1) +
-  labs(x = "Experimental DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       title = "Polynomial suz.svm - All Data Points, Suzuki") + 
-  coord_fixed() + 
-  theme_bw()
-
-# Plots -------------------------------------------------------------------
-
-ggplot(poly.abc.tst.suz, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-30, 5), ylim = c(-30, 5)) + 
-  theme_bw() + 
-  labs(title = "Polynomial SVM - Suzuki", 
-       x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/svm/polysvm suzuki tst.png")
-
-ggplot(poly.abc.trn.suz, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-30, 5), ylim = c(-30, 5)) + 
-  theme_bw() + 
-  labs(title = "Polynomial SVM - Training, Suzuki", 
-       x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/svm/polysvm suzuki trn.png")
-
-ggplot(ev.abc.poly, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-30, 5), ylim = c(-30, 5)) + 
-  theme_bw() + 
-  labs(title = "Polynomial SVM - External Validation, Suzuki", 
-       x = "Observed DelG, kJ/mol", y = "Predicted DelG, kJ/mol", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/svm/polysvm suzuki extval.png")
-
-
-# Error in { : 
-#     task 1 failed - "There were missing importance values. There may be linear dependencies in your predictor variables"
-#   In addition: There were 50 or more warnings (use warnings() to see the first 50)
-# svm.profile <- rfe(trn.x, trn.y, 
-#                    sizes = c(2, 5, 10, 20, 70, 140),
-#                    rfeControl = rfeControl(functions = caretFuncs, 
-#                                            number = 200), 
-#                    method = "svmPoly")
-
-
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Sigmoid SVM for Beta")
+
+#         Saving models ----
+
+pp.settings <- readRDS("./pre-process/alpha/5/pp.settings.RDS")
+saveRDS(list(pp.settings, sigsvm.alpha), "./models/alpha/sigsvm.RDS")
+saveRDS(tst.alpha.df, "./results/alpha/sigsvm.RDS")
+graph.alpha 
+ggsave("./results/alpha/sigsvm.png")
+
+
+pp.settings <- readRDS("./pre-process/beta/1/pp.settings.RDS")
+saveRDS(list(pp.settings, sigsvm.beta), "./models/beta/sigsvm.RDS")
+saveRDS(tst.beta.df, "./results/beta/sigsvm.RDS")
+graph.beta 
+ggsave("./results/beta/sigsvm.png")

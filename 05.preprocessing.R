@@ -1,3 +1,5 @@
+dir.create("./pre-process")
+
 # Libraries and Packages --------------------------------------------------
 
 library(caret)
@@ -11,11 +13,11 @@ library(tidyverse)
 split.train.test <- function(times, data, info, path) {
   for(n in 1:times) {
     # Initialize a sample for reference for maxDissim
-    data.init <- sample_n(data, 4)
+    data.init <- sample_n(data, 20)
     
     # Generate representative training set
     trn.ind <- maxDissim(a = data.init, b = data, 
-                         n = round(nrow(data)*0.2), 
+                         n = round(nrow(data)*0.75), 
                          na.rm = T)
     tst.data <- data[-trn.ind, ]
     trn.data <- data[trn.ind, ]
@@ -75,6 +77,42 @@ preprocess.splits <- function(filepath, writepath) {
   }
 }
 
+# Cleaning for Outliers ---------------------------------------------------
+
+dir.create("./pre-process/outliers")
+alpha.info <- readRDS("./descriptors/alpha.padel.RDS")
+beta.info <- readRDS("./descriptors/beta.padel.RDS")
+
+# Using the method described by Roy 2015: Determining Applicability Domain of
+# QSAR Models
+source("./10.0.ad.functions.R")
+alpha <- alpha.info %>% select(., -host, -DelG, -data.source)
+# Technically not necessary for the statistical analysis, but it makes
+# things easier
+pp.settings <- preProcess(alpha, na.remove = T, 
+                          method = c("center", "scale"), 
+                          verbose = F)
+alpha.scaled <- predict(pp.settings, alpha)
+# Removing these to save time for the function, especially since they 
+# definitely won't be used for the actual model building
+zero.pred <- nearZeroVar(alpha.scaled)
+alpha.scaled <- alpha.scaled[ , -zero.pred]
+alpha.ad <- domain.num(alpha.scaled)
+alpha.outliers <- alpha.ad %>% filter(domain == "outside") %>% .$guest
+
+beta <- beta.info %>% select(., -host, -DelG, -data.source)
+pp.settings <- preProcess(beta, na.remove = T, 
+                          method = c("center", "scale"), 
+                          verbose = F)
+beta.scaled <- predict(pp.settings, beta)
+zero.pred <- nearZeroVar(beta.scaled)
+beta.scaled <- beta.scaled[ , -zero.pred]
+beta.ad <- domain.num(beta.scaled)
+beta.outliers <- beta.ad %>% filter(domain == "outside") %>% .$guest
+
+saveRDS(alpha.outliers, "./pre-process/outliers/alpha.RDS")
+saveRDS(beta.outliers, "./pre-process/outliers/beta.RDS")
+
 # Splitting Data ----------------------------------------------------------
 
 #     External validation vs. modeling ------------------------------------
@@ -86,13 +124,17 @@ preprocess.splits <- function(filepath, writepath) {
 
 # Of course, separate external validation sets should be created for each 
 # cyclodextrin type (as they construct completely different models)
- 
+alpha <- readRDS("./descriptors/alpha.padel.RDS")
+alpha.outlers <- readRDS('./pre-process/outliers/alpha.RDS')
+alpha <- alpha %>% filter(!guest %in% alpha.outliers)
+beta <- readRDS("./descriptors/beta.padel.RDS")
+beta.outlers <- readRDS('./pre-process/outliers/beta.RDS')
+beta <- beta %>% filter(!guest %in% beta.outliers)
+
 dir.create("./ext.validation")
 
 set.seed(101) # for reproducibility
-alpha <- readRDS("./descriptors/alpha.padel.RDS")
 alpha.ev <- sample_frac(alpha, size = 0.15)
-beta <- readRDS("./descriptors/beta.padel.RDS")
 beta.ev <- sample_frac(beta, size = 0.15)
 
 saveRDS(alpha.ev, "./ext.validation/alpha.RDS")

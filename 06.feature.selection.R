@@ -12,11 +12,12 @@ use.rfe <- function(path) {
   pred <- trn %>% dplyr::select(., -guest, -DelG)
   obs <- trn$DelG
   
-  ctrl <- rfeControl(functions = rfFuncs, 
+  ctrl <- rfeControl(functions = treebagFuncs, 
                      method = "repeatedcv", 
                      repeats = 5, 
                      verbose = T)
-  subsets <- c(5, 10, 15, 20, 35, 50, 75, 100)
+  # subsets <- c(5, 10, 15, 20, 35, 50, 75, 100)
+  subsets <- c(1:5, 10, 15, 20, 25, 50)
   
   rfe.profile <- rfe(x = pred, y = obs, 
                      sizes = subsets, rfeControl = ctrl)
@@ -106,9 +107,8 @@ varimp.alpha <- data.frame(pred.alpha.uq, count.alpha) %>%
   mutate(predictor = as.character(predictor)) %>%
   .[order(.$frequency, decreasing = T), ]
 
-# Cutoff is 5 because that indicates the variable appeared in at least half
-# of the RFE analyses (sort of arbitrary, but we gotta start somewhere)
-alpha.vars <- varimp.alpha %>% filter(frequency >= 5) %>% .$predictor
+# Limiting to the variables that appeared in all models
+alpha.vars <- varimp.alpha %>% filter(frequency == 10) %>% .$predictor
 
 saveRDS(varimp.alpha, "./feature.selection/varimp.alpha.RDS")
 saveRDS(alpha.vars, "./feature.selection/alpha.vars.RDS")
@@ -138,9 +138,7 @@ varimp.beta <- data.frame(pred.beta.uq, count.beta) %>%
   mutate(predictor = as.character(predictor)) %>%
   .[order(.$frequency, decreasing = T), ]
 
-# Cutoff is 9 simply because there are so many strong predictors
-# and 9 gives 51 predictors already (even more arbitrary)
-beta.vars <- varimp.beta %>% filter(frequency >= 9) %>% .$predictor
+beta.vars <- varimp.beta %>% filter(frequency == 10) %>% .$predictor
 
 saveRDS(varimp.beta, "./feature.selection/varimp.beta.RDS")
 saveRDS(beta.vars, "./feature.selection/beta.vars.RDS")

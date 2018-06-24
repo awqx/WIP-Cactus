@@ -1,273 +1,162 @@
+source("07.model.functions.R")
+
 # Libraries and Packages -------------------------------------------------
 
 library(caret)
 library(Cubist)
-library(data.table)
 library(e1071)
 library(glmnet)
 library(kernlab)
-library(Matrix)
 library(pls)
 library(randomForest)
-library(stats)
 library(tidyverse)
 
-# Download Models ---------------------------------------------------------
+# Functions ---------------------------------------------------------------
 
-cube.a <- readRDS("./models/cubist/cubist.alpha.RDS")
-cube.b <- readRDS("./models/cubist/cubist.beta.RDS")
-cube.c <- readRDS("./models/cubist/cubist.gamma.RDS")
+# df: data.frame containing names of guests as well as 1376 PaDEL-desc
+predict.alpha <- function(df) {
+  outliers <- c()
+  features <- readRDS("./feature.selection/alpha.vars.RDS")
+  name.models <- list.files("./models/alpha") %>% str_remove(".RDS$")
+  path.models <- paste0("./models/alpha/", list.files("models/alpha"))
+  results <- data.frame()
+  
+  for(n in 1:length(name.models)) {
+    pp.settings <- readRDS(path.models[n])[[1]]
+    pp.results <- preprocess.desc(df, features, pp.settings)
+    outliers <- c(outliers, pp.results[[2]])
+    desc.pp <- pp.results[[1]]
+    guests <- desc.pp$guests
+    desc.pp <- desc.pp[ , -1]
+    qsar <- readRDS(path.models[n])[[2]]
+    if(str_detect(name.models[n], "glm")) {
+      desc.pp <- data.matrix(desc.pp)
+      pred <- predict.glmnet(qsar, desc.pp, 
+                             s = tail(qsar$lambda, n = 1))
+    } else if (str_detect(name.models[n], "pls"))
+      pred <- predict(qsar, desc.pp, ncomp = 8)
+    else
+      pred <- predict(qsar, desc.pp)
+    results.qsar <- data.frame(guests, pred) 
+    colnames(results.qsar)[2] <- name.models[n]
+    if(n == 1) # initialize the data.frame if it's the first
+      results <- results.qsar
+    else
+      results <- inner_join(results, results.qsar, by = "guests")
+  }
+  outliers <- unique(outliers)
+  full.results <- results %>% 
+    mutate(ensemble = rowMeans(results[ , -1]))
+  predictions <- full.results %>% select(., guests, ensemble) %>%
+    rename(dG = ensemble)
+  
+  return(list(predictions, full.results, outliers))
+}
 
-glm.a <- readRDS("./models/glmnet/glm.alpha.RDS")
-glm.b <- readRDS("./models/glmnet/glm.beta.RDS")
-glm.c <- readRDS("./models/glmnet/glm.gamma.RDS")
+predict.beta <- function(df) {
+  outliers <- c()
+  features <- readRDS("./feature.selection/beta.vars.RDS")
+  name.models <- list.files("./models/beta") %>% str_remove(".RDS$")
+  path.models <- paste0("./models/beta/", list.files("models/beta"))
+  results <- data.frame()
+  
+  for(n in 1:length(name.models)) {
+    pp.settings <- readRDS(path.models[n])[[1]]
+    pp.results <- preprocess.desc(df, features, pp.settings)
+    outliers <- c(outliers, pp.results[[2]])
+    desc.pp <- pp.results[[1]]
+    guests <- desc.pp$guests
+    desc.pp <- desc.pp[ , -1]
+    qsar <- readRDS(path.models[n])[[2]]
+    if(str_detect(name.models[n], "glm")) {
+      desc.pp <- data.matrix(desc.pp)
+      pred <- predict.glmnet(qsar, desc.pp, 
+                             s = tail(qsar$lambda, n = 1))
+    } else if (str_detect(name.models[n], "pls"))
+      pred <- predict(qsar, desc.pp, ncomp = 25)
+    else
+      pred <- predict(qsar, desc.pp)
+    results.qsar <- data.frame(guests, pred) 
+    colnames(results.qsar)[2] <- name.models[n]
+    if(n == 1) # initialize the data.frame if it's the first
+      results <- results.qsar
+    else
+      results <- inner_join(results, results.qsar, by = "guests")
+  }
+  outliers <- unique(outliers)
+  full.results <- results %>% 
+    mutate(ensemble = rowMeans(results[ , -1]))
+  predictions <- full.results %>% select(., guests, ensemble) %>%
+    rename(dG = ensemble)
+  
+  return(list(predictions, full.results, outliers))
+}
 
-rf.a <- readRDS("./models/rforest/rf.alpha.RDS")
-rf.b <- readRDS("./models/rforest/rf.beta.RDS")
-rf.c <- readRDS("./models/rforest/rf.gamma.RDS")
 
-pls.a <- readRDS("./models/pls/pls.alpha.RDS")
-pls.b <- readRDS("./models/pls/pls.beta.RDS")
-pls.c <- readRDS("./models/pls/pls.gamma.RDS")
+# Alpha -------------------------------------------------------------------
 
-svm.a <- readRDS("./models/svm/polysvm.alpha.RDS")
-svm.b <- readRDS("./models/svm/polysvm.beta.RDS")
-svm.c <- readRDS("./models/svm/polysvm.gamma.RDS")
+# Read the file
+ev.alpha <- readRDS("./ext.validation/alpha.RDS") %>%
+  select(., -host)
+# Save the actual dG values for later evaluation
+ev.alpha.dg <- ev.alpha %>% select(., guest, DelG) %>%
+  rename(obs = DelG, guests = guest)
+ev.alpha <- ev.alpha %>% select(., -DelG)
 
-# Averaging Results -------------------------------------------------------
+ev.alpha.pred <- predict.alpha(ev.alpha)
+# No outliers
+alpha.outliers <- ev.alpha.pred[[3]]
+  
+ev.alpha.df <- inner_join(ev.alpha.pred, ev.alpha.dg, by = "guests") %>%
+  rename(obs = ev.alpha.dg, pred = dG)
+defaultSummary(ev.alpha.df)
+ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1) + 
+  theme_bw() + 
+  coord_fixed() 
+# Everything passes
+# R2 = 0.66
+eval.tropsha(ev.alpha.df)
 
-# Training results
-cubist.trn <- readRDS("./models/cubist/cubist.trn.results.RDS") %>% 
-  select(pred, obs, cd.type) # %>%
-  # rename(pred.cubist = pred)
-glmnet.trn <- readRDS("./models/glmnet/glmnet.trn.results.RDS") %>% 
-  select(pred, obs, cd.type) # %>%
-  # rename(pred.glmnet = pred)
-pls.trn <- readRDS("./models/pls/pls.trn.results.RDS") %>% 
-  select(pred, obs, cd.type) # %>%
-  # rename(pred.pls = pred)
-rforest.trn <- readRDS("./models/rforest/rf.trn.results.RDS") %>% 
-  select(pred, obs, cd.type) # %>%
-  # rename(pred.rf = pred)
-svm.trn <- readRDS("./models/svm/polysvm.trn.results.RDS") %>% 
-  select(pred, obs, cd.type) # %>%
-  # rename(pred.svm = pred)
+# Beta --------------------------------------------------------------------
 
-trn.lst <- list(cubist.trn, glmnet.trn, pls.trn, 
-                rforest.trn, svm.trn)
-lapply(trn.lst, defaultSummary)
+ev.beta <- readRDS("./ext.validation/beta.RDS") %>%
+  select(., -host)
+# Save the actual dG values for later evaluation
+ev.beta.dg <- ev.beta %>% select(., guest, DelG) %>%
+  rename(obs = DelG, guests = guest)
+ev.beta <- ev.beta %>% select(., -DelG)
 
-# Test results
-cubist.tst <- readRDS("./models/cubist/cubist.results.RDS") %>% 
-  select(pred, obs, cd.type) # %>%
-  # rename(pred.cubist = pred)
-glmnet.tst <- readRDS("./models/glmnet/glmnet.tst.results.RDS") %>% 
-  select(pred, obs, cd.type) # %>%
-  # rename(pred.glmnet = pred)
-pls.tst <- readRDS("./models/pls/pls.results.RDS") %>% 
-  select(pred, obs, cd.type) # %>%
-  # rename(pred.pls = pred)
-rforest.tst <- readRDS("./models/rforest/rf.results.RDS") %>% 
-  select(pred, obs, cd.type) # %>%
-  # rename(pred.rf = pred)
-svm.tst <- readRDS("./models/svm/polysvm.tst.results.RDS") %>% 
-  select(pred, obs, cd.type) # %>%
-  # rename(pred.svm = pred)
+ev.beta.pred <- predict.beta(ev.beta)
+# No outliers
+beta.outliers <- ev.beta.pred[[3]]
 
-tst.lst <- list(cubist.tst, glmnet.tst, pls.tst, 
-                rforest.tst, svm.tst)
-lapply(tst.lst, defaultSummary)
+ev.beta.df <- inner_join(ev.beta.pred[[1]], ev.beta.dg, by = "guests") %>%
+  rename(pred = dG)
+defaultSummary(ev.beta.df)
+ggplot(ev.beta.df, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1) + 
+  theme_bw() + 
+  coord_fixed() 
+# Everything passes
+# R2 = 0.62
+eval.tropsha(ev.beta.df)
 
-# Currently, averaging the results has some errors with joining observed values
-# and repeating some observations that shouldn't be duplicates
-
-# tst.lst <- list(cubist.tst, glmnet.tst, pls.tst, rforest.tst, svm.tst)
-# tst.results <- Reduce(full_join, tst.lst) %>% 
-#   mutate(avg = rowMeans(subset(., select = c(pred.cubist, pred.glmnet, pred.pls, pred.rf, pred.svm))))
-# avg.results <- tst.results %>% select(obs, cd.type, avg) %>%
-#   rename(pred = avg) %>%
-#   as.data.frame()
-# defaultSummary(avg.results) # 0.744
-# 
-# ggplot(avg.results, aes(x = obs, y = pred, color = cd.type)) + 
-#   geom_point()
-
-# External Validation -----------------------------------------------------
-
-ext.val <- readRDS("./external validation set new.RDS") %>%
-  select(-guest:-host) %>%
-  select(-data.source) 
-
-# ext.val <- readRDS("~/SREP LAB/qsar/external validation set new.RDS") %>%
-#   select(-guest:-host) %>%
-#   select(-data.source)
-
-ext.val.a <- ext.val %>% filter(alpha > 0) 
-ext.val.b <- ext.val %>% filter(beta > 0)
-ext.val.c <- ext.val %>% filter(gamma > 0) 
-
-# Alpha-CD
-
-ctrl <- cubistControl(
-  seed = 10, 
-  sample = 75
+combined.df <- rbind(
+  ev.alpha.df %>% mutate(host = "alpha"), 
+  ev.beta.df %>% mutate(host = "beta")
 )
 
-ev.a.cube <- predict(cube.a, ext.val.a[ , -1]) %>%
-  cbind(ext.val.a[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "Cubist")
-
-ev.a.glm <-  predict.glmnet(glm.a, as.matrix(ext.val.a[ , -1]), 
-                        s = tail(glm.a$lambda, n = 1)) %>%
-  cbind(as.matrix(ext.val.a[ , 1])) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = V2) %>%
-  mutate(model = "GLMNet")
-
-ev.a.pls <- predict(pls.a, ncomp = 4, newdata = ext.val.a[ , -1]) %>%
-  cbind(ext.val.a[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "PLS")
-
-ev.a.rf <-predict(rf.a, ext.val.a[ , -1]) %>%
-  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "Random Forest")
-
-ev.a.svm <- predict(svm.a, ext.val.a[ , -1]) %>%
-  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "SVM")
-
-ev.a <- rbind(ev.a.cube, ev.a.glm, ev.a.pls, ev.a.rf, ev.a.svm)
-ev.a.avg <- ev.a %>% data.table(key = "obs")
-ev.a.avg <- ev.a.avg[ , list(pred = mean(pred)), by = "obs"]
-
-defaultSummary(ev.a.avg) # 0.121
-defaultSummary(ev.a.avg[ -1, ]) # 0.531
-
-# Beta-CD
-
-ev.b.cube <- predict(cube.b, ext.val.b[ , -1]) %>%
-  cbind(ext.val.b[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "Cubist")
-
-ev.b.glm <-  predict.glmnet(glm.b, as.matrix(ext.val.b[ , -1]), 
-                            s = tail(glm.b$lambda, n = 1)) %>%
-  cbind(as.matrix(ext.val.b[ , 1])) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = V2) %>%
-  mutate(model = "GLMNet")
-
-ev.b.pls <- predict(pls.b, ncomp = 4, newdata = ext.val.b[ , -1]) %>%
-  cbind(ext.val.b[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "PLS")
-
-ev.b.rf <-predict(rf.b, ext.val.b[ , -1]) %>%
-  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "Random Forest")
-
-ev.b.svm <- predict(svm.b, ext.val.b[ , -1]) %>%
-  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "SVM")
-
-ev.b <- rbind(ev.b.cube, ev.b.glm, ev.b.pls, ev.b.rf, ev.b.svm)
-ev.b.avg <- ev.b %>% data.table(key = "obs")
-ev.b.avg <- ev.b.avg[ , list(pred = mean(pred)), by = "obs"]
-
-defaultSummary(ev.b.avg) # 0.803
-
-# Gamma-CD
-ev.c.cube <- predict(cube.c, ext.val.c[ , -1]) %>%
-  cbind(ext.val.c[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "Cubist")
-
-ev.c.glm <-  predict.glmnet(glm.c, as.matrix(ext.val.c[ , -1]), 
-                            s = tail(glm.c$lambda, n = 1)) %>%
-  cbind(as.matrix(ext.val.c[ , 1])) %>% data.frame() %>%
-  dplyr::rename(pred = X1, obs = V2) %>%
-  mutate(model = "GLMNet")
-
-ev.c.pls <- predict(pls.c, ncomp = 4, newdata = ext.val.c[ , -1]) %>%
-  cbind(ext.val.c[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "PLS")
-
-ev.c.rf <-predict(rf.c, ext.val.c[ , -1]) %>%
-  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "Random Forest")
-
-ev.c.svm <- predict(svm.c, ext.val.c[ , -1]) %>%
-  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2) %>%
-  mutate(model = "SVM")
-
-ev.c <- rbind(ev.c.cube, ev.c.glm, ev.c.pls, ev.c.rf, ev.c.svm)
-ev.c.avg <- ev.c %>% data.table(key = "obs")
-ev.c.avg <- ev.c.avg[ , list(pred = mean(pred)), by = "obs"]
-
-defaultSummary(ev.c.avg)
-
-# Combining CD
-temp.a <- ev.a.avg %>% mutate(cd.type = "alpha") 
-temp.b <- ev.b.avg %>% mutate(cd.type = "beta")
-temp.c <- ev.c.avg %>% mutate(cd.type = "gamma")
-
-ev.abc <- rbind(temp.a, temp.b, temp.c)
-defaultSummary(ev.abc) # 0.417
-saveRDS(ev.abc, "./ext val avg results.RDS")
-
-temp.a <- ev.a %>% mutate(cd.type = "alpha") 
-temp.b <- ev.b %>% mutate(cd.type = "beta")
-temp.c <- ev.c %>% mutate(cd.type = "gamma")
-ev.abc <- rbind(temp.a, temp.b, temp.c)
-saveRDS(ev.abc, "./ext val results.RDS")
-
-# A single outlier brings down the r-squared
-# removing the first row of the alpha results...
-
-# temp.a <- ev.a.avg[-1, ] %>% mutate(cd.type = "alpha") 
-# 
-# ev.abc <- rbind(temp.a, temp.b, temp.c)
-# defaultSummary(ev.abc) # 0.723
-
-# ...gets a much higher R-squared
-
-# Graphing ----------------------------------------------------------------
-
-ggplot(ev.a, aes(x = obs, y = pred, color = model)) +
+ggplot(combined.df, aes(x = obs, y = pred, color = host)) + 
   geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  facet_grid(~model)
-ggplot(ev.a.avg, aes(x = obs, y = pred)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0)
+  theme_bw() + 
+  coord_fixed() + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Ensemble QSAR results", 
+       color = "CD type")
 
-ggplot(ev.b, aes(x = obs, y = pred, color = model)) +
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  facet_grid(~model)
-ggplot(ev.b.avg, aes(x = obs, y = pred)) +
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) 
-
-ggplot(ev.abc, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0, color = "maroon") + 
-  theme.2018 + 
-  labs(x = "Experimental dG, kJ/mol", y = "Predicted dG, kJ/mol", 
-       title = "QSPR ensemble results on external validation", 
-       color = "CD Type") + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5))
-ggsave("./ext val graph.png", dpi = 600)  
+saveRDS(combined.df, "./results/ensemble.RDS")
+ 

@@ -91,6 +91,7 @@ newSk <- function(vec) {
 
 domain.num <- function(data) {
   newSk <- c(rep(0, nrow(data)))
+  # if-else to check if data has a "guest' column
   if (class(data[, 1]) != "numeric") {
     guest <- data[, 1]
     data <- data[, -1]

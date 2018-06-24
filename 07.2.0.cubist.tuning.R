@@ -236,10 +236,8 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/alpha/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred]
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Estimation ----------------------------------------------------------
 
@@ -306,7 +304,7 @@ cmte.combos <- cube.combos$cmte
 extra.combos <- cube.combos$extra
 
 set.seed(1001)
-# I reduce the number of folds because rforest takes a while
+# I reduce the number of folds because Cubist takes a while
 system.time(
   results.combos <- do.call(
     rbind,
@@ -323,15 +321,15 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 50.64    0.16   54.67 
+# 41.85    0.05   42.13  
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# r2 = 0.554, rmes = 4.47
-# committees = 10, extra = 100
+# r2 = 0.442, rmes = 3.83
+# committees = 30, extra = 10
 
-# r2 = 0.474, rmse = 3.8
+# r2 = 0.441, rmse = 3.81
 # committees = 10, extrapolation = 0
 
 saveRDS(results.combos, "./tuning/cubist/alpha/tune.RDS")
@@ -358,10 +356,8 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-rfe1 <- readRDS("./feature.selection/beta/rfe1.RDS")
-trn.pred <- c("DelG", predictors(rfe1))
-
-trn <- trn[ , colnames(trn) %in% trn.pred]
+features <- readRDS("./feature.selection/beta.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Estimation ----------------------------------------------------------
 
@@ -450,11 +446,12 @@ system.time(
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# r2 = 0.576, rmes = 4.21
-# committees = 100, extra = 20
+# r2 = 0.739, rmes = 2.70
+# committees = 70, extra = 0
 
-# r2 = 0.569, rmse = 4.18
-# committees = 50, extrapolation = 10
+# 2nd best
+# r2 = 0.738, rmse = 2.70
+# cmte = 90, extrapolation - 0
 
 saveRDS(results.combos, "./tuning/cubist/beta/tune.RDS")
 

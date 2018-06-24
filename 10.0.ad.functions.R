@@ -12,7 +12,7 @@ library(tidyverse)
 # Finds standard deviation for a single descriptor
 # Requires a vector or single column; returns num
 find.sd.desc <- function(data) {
-  sd <- (data - mean(data, na.rm = T)) ^ 2 %>% sum()
+  sd <- (data[!is.na(data)] - mean(data, na.rm = T)) ^ 2 %>% sum()
   sd <- sqrt(sd / (length(data) - 1))
   return(sd)
 }
@@ -65,21 +65,31 @@ standardize.withSDs <- function(data, sd.list) {
 
 domain.num <- function(data) {
   newSk <- c(rep(0, nrow(data)))
+  # Checking if first column is "guest
   if (class(data[, 1]) != "numeric") {
     guest <- data[, 1]
-    data <- data[, -1]
+    data <- sapply(data[, -1], abs)
     result <-
       apply(data, 1, function(x)
         mean(as.numeric(x), na.rm = T) + 1.28 * find.sd.desc(as.numeric(x))) %>%
       as.data.frame()
-    result <- cbind(guest, result)
-  } else
+    result <- data.frame(guest, result) %>%
+      mutate(guest = as.character(guest))
+    colnames(result)[2] <- "newSk"
+  } else {
+    data <- sapply(data[ , -1], abs)
     result <- apply(data, 1, function(x)
       mean(as.numeric(x), na.rm = T) + 1.28 * find.sd.desc(as.numeric(x))) %>%
       as.data.frame()
-  colnames(result)[1] <- "newSk"
+    colnames(result)[1] <- "newSk"
+  }
+  max.ski <- apply(data, 1, max, na.rm = T)
+  min.ski <- apply(data, 1, min, na.rm = T)
+  result <- cbind(result, max.ski, min.ski)
   return(result %>% 
-           mutate(domain = ifelse(result$newSk > 3, "outside", "inside")))
+           mutate(domain = ifelse(result$max.ski < 3, "inside", 
+                                  ifelse(result$min.ski > 3, "outside", 
+                                         ifelse(result$newSk > 3, "outside", "inside")))))
 }
 
 # Removes descriptors w/ very little variation (<= 2 unique values) in an 

@@ -20,6 +20,8 @@ graphs/
 graph.formatting.R
 graph.functions.R
 release/
+qspr.process.html
+qspr.process.nb.html
 
 # Data files (possible copyright issues with uploading to GitHub)
 data/

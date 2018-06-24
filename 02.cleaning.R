@@ -352,3 +352,38 @@ ggplot(dup.a, aes(x = pH, y = DelG, # color = pH,
                   group = guest)) + 
   geom_point() + 
   geom_line() 
+
+
+# Graphing ----------------------------------------------------------------
+
+# Some analysis of different conditions
+# ri.clean before questionable section
+ri.clean$DelG <- as.numeric(ri.clean$DelG)
+ggplot(ri.clean, aes(x = DelG)) + 
+  geom_histogram(stat = "bin") + 
+  facet_wrap(~solvent)
+
+ri.dmf <- ri.clean %>% 
+  filter(solvent == "DMF") %>% 
+  select(., host, guest, solvent, DelG) 
+ri.h2o <- ri.clean %>%
+  filter(solvent == "H2O")  %>% 
+  select(., host, guest, solvent, DelG) 
+ri.dmfh2o.guests <- inner_join(ri.dmf, ri.h20, by = c("host", "guest")) %>%
+  .$guest
+ri.dmfh2o <- rbind(
+  ri.dmf %>% filter(guest %in% ri.dmfh2o.guests), 
+  ri.h2o %>% filter(guest %in% ri.dmfh2o.guests)
+)
+ggplot(ri.dmfh2o, aes(x = DelG)) + 
+  geom_histogram(stat = "bin") + 
+  facet_wrap(~solvent)
+
+ri.dmfh2o.wide <- inner_join(ri.dmf, ri.h20, by = c("host", "guest")) %>%
+  as.data.frame()
+ggplot(ri.dmfh2o.wide, aes(x = DelG, y = dG.h20)) + 
+  geom_point() + 
+  labs(x = "DMF", y = "H2O") + 
+  geom_abline(intercept = 0, slope = 1) + 
+  coord_fixed() + 
+  theme_bw()

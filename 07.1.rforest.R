@@ -4,331 +4,206 @@ library(caret)
 library(randomForest)
 library(tidyverse)
 
-# Data Organization -------------------------------------------------------
+source("./07.model.functions.R")
 
-df <- readRDS("./data/padel.pp.RDS") %>%
-  select(-guest:-host) %>%
-  select(-data.source)
-mat <- df %>% as.matrix()
+# Functions ---------------------------------------------------------------
 
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(mat), size = round(0.7 * nrow(mat)))
-trn <- mat[trn.ind, ]
-trn.x <- mat[trn.ind, -1]
-trn.y <- mat[trn.ind, 1]
-tst.x <- mat[-trn.ind, -1]
-tst.y <- mat[-trn.ind, 1]
+rf.looq2 <- function(read.dir, rfe.dir, nsplits, ntree, node, m) {
+  # initialize a vector for analysis
+  q2.results <- c(rep(0.0, nsplits))
+  if(str_detect(read.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    obs <- data[ , 1]
+    data <- data %>% select(., DelG, features) 
+    pred <- c(rep(0.0, nrow(data) - 1))
+    # In this loop, i represents the index of the datapoint left out of 
+    # model building
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, ]
+      trn.x <- trn[ , -1]
+      trn.y <- trn[ , 1]
+      tst.x <- tst[ , -1]
+      tst.y <- tst[ , 1]
+      
+      rf <- randomForest(x = trn.x, 
+                         y = trn.y,
+                         ntree = ntree,
+                         nodesize = node,
+                         mtry = m,  
+                         importance = T)
+      pred[i] <- predict(rf, tst.x) 
+    }
+    # Handling outliers
+    for(i in 1:length(pred)) {
+      if(abs(pred[i]) > 85)
+        pred[i] <- mean(obs)
+    }
+    pred.df <- data.frame(obs, pred)
+    colnames(pred.df) <- c("obs", "pred")
+    p <- ggplot(pred.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0) + 
+      coord_fixed()
+    print(p)
+    PRESS <- sum((obs - pred)^2)
+    # total sum of squares
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    message("Q2 = ", q2)
+    q2.results[n] <- q2
+  }
+  return(mean(q2.results))
+}
 
-# Random Forest Model -----------------------------------------------------
+rf.tst <- function(pp.dir, tst.dir, nsplits, ntree, node, m) {
+  split <- 1:nsplits
+  # initialize a vector for analysis
+  r2.results <- c(rep(0.0, nsplits))
+  rmse.results <- c(rep(0.0, nsplits))
+  if(str_detect(pp.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
+  for(n in 1:nsplits) {
+    trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    trn.y <- trn$DelG
+    trn.x <- select(trn, features)
+    
+    tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
+                              feat = features, n = n)
+    tst.y <- tst[ , 1]
+    tst.x <- tst[ , -1]
+    
+    rf <- randomForest(
+      x = trn.x, y = trn.y,
+      ntree = ntree, nodesize = node,
+      mtry = m, importance = T
+    )
 
-rf <- randomForest(x = trn.x, y = trn.y, 
-                   ntree = 500, na.action = na.omit, 
-                   mtry = 700, nodesize = 1, 
-                   importance = T)
-rf.tst.df <- predict(rf, tst.x) %>%
-  cbind(tst.y) %>% 
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = tst.y) %>%
-  mutate(tst.resid = obs - pred)
+    tst.df <- predict(rf, tst.x) %>%
+      cbind(tst.y, .) %>%
+      as.data.frame()
+    colnames(tst.df) <- c("obs", "pred")
+    p <- ggplot(tst.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0) + 
+      coord_fixed()
+    print(p)
+    for(i in 1:nrow(tst.df))
+      if(abs(tst.df$pred[i]) > 80)
+        tst.df$pred[i] <- mean(trn.y)
+    r2.results[n] <- defaultSummary(tst.df)[2]
+    rmse.results[n] <- defaultSummary(tst.df)[1]
+  }
+  return(data.frame(split, r2.results, rmse.results))
+}
 
-# Training Data
-rf.trn.df <- predict(rf, trn.x) %>%
-  cbind(trn.y) %>% 
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = trn.y) %>%
-  mutate(trn.resid = obs - pred)
+# LOOCV-Q2 analysis -------------------------------------------------------
 
-defaultSummary(rf.tst.df) # 0.680
-defaultSummary(rf.trn.df) # 0.950
+# Alpha
+# 2, 3, 4, 5, and 7 pass
+rf.looq2("./pre-process/alpha/", 
+          nsplits = 10, ntree = 250, node = 5, m = 4)
+# 0.509
 
-#     Alpha-CD ------------------------------------------------------------
+# Beta
+# all pass
+rf.looq2("./pre-process/beta/", "./feature.selection/beta", 
+         nsplits = 10, ntree = 25, node = 10, m = 4)
+# 0.694
 
-alpha <- df %>% filter(alpha > 0) %>% as.matrix()
+# Test sets ---------------------------------------------------------------
 
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(alpha), size = round(0.7 * nrow(alpha)))
-a.trn.x <- alpha[trn.ind, -1]
-a.trn.y <- alpha[trn.ind, 1]
-a.tst.x <- alpha[-trn.ind, -1]
-a.tst.y <- alpha[-trn.ind, 1]
+# Split 5 is the best, r2 = 0.769, rmse = 2.18
+alpha.tst <- rf.tst("./pre-process/alpha/", "./model.data/alpha/", nsplits = 10, ntree = 250, node = 5, m = 4)
+# Split 8 is the best, r2 = 0.855, rmse = 2.01
+# split 9 is also pretty good, r2 = 0.845, rmse = 1.94
+beta.tst <- rf.tst("./pre-process/beta/", "./model.data/beta/", nsplits = 10, ntree = 25, node = 10, m = 4)
 
-rf.alpha <- randomForest(x = a.trn.x, y = a.trn.y,
-  ntree = 500, mtry = 700,
-  na.action = na.omit,
-  nodesize = 1,  importance = T
-)
+# Single models -----------------------------------------------------------
 
-rf.tst.a <- predict(rf.alpha, a.tst.x) %>%
-  cbind(a.tst.y) %>% 
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = a.tst.y) %>%
-  mutate(tst.resid = obs - pred)
+#    Alpha ----
 
-# Training Data
-rf.trn.a <- predict(rf.alpha, a.trn.x) %>%
-  cbind(a.trn.y) %>% 
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = a.trn.y) %>%
-  mutate(trn.resid = obs - pred)
+trn.alpha <- readRDS("./pre-process/alpha/5/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
+trn.alpha <- trn.alpha %>% select(., DelG, features) 
+trn.alpha.x <- select(trn.alpha, -DelG) 
+trn.alpha.y <- trn.alpha$DelG
 
-defaultSummary(rf.tst.a) # 0.644
-defaultSummary(rf.trn.a) # 0.955
+rf.alpha <- randomForest(x = trn.alpha.x, y = trn.alpha.y, 
+                         ntree = 250, nodesize = 5, mtry = 4)
 
-#     Beta-CD -------------------------------------------------------------
+tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
+                                features, 5)
 
-beta <- df %>% filter(beta > 0) %>% as.matrix()
+tst.alpha.df <- predict(rf.alpha, tst.alpha[ , -1]) %>%
+  cbind(tst.alpha[ , 1], .) %>% data.frame()
+colnames(tst.alpha.df) <- c("obs", "pred")
 
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(beta), size = round(0.7 * nrow(beta)))
-b.trn.x <- beta[trn.ind, -1]
-b.trn.y <- beta[trn.ind, 1]
-b.tst.x <- beta[-trn.ind, -1]
-b.tst.y <- beta[-trn.ind, 1]
-
-rf.beta <- randomForest(x = b.trn.x, y = b.trn.y,
-                         ntree = 500, mtry = 700,
-                         na.bction = na.omit,
-                         nodesize = 1,  importance = T
-)
-
-rf.tst.b <- predict(rf.beta, b.tst.x) %>%
-  cbind(b.tst.y) %>% 
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = b.tst.y) %>%
-  mutate(tst.resid = obs - pred)
-
-# Training Data
-rf.trn.b <- predict(rf.beta, b.trn.x) %>%
-  cbind(b.trn.y) %>% 
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = b.trn.y) %>%
-  mutate(trn.resid = obs - pred)
-
-defaultSummary(rf.tst.b) # 0.697
-defaultSummary(rf.trn.b) # 0.960
-
-#     Gamma-CD ------------------------------------------------------------
-
-gamma <- df %>% filter(gamma > 0) %>% as.matrix()
-
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(gamma), size = round(0.7 * nrow(gamma)))
-c.trn.x <- gamma[trn.ind, -1]
-c.trn.y <- gamma[trn.ind, 1]
-c.tst.x <- gamma[-trn.ind, -1]
-c.tst.y <- gamma[-trn.ind, 1]
-
-rf.gamma <- randomForest(x = c.trn.x, y = c.trn.y,
-                        ntree = 500, mtry = 700,
-                        na.cction = na.omit,
-                        nodesize = 1,  importance = T
-)
-
-rf.tst.c <- predict(rf.gamma, c.tst.x) %>%
-  cbind(c.tst.y) %>% 
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = c.tst.y) %>%
-  mutate(tst.resid = obs - pred)
-
-# Training Data
-rf.trn.c <- predict(rf.gamma, c.trn.x) %>%
-  cbind(c.trn.y) %>% 
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = c.trn.y) %>%
-  mutate(trn.resid = obs - pred)
-
-defaultSummary(rf.tst.c) # 0.270
-defaultSummary(rf.trn.c) # 0.965
-
-#     Compiled CDs --------------------------------------------------------
-
-temp.a <- rf.tst.a %>% 
-  mutate(cd.type = "alpha")
-temp.b <- rf.tst.b %>% 
-  mutate(cd.type = "beta")
-temp.c <- rf.tst.c %>% 
-  mutate(cd.type = "gamma")
-rf.abc.tst <- rbind(temp.a, temp.b, temp.c, 
-                     make.row.names = F) 
-
-temp.a <- rf.trn.a %>% 
-  mutate(cd.type = "alpha")
-temp.b <- rf.trn.b %>% 
-  mutate(cd.type = "beta")
-temp.c <- rf.trn.c %>% 
-  mutate(cd.type = "gamma")
-rf.abc.trn <- rbind(temp.a, temp.b, temp.c, 
-                    make.row.names = F)
-
-defaultSummary(rf.abc.tst) # 0.680
-defaultSummary(rf.abc.trn) # 0.958
-
-# Saving Data -------------------------------------------------------------
-
-dir.create("./models/rforest")
-saveRDS(rf.alpha, "./models/rforest/rf.alpha.RDS")
-saveRDS(rf.beta, "./models/rforest/rf.beta.RDS")
-saveRDS(rf.gamma, "./models/rforest/rf.gamma.RDS")
-
-saveRDS(rf.abc.tst, "./models/rforest/rf.results.RDS")
-saveRDS(rf.abc.trn, "./models/rforest/rf.trn.results.RDS")
-
-# Graphs ------------------------------------------------------------------
-
-dir.create("./graphs/rforest")
-
-#     Test Data -----------------------------------------------------------
-
-# All Datapoints
-rf.tst.df %>% ggplot(., aes(x = obs, y = pred)) +
+# Yay, you pass
+eval.tropsha(tst.alpha.df)
+graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol", 
-       title = "Random Forest on Testing Data")
-# ggsave("./graphs/rforest/2017-07-28 rf test.png")
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Random Forest for Alpha")
 
-ggplot(rf.tst.a, aes(x = obs, y = pred)) +
+#     Beta ----
+
+trn.beta <- readRDS("./pre-process/beta/8/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/beta.vars.RDS")
+colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
+trn.beta <- trn.beta %>% select(., DelG, features) 
+trn.beta.x <- select(trn.beta, -DelG) 
+trn.beta.y <- trn.beta$DelG
+
+rf.beta <- randomForest(x = trn.beta.x, y = trn.beta.y, 
+                         ntree = 25, nodesize = 10, mtry = 4)
+
+tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
+                                features, 8)
+
+tst.beta.df <- predict(rf.beta, tst.beta[ , -1]) %>%
+  cbind(tst.beta[ , 1], .) %>% data.frame()
+colnames(tst.beta.df) <- c("obs", "pred")
+
+# Yay, you pass
+eval.tropsha(tst.beta.df)
+graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) + 
   geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
   theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol", 
-       title = "Random Forest - Alpha CD")
-# ggsave("./graphs/rforest/2017-07-28 rf alphacd tst.png")
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Random Forest for Beta")
 
-ggplot(rf.tst.b, aes(x = obs, y = pred)) +
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol", 
-       title = "Random Forest - Beta CD")
-# ggsave("./graphs/rforest/2017-07-28 rf betacd tst.png")
+#     Saving models ----
 
-ggplot(rf.tst.c, aes(x = obs, y = pred)) +
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol", 
-       title = "Random Forest - Gamma CD")
-# ggsave("./graphs/rforest/2017-07-28 rf gammacd tst.png")
-
-ggplot(rf.abc.tst, aes(x = obs, y = pred, color = cd.type)) +
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol", 
-       title = "Random Forest - Compiled CD", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/rforest/2017-07-28 rf compiled cd tst.png")
+pp.settings <- readRDS("./pre-process/alpha/5/pp.settings.RDS")
+saveRDS(list(pp.settings, rf.alpha), "./models/alpha/rf.RDS")
+saveRDS(tst.alpha.df, "./results/alpha/rf.RDS")
+print(graph.alpha)
+ggsave("./results/alpha/rf.png")
 
 
-#     Training Data -------------------------------------------------------
-
-rf.trn.df %>% ggplot(., aes(x = obs, y = pred)) +
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol", 
-       title = "Random Forest on Training Data", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/rforest/2017-07-28 rf trn.png")
-
-ggplot(rf.abc.trn, aes(x = obs, y = pred, color = cd.type)) +
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", 
-       y = "Predicted DelG, kJ/mol", 
-       title = "Random Forest - Compiled CD, Training Data", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/rforest/2017-07-28 rf compiled cd trn.png")
-
-#     Residuals -----------------------------------------------------------
-
-ggplot(rf.abc.tst, aes(x = obs, y = tst.resid, color = cd.type)) + 
-  geom_point() + 
-  geom_hline(yintercept = 0) + 
-  coord_fixed() + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", 
-       y = "Residuals, kJ/mol", 
-       title = "Random Forest Residuals on Testing Data", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/rforest/2017-07-28 rf tst resid.png")
-
-rf.abc.trn %>% ggplot(., aes(x = obs, y = trn.resid, color = cd.type)) + 
-  geom_point() + 
-  geom_hline(yintercept = 0) + 
-  coord_fixed() + 
-  theme_bw() + 
-  labs(x = "Observed DelG, kJ/mol", 
-       y = "Residuals, kJ/mol", 
-       title = "Random Forest Residuals on Training Data")
-# ggsave("./graphs/rforest/2017-07-13 rforest trn resid.png")
-
-#####
-# External Validation -----------------------------------------------------
-#####
-ext.val <- readRDS("./external validation set new.RDS") %>%
-  select(-guest:-host) %>%
-  select(-data.source) 
-
-ext.val.a <- ext.val %>% filter(alpha > 0) 
-ext.val.b <- ext.val %>% filter(beta > 0)
-ext.val.c <- ext.val %>% filter(gamma > 0) 
-
-ev.a <-  predict(rf.alpha, ext.val.a[ , -1]) %>%
-  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-ev.b <-  predict(rf.beta, ext.val.b[ , -1]) %>%
-  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-ev.c <-  predict(rf.gamma, ext.val.c[ , -1]) %>%
-  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-temp.a <- ev.a %>% mutate(cd.type = "alpha")
-temp.b <- ev.b %>% mutate(cd.type = "beta")
-temp.c <- ev.c %>% mutate(cd.type = "gamma")
-# temp.a <- temp.a[-2, ]
-ev.abc <- rbind(temp.a, temp.b, temp.c) %>%
-  mutate(resid = pred - obs)
-
-defaultSummary(ev.abc) # 0.385 normally, 0.621 without outlier
-ggplot(ev.abc, aes(x = obs, y = pred, color = cd.type)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0) + 
-  coord_fixed(xlim = c(-45, 5), ylim = c(-45, 5)) + 
-  theme_bw() + 
-  labs(title = "Random Forest - External Validation", 
-       y = "Predicted DelG, kJ/mol", 
-       x = "Observed DelG, kJ/mol", 
-       color = "Cyclodextrin")
-# ggsave("./graphs/rforest/2017-07-28 rf extval.png")
-
-ev.rf <- ev.abc %>% mutate(Model = "Random Forest") %>%
-  select(-resid)
-
-# Variable Analysis -------------------------------------------------------
-
-rf.var <- importance(rf)
-rf.var.a <- importance(rf.alpha)
-rf.var.b <- importance(rf.beta)
-rf.var.c <- importance(rf.gamma)
-
-
+pp.settings <- readRDS("./pre-process/beta/8/pp.settings.RDS")
+saveRDS(list(pp.settings, rf.beta), "./models/beta/rf.RDS")
+saveRDS(tst.beta.df, "./results/beta/rf.RDS")
+print(graph.beta)
+ggsave("./results/beta/rf.png")

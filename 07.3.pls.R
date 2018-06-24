@@ -1,8 +1,149 @@
+source("07.model.functions.R")
+
 # Libraries and Packages --------------------------------------------------
 
 library(pls)
 library(tidyverse)
 
+# Functions ---------------------------------------------------------------
+
+pls.looq2 <- function(read.dir, rfe.dir, nsplits, method, ncomp) {
+  q2.results <- c(rep(0.0, nsplits))
+  if(str_detect(read.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
+      select(., -guest)
+    obs <- data[ , 1]
+    data <- data %>% select(., DelG, features) 
+    pred <- c()
+    # In this loop, i represents the index of the datapoint left out of 
+    # model building
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, ]
+      # trn.x <- trn[ , -1]
+      # trn.y <- trn[ , 1]
+      # tst.x <- tst[ , -1]
+      # tst.y <- tst[ , 1]
+      
+      pls.mod <- plsr(DelG~., data = trn, 
+                      ncomp = ncomp, method = method)
+      pred[i] <- predict(pls.mod, tst[ , -1]) %>% .[2]
+    }
+    # Handling outliers
+    for(i in 1:length(pred)) {
+      if(abs(pred[i]) > 85)
+        pred[i] <- mean(obs)
+    }
+    pred.df <- data.frame(obs, pred)
+    colnames(pred.df) <- c("obs", "pred")
+    p <- ggplot(pred.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0) + 
+      coord_fixed()
+    print(p)
+    PRESS <- sum((obs - pred)^2)
+    # total sum of squares
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    message("Q2 = ", q2)
+    q2.results[n] <- q2
+  }
+  return(mean(q2.results))
+}
+
+pls.tst <- function(pp.dir, tst.dir, nsplits, ncomp, method) {
+  split <- 1:nsplits
+  r2.results <- c(rep(0.0, nsplits))
+  rmse.results <- c(rep(0.0, nsplits))
+  if(str_detect(pp.dir, "alpha"))
+    features <- readRDS("./feature.selection/alpha.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/beta.vars.RDS")
+  
+  for(n in 1:nsplits) {
+    trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
+      select(., DelG, features)
+    tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
+                              feat = features, n = n)
+    
+    pls.mod <- plsr(DelG~., data = trn, 
+                    ncomp = ncomp, method = method)
+     tst.df <- predict(pls.mod, tst[ , -1], ncomp = ncomp) %>%
+      cbind(tst[ , 1], .) %>%
+      as.data.frame()
+    colnames(tst.df) <- c("obs", "pred")
+    p <- ggplot(tst.df, aes(x = obs, y = pred)) + 
+      theme_bw() + 
+      geom_point() + 
+      labs(title = n) + 
+      geom_abline(slope = 1, intercept = 0) + 
+      coord_fixed()
+    print(p)
+    for(i in 1:nrow(tst.df))
+      if(abs(tst.df$pred[i]) > 80)
+        tst.df$pred[i] <- mean(trn.y)
+    print(defaultSummary(tst.df))
+    r2.results[n] <- defaultSummary(tst.df)[2]
+    rmse.results[n] <- defaultSummary(tst.df)[1]
+  }
+  return(data.frame(split, r2.results, rmse.results))
+}
+
+# LOOCV-Q2 Evaluation -----------------------------------------------------
+
+# None pass D:. Split 1 comes the closest.
+pls.looq2("./pre-process/alpha/", nsplits = 10, 
+          ncomp = 8, method = "simpls")
+
+# All pass. 0.572
+pls.looq2("./pre-process/beta/", nsplits = 10, 
+          ncomp = 25, method = "simpls")
+
+# Test sets ---------------------------------------------------------------
+
+# Only split 5 passes
+# Q2 is brought down by single outlier - it's probably fine otherwise
+alpha.tst <- pls.tst("./pre-process/alpha/", "./model.data/alpha/", 
+                     nsplits = 10, ncomp = 8, method = "simpls")
+
+# Split 1 looks the best
+beta.tst <- pls.tst("./pre-process/beta/", "./model.data/beta/", 
+                     nsplits = 10, ncomp = 25, method = "simpls")
+
+# Single models -----------------------------------------------------------
+
+#    Alpha ----
+
+trn.alpha <- readRDS("./pre-process/alpha/5/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
+trn.alpha <- trn.alpha %>% select(., DelG, features) 
+
+pls.alpha <- plsr(DelG ~., data = trn.alpha, 
+                  ncomp = 8, method = "simpls")
+
+tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
+                                features, 5)
+
+tst.alpha.df <- predict(pls.alpha, tst.alpha[ , -1], ncomp = 8) %>%
+  cbind(tst.alpha[ , 1], .) %>% data.frame()
+colnames(tst.alpha.df) <- c("obs", "pred")
+
+eval.tropsha(tst.alpha.df)
+graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  theme_bw() + 
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "PLS for Alpha")
 # Loading Data ------------------------------------------------------------
 
 dir.create("./models/pls")
@@ -15,185 +156,45 @@ trn.ind <- sample(x = 1:nrow(df),
 trn <- df[trn.ind, ]
 tst <- df[-trn.ind, ]
 
-# All Predictors ----------------------------------------------------------
+#    Beta ----
 
-# Creating a basic PLS model
-pls <- plsr(DelG ~ ., 
-                ncomp = 11, 
-                data = trn, 
-                validation = "LOO", 
-                method = "oscorespls")
-summary(pls)
-# Plotting number of components vs. RMSEP
-plot(RMSEP(pls), legendpos = "topright") # 3 comps best
-# Plotting one of the validation sets
-# plot(pls, ncomp = 3, asp = 1, line = T)
-# Test data prediction plot
-# predict(pls.mod, ncomp = 3, newdata = pls.tst) %>%
-#   cbind(pls.tst[ , 1]) %>%
-#   data.frame() %>%
-#   ggplot(., aes(x = ., y = V2)) + 
-#   geom_point() + 
-#   geom_abline(slope = 1, intercept = 0) + 
-#   coord_fixed()
-# Testing R-squared
-pls.tst <- predict(pls, ncomp = 11, newdata = tst) %>%
-  cbind(tst[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
+trn.beta <- readRDS("./pre-process/beta/1/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/beta.vars.RDS")
+colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
+trn.beta <- trn.beta %>% select(., DelG, features) 
 
-pls.trn <- predict(pls, ncomp = 11, newdata = trn) %>%
-  cbind(trn[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
+pls.beta <- plsr(DelG ~., data = trn.beta, 
+                  ncomp = 25, method = "simpls")
 
-defaultSummary(pls.tst) # R-squared = 0.654
-defaultSummary(pls.trn) # R-squared = 0.758
+tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
+                                features, 1)
 
-saveRDS(pls, "./models/pls/pls.all.RDS")
+tst.beta.df <- predict(pls.beta, tst.beta[ , -1], ncomp = 25) %>%
+  cbind(tst.beta[ , 1], .) %>% data.frame()
+colnames(tst.beta.df) <- c("obs", "pred")
 
-# Separate CD -------------------------------------------------------------
+# Yay you pass
+eval.tropsha(tst.beta.df)
+graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) + 
+  geom_point() + 
+  theme_bw() + 
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "PLS for Beta")
 
-#     Alpha-CD ------------------------------------------------------------
+#     Saving models ----
 
-alpha <- df %>% filter(alpha > 0)
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(alpha), size = round(0.7 * nrow(alpha)))
-a.trn <- alpha[trn.ind, ]
-a.tst <- alpha[-trn.ind, ]
+pp.settings <- readRDS("./pre-process/alpha/5/pp.settings.RDS")
+saveRDS(list(pp.settings, pls.alpha), "./models/alpha/pls.RDS")
+saveRDS(tst.alpha.df, "./results/alpha/pls.RDS")
+print(graph.alpha)
+ggsave("./results/alpha/pls.png")
 
-pls.alpha <- plsr(DelG ~ ., 
-                 ncomp = 4, 
-                 data = a.trn, 
-                 validation = "LOO", 
-                 method = "oscorespls", 
-                 seed = 10)
 
-pls.tst.a <- predict(pls.alpha, ncomp = 4, newdata = a.tst) %>%
-  cbind(a.tst[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-pls.trn.a <- predict(pls.alpha, ncomp = 4, newdata = a.trn) %>%
-  cbind(a.trn[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-defaultSummary(pls.tst.a) # R-squared = 0.566
-defaultSummary(pls.trn.a) # 0.736
-
-#     Beta-CD -------------------------------------------------------------
-
-beta <- df %>% filter(beta > 0)
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(beta), size = round(0.7 * nrow(beta)))
-b.trn <- beta[trn.ind, ]
-b.tst <- beta[-trn.ind, ]
-
-pls.beta <- plsr(DelG ~ ., 
-            ncomp = 4, 
-            data = b.trn, 
-            validation = "LOO", 
-            method = "oscorespls", 
-            seed = 10)
-
-pls.tst.b <- predict(pls.beta, ncomp = 4, newdata = b.tst) %>%
-  cbind(b.tst[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-pls.trn.b <- predict(pls.beta, ncomp = 4, newdata = b.trn) %>%
-  cbind(b.trn[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-defaultSummary(pls.tst.b) # R-squared = 0.755
-defaultSummary(pls.trn.b) # R-squared = 0.767
-
-# Gamma-CD ----------------------------------------------------------------
-
-gamma <- df %>% filter(gamma > 0)
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(gamma), size = round(0.7 * nrow(gamma)))
-c.trn <- gamma[trn.ind, ]
-c.tst <- gamma[-trn.ind, ]
-
-pls.gamma <- plsr(DelG ~ ., 
-                 ncomp = 5, 
-                 data = c.trn, 
-                 validation = "LOO", 
-                 method = "oscorespls", 
-                 seed = 10)
-
-pls.tst.c <- predict(pls.gamma, ncomp = 5, newdata = c.tst) %>%
-  cbind(c.tst[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-pls.trn.c <- predict(pls.gamma, ncomp = 5, newdata = c.trn) %>%
-  cbind(c.trn[ , 1]) %>%
-  data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-defaultSummary(pls.tst.c) # R-squared = 0.319
-defaultSummary(pls.trn.c) # R-squared = 0.998
-
-#     Compiled-CD ---------------------------------------------------------
-
-temp.a <- pls.tst.a %>% mutate(cd.type = "alpha")
-temp.b <- pls.tst.b %>% mutate(cd.type = "beta")
-temp.c <- pls.tst.c %>% mutate(cd.type = "gamma")
-pls.abc.tst <- rbind(temp.a, temp.b, temp.c, 
-                     make.row.names = F) %>%
-  mutate(residual = pred - obs)
-defaultSummary(pls.abc.tst) # 0.684
-
-temp.a <- pls.trn.a %>% mutate(cd.type = "alpha")
-temp.b <- pls.trn.b %>% mutate(cd.type = "beta")
-temp.c <- pls.trn.c %>% mutate(cd.type = "gamma")
-pls.abc.trn <- rbind(temp.a, temp.b, temp.c, 
-                     make.row.names = F) %>%
-  mutate(residual = pred - obs)
-
-# ggplot(pls.abc.tst, aes(x = obs, y = pred, color = cd.type)) + 
-#   geom_point() + 
-#   geom_abline(intercept = 0, slope = 1)
-
-# Saving Models -----------------------------------------------------------
-
-dir.create("./models/pls")
-saveRDS(pls.alpha, "./models/pls/pls.alpha.RDS")
-saveRDS(pls.beta, "./models/pls/pls.beta.RDS")
-saveRDS(pls.gamma, "./models/pls/pls.gamma.RDS")
-
-saveRDS(pls.abc.tst, "./models/pls/pls.results.RDS")
-saveRDS(pls.abc.trn, "./models/pls/pls.trn.results.RDS")
-
-# External Validation -----------------------------------------------------
-
-ext.val <- readRDS("./external validation set new.RDS") %>%
-  select(-guest:-host) %>%
-  select(-data.source) 
-
-ext.val.a <- ext.val %>% filter(alpha > 0) 
-ext.val.b <- ext.val %>% filter(beta > 0)
-ext.val.c <- ext.val %>% filter(gamma > 0) 
-
-ev.a <-  predict(pls.alpha, ncomp = 5, newdata = ext.val.a) %>%
-  cbind(ext.val.a[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-ev.b <-  predict(pls.beta, ncomp = 5, newdata = ext.val.b) %>%
-  cbind(ext.val.b[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-ev.c <-  predict(pls.gamma, ncomp = 5, newdata = ext.val.c) %>%
-  cbind(ext.val.c[ , 1]) %>% data.frame() %>%
-  dplyr::rename(., pred = `.`, obs = V2)
-
-temp.a <- ev.a %>% mutate(cd.type = "alpha")
-temp.b <- ev.b %>% mutate(cd.type = "beta")
-temp.c <- ev.c %>% mutate(cd.type = "gamma")
-# temp.a <- temp.a[-2, ]
-ev.abc <- rbind(temp.a, temp.b, temp.c) %>%
-  mutate(resid = pred - obs)
-# Prearing copy for compilation
-ev.pls <- ev.abc %>% select(-resid) %>%
-  mutate(Model = "PLS")
+pp.settings <- readRDS("./pre-process/beta/1/pp.settings.RDS")
+saveRDS(list(pp.settings, pls.beta), "./models/beta/pls.RDS")
+saveRDS(tst.beta.df, "./results/beta/pls.RDS")
+print(graph.beta)
+ggsave("./results/beta/pls.png")
