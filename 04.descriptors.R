@@ -9,6 +9,71 @@
 library(stringr)
 library(tidyverse)
 
+# Functions ---------------------------------------------------------------
+
+# Write into a single .SDF for easy processing. Uses the filename as the
+# molecule name
+# mol.dir   a directory containing the SDF files that need to becompiled
+compile.sdf <- function(mol.dir) {
+  mol.files <- list.files(mol.dir, full.names = T)
+  mol.names <- list.files(mol.dir) %>%
+    str_remove(".SDF")
+  
+  # Removing empty files
+  mol.info <- file.info(mol.files) 
+  mol.files <- mol.files[!(mol.info$size == 0)]
+  
+  # Reading into a list
+  sdf.list <- lapply(mol.files, readRDS)
+  # Assigning the correct names
+  for(i in 1:length(sdf.list))
+    sdf.list[[i]][1] <- mol.names[i]
+  # Compiling into a single large data.frame
+  sdf <- do.call(rbind, sdf.list)
+  
+  return(sdf)
+}
+
+# Optimize energies -------------------------------------------------------
+
+mol.files <- list.files("./molecules/alphaCD", full.names = T)
+mol.info <- file.info(mol.files)
+empties <- mol.info$size == 0
+mol.files <- mol.files[!empties]
+mol.names <- mol.files %>% str_remove("./molecules/alphaCD/") %>%
+  str_remove(".SDF")
+compiled.sdf <- lapply(mol.files, read.csv, 
+                       header = F, stringsAsFactors = F)
+for(n in 1:length(compiled.sdf)) {
+  temp <- compiled.sdf[[n]]
+  temp[1, 1] <- mol.names[[n]]
+  compiled.sdf[[n]] <- temp
+}
+compiled.sdf <- do.call(rbind, compiled.sdf)
+write.table(compiled.sdf, "./molecules/alpha.SDF", row.names = F, quote = F, 
+            col.names = F)
+# Run openBabel settings: 
+# Explicit hydrogens
+# continue past errors
+# add 3d coordinates
+
+mol.files <- list.files("./molecules/betaCD", full.names = T)
+mol.info <- file.info(mol.files)
+empties <- mol.info$size == 0
+mol.files <- mol.files[!empties]
+mol.names <- mol.files %>% str_remove("./molecules/betaCD/") %>%
+  str_remove(".SDF")
+compiled.sdf <- lapply(mol.files, read.csv, 
+                       header = F, stringsAsFactors = F)
+for(n in 1:length(compiled.sdf)) {
+  temp <- compiled.sdf[[n]]
+  temp[1, 1] <- mol.names[[n]]
+  compiled.sdf[[n]] <- temp
+}
+compiled.sdf <- do.call(rbind, compiled.sdf)
+write.table(compiled.sdf, "./molecules/beta.SDF", row.names = F, quote = F, 
+            col.names = F)
+
 # PaDEL-Descriptor --------------------------------------------------------
 
 # Current settings:

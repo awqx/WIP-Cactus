@@ -6,6 +6,7 @@
 
 # Libraries and Packages --------------------------------------------------
 
+library(data.table)
 library(deSolve)
 library(dplyr)
 library(tidyverse)
@@ -32,7 +33,7 @@ convert.delg.kd <- function(delg) {
 # 
 # This is probably wrong in terms of how the units scale
 get.diffusivity <- function(mol.wt) {
-  # assuming the conditions are standardizes to 298 K
+  # assuming the conditions are standardized to 298 K
   # and the release media is water
   diff <- 9.940 * 10^-15 * 298 / (0.8921 * mol.wt^(1/3))
   # assuming the output is in m^2*s^-1...
@@ -41,45 +42,15 @@ get.diffusivity <- function(mol.wt) {
   return(diff)
 }
 
-# ODE ---------------------------------------------------------------------
-
-drug.model <- function(t, state, parms) {
-   drug <- state[1:n]
-   comp <- state[(n+1):(2*n)]
-   dcomp <- P1 * drug * (P3 - comp) - k2*comp
-   
-   ddrug <- rep(0, n)
-   ddrug[1] <- P2 * (drug[2] - drug[1]) / (del^2) - dcomp[1]
-   ddrug[n - 1] <-
-     P2*(-2*drug[n-1]+drug[n-2])/(del^2) - dcomp[n - 1]
-   for (i in 2:(n-2)) {
-     ddrug[i] <- P2*(drug[i+1]-2*drug[i]+drug[i-1])/(del^2)-dcomp[i]
-   }
-   dt <- c(ddrug, dcomp)
-   return(list(c(dt)))
-}
-
-# out is the result of ode with times 0 to t and layers 1 to n
-get.dMr <- function(out) {
-  times <- seq(1, t, 1)
-  rr <- rep(0, (t-1))
-  for(i in 1:t) {
-    rr[i] <- -0.5 * P2 * (out[i, n] - out[i , (n - 1)])/del
-  }
-  return(data.frame(times, rr))
-}
-
-accumulate.dMr <- function(out) {
-  times <- seq(1, t, 1)
-  rr <- rep(0, (t-1))
-  rr[1] <- -0.5 * P2 * (out[1, n] - out[1 , (n - 1)])/del
-  for(i in 2:t) {
-    rr[i] <- rr[i - 1] - 0.5 * P2 * (out[i, n] - out[i , (n - 1)])/del
-  }
-  return(data.frame(times, rr))
-}
-
-
+accumulate.new.dg <- function(dg) {
+  ka <- convert.delg.ka(dg)
+  k1 <- k2*ka
+  P1 <<- P1 <- k1/k2*c0
+  out.temp <- ode(y = state, times = times, func = drug.model, parms = NULL)
+  dmr.sum <- accumulate.dMr(out = out.temp) %>% .[-1, ] %>%
+    mutate(dG = dg)
+  return(dmr.sum)
+} 
 # Parameters --------------------------------------------------------------
 
 # Known
@@ -110,15 +81,53 @@ P2 <- D/(k2*width^2)
 P2 <- 0.8 # approximation from Fu
 P3 <- ct/c0
 
+# Dimensionless ODE Implementation ----------------------------------------
 
-# ODE Implementation ------------------------------------------------------
+# Functions
+drug.model <- function(t, state, parms) {
+  drug <- state[1:n]
+  comp <- state[(n+1):(2*n)]
+  dcomp <- P1 * drug * (P3 - comp) - k2*comp
+  
+  ddrug <- rep(0, n)
+  ddrug[1] <- P2 * (drug[2] - drug[1]) / (del^2) - dcomp[1]
+  ddrug[n - 1] <-
+    P2*(-2*drug[n-1]+drug[n-2])/(del^2) - dcomp[n - 1]
+  for (i in 2:(n-2)) {
+    ddrug[i] <- P2*(drug[i+1]-2*drug[i]+drug[i-1])/(del^2)-dcomp[i]
+  }
+  dt <- c(ddrug, dcomp)
+  return(list(c(dt)))
+}
+
+# out is the result of ode with times 0 to t and layers 1 to n
+get.dMr <- function(out) {
+  times <- seq(1, t, 1)
+  rr <- rep(0, (t-1))
+  for(i in 1:t) {
+    rr[i] <- -0.5 * P2 * (out[i, n] - out[i , (n - 1)])/del
+  }
+  return(data.frame(times, rr))
+}
+
+accumulate.dMr <- function(out) {
+  times <- seq(1, t, 1)
+  rr <- rep(0, (t-1))
+  rr[1] <- -0.5 * P2 * (out[1, n] - out[1 , (n - 1)])/del
+  for(i in 2:t) {
+    rr[i] <- rr[i - 1] - 0.5 * P2 * (out[i, n] - out[i , (n - 1)])/del
+  }
+  return(data.frame(times, rr))
+}
+
+# Parameters
 
 n <- 100 # number of layers
 del <- 1/n # width of a layer
-# del <- 0.1 # I don't know why this value works 
+del <- 0.1 # I don't know why this value works 
 state <- c(rep(cl.eq, n), 
            rep(clc.eq, n))
-t <- 700
+t <- 1000
 times <- seq(0, t, 1) 
 out <- ode(y = state, times = times, func = drug.model, parms = NULL)
 
@@ -135,7 +144,42 @@ ggplot(drug.out, aes(x = time, y = location, fill = value)) +
 dmr.sum <- accumulate.dMr(out = out) %>% .[-1, ]
 ggplot(dmr.sum, aes(x = times, y = rr)) + 
   geom_line() + 
-  theme_bw()
+  theme_bw() + 
+  labs(x = "Time, in hours", y = "Cumulative proportion of drug released")
+
+# Compilation of several
+drug.out1 <- drug.out
+ggplot(drug.out, aes(x = time, y = location, fill = value)) +
+  geom_raster() + 
+  theme.paper.2018 + 
+  theme(text = element_text(size = 12, family = "Clear Sans Light"), 
+        panel.border = element_rect(fill = NA, color = "white"), 
+        axis.text.y=element_blank(), axis.ticks.y = element_blank()) + 
+  labs(fill = "[Free drug]",
+       y = "Distance from center of hydrogel", 
+       x = "Time")
+ggsave("./graphs/presentation/diffusion.png", dpi = 600)
+
+dmr.sum1 <- dmr.sum %>% mutate(dG = -18)
+dmr.sum1 <- accumulate.new.dg(-25)
+dmr.sum2 <- accumulate.new.dg(-5)
+dmr.sum3 <- accumulate.new.dg(-10)
+dmr.sum4 <- accumulate.new.dg(-15)
+dmr.sum5 <- accumulate.new.dg(-20)
+ggplot(dmr.sum2, aes(x = times, y = rr)) + 
+  geom_line() + 
+  theme_bw() + 
+  labs(x = "Time, in hours", y = "Cumulative proportion of drug released")
+dmr.sum.all <- rbind(dmr.sum1, dmr.sum2, dmr.sum3, dmr.sum4, dmr.sum5) %>%
+  mutate(dG = as.factor(dG))
+ggplot(dmr.sum.all, aes(x = times, y = rr, color = dG)) + 
+  geom_line() + 
+  theme.paper.2018 + 
+  labs(x = "Time, in hours", y = "Cumulative proportion of drug released")
+ggsave("./graphs/presentation/profiles.png", dpi = 600)
+
+
+# ODE with dimensions -----------------------------------------------------
 
 # Testing values ----------------------------------------------------------
 
@@ -553,3 +597,9 @@ ggplot(drug.total.time, aes(x = times, y = drug.total)) +
   geom_line(aes(y = comp.total), color = "red") + 
   geom_line(aes(y = drug.comp.total)) + 
   theme_bw()
+
+
+
+# ODE on external validation ----------------------------------------------
+
+
