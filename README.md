@@ -1,16 +1,10 @@
-# Status
-## Current Issues
-1. Evaluating model accuracy (Tropsha)
-2. Applicability domain
-3. 
+# OpenBabel Minimization Status
+## Conclusions
+* No significant difference in model-building
+    * SVM accuracy dropped
+    * GLMNet accuracy mildly improved
+    * PLS accuracy dropped
+* Not worth adding a new step (and more software) when compared to PaDEL-Descriptor
 
-## Most Recent Additions
-1. Saving data
-2. Rough variable importance calculation 
-
-## Near Future Possibilities
-1. Chemical descriptor calculation within R with Rcdk
-2. Tuning of ANNs and Keras
-3. Better variable importance calculations
-4. Progressive y-scrambling
+This branch will be archived but not used for the final model. 
 
