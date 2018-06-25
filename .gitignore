@@ -3,19 +3,11 @@
 .RData
 .Ruserdata
 
-# HTML docs and data summaries
-report.svm.Rmd
-report.rf.Rmd
-report.pls.Rmd
-report.glm.Rmd
-report.cubist.Rmd
-06.4.glm.html
-report.cubist.Rmd
-report.cubist.html
+# HTML docs (usually summaries or previews) and data summaries
 compiled folds.RDS
+*.html
 
-# Graphs
-#     Data files that simply do not need to exist in GitHub
+# Graphs and other data files that simply do not need to exist in GitHub
 graphs/
 graph.formatting.R
 graph.functions.R
