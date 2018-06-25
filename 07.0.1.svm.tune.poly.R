@@ -129,11 +129,11 @@ saveRDS(results.coef, "./tuning/svm/alpha/poly.deg.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-coef.range <- c(0, 1, 5, 10, 20, 40, 75)
+coef.range <- c(0, 1, 5, 10, 20, 40)
 cost.range <- c(1, 5, 10, 20, 40, 75)
 deg.range <- 1:4
-epsilon.range <- 2^(-6:0)
-gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75)
+epsilon.range <- c(0,001, 0.01, 0.05, 0.1, 0.25, 0.5)
+gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5)
 # 7*5*7*6*4 = 9604 tuning combinations
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range, coef.range, deg.range)
@@ -170,15 +170,11 @@ saveRDS(results.combos, "./tuning/svm/alpha/poly.tuning.RDS")
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared (0.775) (rmse = 604.5, no that isn't a typo)
-# degree = 4, cost = 20, eps = 0.25, gamma = 0.05, coef0 = 1 
-# Best rmse = 3.55 (r2 = 0.665)
-# deg = 4, cost = 1, epsilon = 0.5, gamma = 0.1, coef0 = 10
-# middle ground: r2 = 0.684, rmse = 4.02
-# degree = 4, cost = 10, epsilon = 0.125, gamma = 1, coef0 = 20
+# nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
+#       5 polynomial      3   40    0.05 0.001    20 0.6099731 3.314342
 
-# r2 = 0.604, rmse = 3.08
-# degree = 4, cost = 5, eps = 0.25, gammma = 0.01, coef0 = 1
+# nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
+#       5 polynomial      4    1    0.01 0.001    10 0.6014815 3.032401
 
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
@@ -298,11 +294,11 @@ ggplot(results.deg, aes(x = degree, color = seed, group = seed)) +
   scale_x_continuous(trans = "log2") + 
   theme_bw()
 
-saveRDS(results.cost, "./tuning/svm/beta/poly.cost.RDS")
-saveRDS(results.gamma, "./tuning/svm/beta/poly.gamma.RDS")
-saveRDS(results.epsilon, "./tuning/svm/beta/poly.epsilon.RDS")
-saveRDS(results.coef, "./tuning/svm/beta/poly.coef.RDS")
-saveRDS(results.coef, "./tuning/svm/beta/poly.deg.RDS")
+# saveRDS(results.cost, "./tuning/svm/beta/poly.cost.RDS")
+# saveRDS(results.gamma, "./tuning/svm/beta/poly.gamma.RDS")
+# saveRDS(results.epsilon, "./tuning/svm/beta/poly.epsilon.RDS")
+# saveRDS(results.coef, "./tuning/svm/beta/poly.coef.RDS")
+# saveRDS(results.coef, "./tuning/svm/beta/poly.deg.RDS")
 
 #     Tuning --------------------------------------------------------------
 
@@ -349,7 +345,6 @@ saveRDS(results.combos, "./tuning/svm/beta/poly.tuning.RDS")
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared = 0.761, rmse = 2.70
-# degree = 3, cost = 10, eps = 0.25, gamma = 0.001, coef0 = 25
-# Best rmse = 2.65 (r2 = 0.757)
-# deg = 4, cost = 10, eps = 0.25, gamma = 0.001, coef0 = 5
+# nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
+#       5 polynomial      2    1  0.2500 0.100     2 0.6652325 3.047717
+#       5 polynomial      3    1  0.0625  0.05     2 0.6573719 2.945817

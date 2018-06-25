@@ -156,7 +156,7 @@ tune.glm <- function(data, nfolds, a, max) {
 #     Loading Data --------------------------------------------------------
 
 # Reading data with all descriptors
-trn.all <- readRDS("./pre-process/alpha/1/pp.RDS") 
+trn.all <- readRDS("./pre-process/alpha/2/pp.RDS") 
 colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn.df <- select(trn.all, -guest)

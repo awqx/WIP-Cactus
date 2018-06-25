@@ -178,6 +178,8 @@ rbfsvm.tst <- function(pp.dir, tst.dir, nsplits, cost, e, g) {
   for(n in 1:nsplits) {
     trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
       select(., -guest)
+    trn <- do.call(data.frame, lapply(trn, function(x) 
+      replace(x, is.infinite(x),NA)))
     trn.y <- trn[ , 1]
     trn.x <- trn %>% select(., features)
     
@@ -314,7 +316,9 @@ sigsvm.tst <- function(pp.dir, tst.dir, nsplits, cost, coef, e, g) {
 # Narrow misses for the rest (would all round to 0.5)
 # avg = 0.521
 polysvm.looq2(read.dir = "./pre-process/alpha/", nsplits = 10, 
-              cost = 4, deg = 5, coef = 1, e = 0.27, g = 0.01)
+              cost = 40, deg = 3, coef = 20, e = 0.05, g = 0.001)
+polysvm.looq2(read.dir = "./pre-process/alpha/", nsplits = 10, 
+              cost = 2, deg = 4, coef = 5, e = 0.01, g = 0.001)
 
 # All beta models pass the Q2 test
 # Average Q2 = 0.691
@@ -421,19 +425,24 @@ ggsave("./results/beta/polysvm.png")
 
 #     LOOCV-Q2 ------------------------------------------------------------
 
-# All pass, average = 0.558
+# 1, 4, and 8 pass (all pass with non-OpenBabel)
 rbfsvm.looq2(read.dir = "./pre-process/alpha/", nsplits = 10, 
-             cost = 5, e = 0.25, g = 0.05)
+             cost = 50, e = 0.001, g = 0.001)
 
-# All pass, average = 0.703
+# All pass, average = 0.617 (non OpenBabel: 0.708)
 rbfsvm.looq2(read.dir = "./pre-process/beta/", nsplits = 10, 
              cost = 10, e = 0.01, g = 0.01)
+# the tuning parameters from before work better, again. weird.
 
 #     Test sets -----------------------------------------------------------
 
-# Using split 10, because it captures some of the lower range
+#
+# # Using split 10, because it captures some of the lower range
 alpha.tst <- rbfsvm.tst("./pre-process/alpha/", "./model.data/alpha/", 
                         nsplits = 10, cost = 5, e = 0.25, g = 0.05)
+# For some reason, the original tuning settings work a lot better, despite
+# being built on completely different data
+
 
 # Split 7
 beta.tst <- rbfsvm.tst("./pre-process/beta/", "./model.data/beta/", nsplits = 10,
@@ -464,6 +473,8 @@ colnames(tst.alpha.df) <- c("obs", "pred")
 
 # Yay, you pass
 eval.tropsha(tst.alpha.df)
+# Rsquared     Rsquared                  Rsquared                           
+# 0.853247146 -0.165587254  1.023417812 -0.156183000  0.958380834  0.008024153 
 graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   theme_bw() + 
@@ -481,7 +492,7 @@ trn.beta.x <- select(trn.beta, -DelG)
 trn.beta.y <- select(trn.beta, DelG) 
 
 rbfsvm.beta <- svm(x = trn.beta.x, y = trn.beta.y,
-                    cost = 19, epsilon = 0.01, gamma = 0.01,
+                    cost = 10, epsilon = 0.01, gamma = 0.01,
                     kernel = "radial")
 
 tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
@@ -498,6 +509,8 @@ graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) +
   theme_bw() + 
   coord_fixed()  + 
   geom_abline(intercept = 0, slope = 1)
+# Rsquared    Rsquared                Rsquared                         
+# 0.78893503 -0.26651932  1.01201282 -0.24904655  0.94598567  0.01378488 
 
 #         Saving models ----
 

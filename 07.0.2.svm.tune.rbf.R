@@ -78,9 +78,9 @@ ggplot(results.epsilon, aes(x = epsilon, color = seed, group = seed)) +
   geom_line(aes(y = rsquared)) + 
   theme_bw()
 
-saveRDS(results.cost, "./tuning/svm/alpha/rbf.cost.RDS")
-saveRDS(results.gamma, "./tuning/svm/alpha/rbf.gamma.RDS")
-saveRDS(results.epsilon, "./tuning/svm/alpha/rbf.epsilon.RDS")
+# saveRDS(results.cost, "./tuning/svm/alpha/rbf.cost.RDS")
+# saveRDS(results.gamma, "./tuning/svm/alpha/rbf.gamma.RDS")
+# saveRDS(results.epsilon, "./tuning/svm/alpha/rbf.epsilon.RDS")
 
 #     Tuning --------------------------------------------------------------
 
@@ -118,10 +118,9 @@ saveRDS(results.combos, "./tuning/svm/alpha/rbf.tuning.RDS")
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared = 0.626 (rmse = 2.99)
-# cost = 5, eps = 0.25, gamma = 0.05
-# Best rmse = 2.95 (rsquared = 0.590)
-# cost = 10, eps = 0.01, gamma = 0.01
+# nfolds kernel cost epsilon gamma  rsquared     rmse
+#       10    rbf   50   0.001 0.001 0.6343202 3.044820
+#     10    rbf    2   0.050  0.01 0.6109486 2.969955
 
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
@@ -200,9 +199,9 @@ ggplot(results.epsilon, aes(x = epsilon, color = seed, group = seed)) +
   theme_bw()
 
 dir.create("./tuning/svm/beta")
-saveRDS(results.cost, "./tuning/svm/beta/rbf.cost.RDS")
-saveRDS(results.gamma, "./tuning/svm/beta/rbf.gamma.RDS")
-saveRDS(results.epsilon, "./tuning/svm/beta/rbf.epsilon.RDS")
+# saveRDS(results.cost, "./tuning/svm/beta/rbf.cost.RDS")
+# saveRDS(results.gamma, "./tuning/svm/beta/rbf.gamma.RDS")
+# saveRDS(results.epsilon, "./tuning/svm/beta/rbf.epsilon.RDS")
 
 #     Tuning --------------------------------------------------------------
 
@@ -241,9 +240,6 @@ saveRDS(results.combos, "./tuning/svm/beta/rbf.tuning.RDS")
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 results.combos[order(results.combos$rmse), ] %>% head()
 
-# Best rsquared = 0.755 (rmse = 2.88)
-# cost = 5, eps = 0.25, gamma = 0.05 
-# Best rmse = 2.72 (r2 = 0.737)
-# cost = 2, eps = 0.1, gamma = 0.05
-# middle ground: r2 = 0.832, rmse = 2.56
-# cost = 25, eps = 0.25, gamma = 0.05
+# nfolds kernel cost epsilon gamma  rsquared     rmse
+#    10    rbf    5    0.00  0.05 0.6915083 2.876896
+#    10    rbf   10    0.01  0.05 0.6568591 2.868470

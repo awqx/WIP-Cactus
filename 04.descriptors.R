@@ -109,7 +109,7 @@ dataset$guest <- str_replace(dataset$guest, pattern = '4-nitrophenyl-beta-d-gluc
 #     Phenol?, p-cresol
 alpha.dg <- dataset %>% filter(host == "alpha")
 # alpha.csv is original. alpha-ob.csv is obminimized
-alpha.padel.raw <- read_csv("./descriptors/alpha-ob.csv") %>%
+alpha.padel.raw <- read_csv("./descriptors/alpha.csv") %>%
   rename(guest = Name)
 alpha.padel <- inner_join(alpha.dg, alpha.padel.raw, by = "guest")
 

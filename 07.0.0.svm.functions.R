@@ -236,8 +236,8 @@ tune.svm.poly <- function(data, nfolds, deg, cost, e, g, coef) {
     r2.results[i] <- defaultSummary(svm.df)[2] 
   }
   
-  # message("Cost: ", cost, " || Epsilon: ", e,
-  #         " || Gamma: ", g, " || Coef0: ", coef)
+  message("Cost: ", cost, " || Epsilon: ", e,
+          " || Gamma: ", g, " || Coef0: ", coef)
   
   return(data.frame(
     nfolds = nfolds, kernel = "polynomial", 
@@ -276,8 +276,7 @@ tune.svm.rbf <- function(data, nfolds, cost, e, g) {
     r2.results[i] <- defaultSummary(svm.df)[2] 
   }
   
-  # message("Cost: ", cost, " || Epsilon: ", e,
-  #         " || Gamma: ", g, " || Coef0: ", coef)
+  message("Cost: ", cost, " || Epsilon: ", e, " || Gamma: ", g)
   
   return(data.frame(
     nfolds = nfolds, kernel = "rbf", 
