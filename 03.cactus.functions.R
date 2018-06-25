@@ -19,10 +19,10 @@ library(RCurl)
 # }
 
 make.regex <- function(string) {
-  new.string <- str_replace(string, pattern = "\\(", 
-                            replacement = "\\\\(")
-  new.string <- str_replace(new.string, pattern = "\\)", 
-                            replacement = "\\\\)")
+  new.string <- str_replace_all(string, pattern = "\\(", 
+                            replacement = "\\\\(") %>% 
+    str_replace_all(pattern = "\\)", replacement = "\\\\)") %>%
+    str_replace_all(pattern = "\\-", replacement = "\\\\-")
   # new.string <- str_replace(new.string, pattern = "\\ÃÂ²|\\B\\s+H\\+|\u03b2", # alternatives: \\ÃÂ²|\\B\\s+H\\+
   #                           replacement = "\\(ÃÂ²|\u03b2\\)")
   return(new.string)

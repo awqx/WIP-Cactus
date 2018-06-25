@@ -1,3 +1,5 @@
+dir.create("./cleaning")
+
 # Libraries and Packages --------------------------------------------------
 
 library(data.table)
@@ -307,8 +309,8 @@ comb.dg.nodup <- comb.dg[!duplicated(comb.dg), ] # filtering for unique
 
 # The full combined data contains everything, where replicated points
 # are all included
-saveRDS(comb.dg, "./dwnld/02.full.combined.ri.suzuki.RDS")
-saveRDS(comb.dg.nodup, "./dwnld/02.combined.data.RDS")
+saveRDS(comb.dg, "./cleaning/02.full.combined.ri.suzuki.RDS")
+saveRDS(comb.dg.nodup, "./cleaning/02.combined.data.RDS")
 
 
 # Information about Data
@@ -387,3 +389,37 @@ ggplot(ri.dmfh2o.wide, aes(x = DelG, y = dG.h20)) +
   geom_abline(intercept = 0, slope = 1) + 
   coord_fixed() + 
   theme_bw()
+
+#####
+
+# Connors (gamma-CD) ------------------------------------------------------
+
+# Connors, K.A. Feb 24, 1995, School of Pharmacy, University of Wisconsin.
+# Population characteristics of cyclodextrin complex stabilities in aqueous
+# solution
+# File found from University of Wisconsin archives
+# Shoutout to Debra King and Joni Mitchell - the real MVPs
+connors.raw <- read.csv("./dwnld/connors-gamma.csv")
+colnames(connors.raw) <- c("guest", "charge", "ka")
+
+# cleaning for neutral charge
+connors <- connors.raw %>% filter(charge == "0") %>%
+  mutate(ka = as.numeric(ka))
+
+# collapsing same guests
+# Unit conversion
+# According to Connors, T = 298 K 
+convert.ka.delg <- function(ka) {
+  lnk <- log(ka)
+  return(-8.314 * 298 * lnk / 1000)
+}
+connors <- data.table(connors, key = "guest")
+connors <- connors[ , list(ka = mean(ka)), by = "guest"] %>% 
+  mutate(DelG = convert.ka.delg(ka)) %>%
+  mutate(guest = tolower(as.character(guest)))
+
+# Checking DelG
+ggplot(connors, aes(x = DelG)) + 
+  geom_histogram()
+
+saveRDS(connors, "./cleaning/02.connors.RDS")
