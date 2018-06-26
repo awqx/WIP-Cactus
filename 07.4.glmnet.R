@@ -14,8 +14,10 @@ glm.looq2 <- function(read.dir, nsplits, a, max) {
   q2.results <- c(rep(0.0, nsplits))
   if(str_detect(read.dir, "alpha"))
     features <- readRDS("./feature.selection/alpha.vars.RDS")
-  else
+  else if(str_detect(read.dir, "beta"))
     features <- readRDS("./feature.selection/beta.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/gamma.vars.RDS")
   for(n in 1:nsplits) {
     data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
       select(., -guest)
@@ -118,26 +120,31 @@ glm.tst <- function(pp.dir, tst.dir, nsplits, a, max) {
 # LOO-Q2 analysis ---------------------------------------------------------
 
 # Alpha
-# Either split 1 or 8
-# However, none actually pass the q2 test, which is unfortunate
-glm.looq2("./pre-process/alpha/", nsplits = 10, a = 0.8, max = 15)
+# Everything except 4, 6, 9, 10
+# 0.503
+glm.looq2("./pre-process/alpha/", nsplits = 10, a = 0.9, max = 13)
 
 # Beta
-glm.looq2("./pre-process/beta/", nsplits = 10, a = 0.6, max = 100) # 0.634
-glm.looq2("./pre-process/beta/", nsplits = 10, a = 1, max = 20) # 0.637
-# Both settings work fine...maybe consider two different models?
+# Everything except 1, 8
+# 0.535
+glm.looq2("./pre-process/beta/", nsplits = 10, a = 0.85, max = 11) # 0.536
+
+glm.looq2("./pre-process/gamma/", nsplits = 10, a = 0.7, max = 20) # 0.536
 
 
 # Test sets ---------------------------------------------------------------
 
-# Split 5 or 7 turned out the best, R2 = 0.714, .609 
+# Split 2 or 5 turned out the best, R2 = 0.714, .609 
+# split r2.results rmse.results
+#  2  0.6269625     2.968312
+#  5  0.6540026     2.759815
 alpha.tst <- glm.tst("./pre-process/alpha/", "./model.data/alpha/", 
-                     nsplits = 10, a = 0.8, max = 15)
+                     nsplits = 10, a = 0.9, max = 13)
 
 # All passed except 4 (0.592)
 # Split 6 turned out the best, r2 = 0.758
 beta.tst <- glm.tst("./pre-process/beta/", "./model.data/beta/", 
-                    nsplits = 10, a = 1, max = 20)
+                    nsplits = 10, a = 85, max = 11)
 
 # Single model ------------------------------------------------------------
 
