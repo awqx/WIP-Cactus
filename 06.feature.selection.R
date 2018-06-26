@@ -12,7 +12,7 @@ use.rfe <- function(path) {
   pred <- trn %>% dplyr::select(., -guest, -DelG)
   obs <- trn$DelG
   
-  ctrl <- rfeControl(functions = treebagFuncs, 
+  ctrl <- rfeControl(functions = rfFuncs, 
                      method = "repeatedcv", 
                      repeats = 5, 
                      verbose = T)
@@ -59,26 +59,31 @@ registerDoParallel(4)
 dir.create("./feature.selection")
 dir.create("./feature.selection/alpha")
 dir.create("./feature.selection/beta")
+dir.create("./feature.selection/gamma")
+
+rfe.combos <- expand.grid(c("alpha", "beta", "gamma"), c(1:10)) %>%
+  rename(cd.type = Var1, num = Var2)
+cd.combos <- rfe.combos$cd.type
+num.combos <- rfe.combos$num
 
 mapply(FUN = save.rfe, 
-       cd.type = c("alpha", "beta"), num = c(1:10), 
-       pp.dir = "./pre-process", write.dir = "./feature.selection")
-
-# Reversing the order to capture all possible ocmbinations
-mapply(FUN = save.rfe, 
-       cd.type = c("beta", "alpha"), num = c(1:10), 
+       cd.type = cd.combos, num = num.combos, 
        pp.dir = "./pre-process", write.dir = "./feature.selection")
 
 # Creating a vector of variable names
 rfe.alpha <- paste0("rfe", c(1:10), ".alpha")
 rfe.beta <- paste0("rfe", c(1:10), ".beta")
+rfe.gamma <- paste0("rfe", c(1:10), ".gamma")
 
 # Vector of locations of all the files
 rfe.alpha.files <- paste0("./feature.selection/alpha/", list.files("./feature.selection/alpha"))
-rfe.beta.files <- paste0("./feature.selection/beta/", list.files("./feature.selection/beta"))
-
 read.rfe(rfe.alpha, rfe.alpha.files)
+
+rfe.beta.files <- paste0("./feature.selection/beta/", list.files("./feature.selection/beta"))
 read.rfe(rfe.beta, rfe.beta.files)
+
+rfe.gamma.files <- paste0("./feature.selection/gamma/", list.files("./feature.selection/gamma"))
+read.rfe(rfe.gamma, rfe.gamma.files)
 
 #     Analyzing patterns --------------------------------------------------
 
@@ -142,3 +147,33 @@ beta.vars <- varimp.beta %>% filter(frequency == 10) %>% .$predictor
 
 saveRDS(varimp.beta, "./feature.selection/varimp.beta.RDS")
 saveRDS(beta.vars, "./feature.selection/beta.vars.RDS")
+
+# Gamma-CD
+rfe.gamma.vars <- list(
+  rfe1.gamma,
+  rfe2.gamma,
+  rfe3.gamma,
+  rfe4.gamma,
+  rfe5.gamma,
+  rfe6.gamma,
+  rfe7.gamma,
+  rfe8.gamma,
+  rfe9.gamma,
+  rfe10.gamma
+)
+
+pred.gamma <- unlist(lapply(FUN = predictors, rfe.gamma.vars))
+pred.gamma.uq <- unique(pred.gamma)
+pred.gamma.pattern <- paste0("^", pred.gamma.uq) 
+pred.gamma.pattern <- paste0(pred.gamma.pattern, "$")
+count.gamma <- lapply(FUN = str_count, X = pred.gamma.pattern, string = pred.gamma) %>%
+  lapply(FUN = sum, X = .) %>% unlist()
+varimp.gamma <- data.frame(pred.gamma.uq, count.gamma) %>%
+  rename(predictor = pred.gamma.uq, frequency = count.gamma) %>%
+  mutate(predictor = as.character(predictor)) %>%
+  .[order(.$frequency, decreasing = T), ]
+
+gamma.vars <- varimp.gamma %>% filter(frequency == 10) %>% .$predictor
+
+saveRDS(varimp.gamma, "./feature.selection/varimp.gamma.RDS")
+saveRDS(gamma.vars, "./feature.selection/gamma.vars.RDS")

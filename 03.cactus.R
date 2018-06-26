@@ -126,6 +126,9 @@ problem.sdf <- results.all %>%
   filter(downloaded == "no") %>%
   select(guest, host)
 
+# Saving the dataset with the renamed molecules
+saveRDS(dataset, "cleaning/03.rename.RDS")
+
 #####
 # Old Functions that may be Useful ----------------------------------------
 

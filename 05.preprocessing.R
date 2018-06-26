@@ -82,6 +82,7 @@ preprocess.splits <- function(filepath, writepath) {
 dir.create("./pre-process/outliers")
 alpha.info <- readRDS("./descriptors/alpha.padel.RDS")
 beta.info <- readRDS("./descriptors/beta.padel.RDS")
+gamma.info <- readRDS("./descriptors/gamma.padel.RDS")
 
 # Using the method described by Roy 2015: Determining Applicability Domain of
 # QSAR Models
@@ -110,8 +111,19 @@ beta.scaled <- beta.scaled[ , -zero.pred]
 beta.ad <- domain.num(beta.scaled)
 beta.outliers <- beta.ad %>% filter(domain == "outside") %>% .$guest
 
+gamma <- gamma.info %>% select(., -host, -DelG, -data.source)
+pp.settings <- preProcess(gamma, na.remove = T, 
+                          method = c("center", "scale"), 
+                          verbose = F)
+gamma.scaled <- predict(pp.settings, gamma)
+zero.pred <- nearZeroVar(gamma.scaled)
+gamma.scaled <- gamma.scaled[ , -zero.pred]
+gamma.ad <- domain.num(gamma.scaled)
+gamma.outliers <- gamma.ad %>% filter(domain == "outside") %>% .$guest
+
 saveRDS(alpha.outliers, "./pre-process/outliers/alpha.RDS")
 saveRDS(beta.outliers, "./pre-process/outliers/beta.RDS")
+saveRDS(gamma.outliers, "./pre-process/outliers/gamma.RDS")
 
 # Splitting Data ----------------------------------------------------------
 
@@ -130,15 +142,20 @@ alpha <- alpha %>% filter(!guest %in% alpha.outliers)
 beta <- readRDS("./descriptors/beta.padel.RDS")
 beta.outlers <- readRDS('./pre-process/outliers/beta.RDS')
 beta <- beta %>% filter(!guest %in% beta.outliers)
+gamma <- readRDS("./descriptors/gamma.padel.RDS")
+gamma.outlers <- readRDS('./pre-process/outliers/gamma.RDS')
+gamma <- gamma %>% filter(!guest %in% gamma.outliers)
 
 dir.create("./ext.validation")
 
 set.seed(101) # for reproducibility
 alpha.ev <- sample_frac(alpha, size = 0.15)
 beta.ev <- sample_frac(beta, size = 0.15)
+gamma.ev <- sample_frac(gamma, size = 0.15)
 
 saveRDS(alpha.ev, "./ext.validation/alpha.RDS")
 saveRDS(beta.ev, "./ext.validation/beta.RDS")
+saveRDS(gamma.ev, "./ext.validation/gamma.RDS")
 
 # The remaining dataset (modeling data, according to Tropsha) should be kept
 # separate. The relevant suffix is .md (modeling data)
@@ -146,9 +163,11 @@ saveRDS(beta.ev, "./ext.validation/beta.RDS")
 dir.create("./model.data")
 alpha.md <- alpha[!row.names(alpha) %in% row.names(alpha.ev), ]
 beta.md <- beta[!row.names(beta) %in% row.names(beta.ev), ]
+gamma.md <- gamma[!row.names(gamma) %in% row.names(gamma.ev), ]
 
 saveRDS(alpha.md, "./model.data/alpha.md.RDS")
 saveRDS(beta.md, "./model.data/beta.md.RDS")
+saveRDS(gamma.md, "./model.data/gamma.md.RDS")
 
 #     Test vs. train ------------------------------------------------------
 
@@ -169,25 +188,34 @@ beta <- readRDS("./model.data/beta.md.RDS") %>%
   dplyr::select(-guest:-data.source)
 beta.info <- readRDS("./model.data/beta.md.RDS") %>%
   dplyr::select(guest, DelG)
+gamma <- readRDS("./model.data/gamma.md.RDS") %>%
+  dplyr::select(-guest:-data.source) %>%
+  dplyr::select(., -guest.charge)
+gamma.info <- readRDS("./model.data/gamma.md.RDS") %>%
+  dplyr::select(guest, DelG)
 
 # Splitting data
 set.seed(101)
 dir.create("./model.data/alpha")
 dir.create("./model.data/beta")
+dir.create("./model.data/gamma")
 split.train.test(10, alpha, alpha.info, "./model.data/alpha/")
 split.train.test(10, beta, beta.info, "./model.data/beta/")
+split.train.test(10, gamma, gamma.info, "./model.data/gamma/")
 
 # Pre-processing and cleaning ---------------------------------------------
 
 dir.create("./pre-process")
 dir.create("./pre-process/alpha")
 dir.create("./pre-process/beta")
+dir.create("./pre-process/gamma")
 
 preprocess.splits(filepath = "./model.data/alpha/", 
                   writepath = "./pre-process/alpha/")
 preprocess.splits(filepath = "./model.data/beta/", 
                   writepath = "./pre-process/beta/")
-
+preprocess.splits(filepath = "./model.data/gamma/", 
+                  writepath = "./pre-process/gamma/")
 
 # # Suzuki Only -------------------------------------------------------------
 # 
