@@ -450,3 +450,22 @@ df.charge <- df.charge %>%
 ggplot(df.charge, aes(x = charge, y = ka, group = guest, color = guest)) + 
   geom_line() + 
   theme_bw() 
+
+# comparisons against Rekharsky and Inoue
+ri.clean <- readRDS("./cleaning/02.combined.data.RDS") %>%
+  as.data.frame() %>%
+  select(., -data.source)
+ri.gamma <- ri.clean %>% filter(host == "gamma")
+df.dg <- df %>% filter(charge == "0") %>% select(-charge)
+df.dg <- data.table(df.dg, key = "guest")
+df.dg <- df.dg[ , list(ka = mean(ka)), by = "guest"] %>% 
+  mutate(connors.DelG = convert.ka.delg(ka)) %>%
+  mutate(guest = tolower(as.character(guest)))
+ric.gamma <- inner_join(ri.gamma, df.dg, by = "guest")
+ggplot(ric.gamma, aes(x = DelG, y = connors.DelG)) + 
+  geom_point() + 
+  theme_bw() + 
+  coord_fixed(ylim = c(-5, -20)) + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Rekharsky and Inoue DelG, kJ/mol", 
+       y = "Connors DelG, kJ/mol")
