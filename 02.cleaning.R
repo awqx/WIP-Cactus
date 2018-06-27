@@ -413,6 +413,8 @@ convert.ka.delg <- function(ka) {
   lnk <- log(ka)
   return(-8.314 * 298 * lnk / 1000)
 }
+connors.original <- connors
+saveRDS(connors.original, "./data/connors.ka.RDS")
 connors <- data.table(connors, key = "guest")
 connors <- connors[ , list(ka = mean(ka)), by = "guest"] %>% 
   mutate(DelG = convert.ka.delg(ka)) %>%
@@ -423,3 +425,28 @@ ggplot(connors, aes(x = DelG)) +
   geom_histogram()
 
 saveRDS(connors, "./cleaning/02.connors.RDS")
+
+# Analyzing the data
+View(connors.raw)
+df <- connors.raw[complete.cases(connors.raw), ] %>%
+  mutate(ka = as.numeric(ka)) %>%
+  filter(!charge == "")
+ggplot(df, aes(x = ka)) + 
+  geom_histogram() + 
+  facet_grid(charge~.) + 
+  theme_bw() + 
+  labs(title = "Distribution of Ka between charges")
+
+# Removing plus-or-minus data points because they don't graph well
+# on an x-axis
+df <- df %>% filter(!str_detect(charge, "±"))
+# Collapsing df for multiple instances of a molecule with the same charge
+df.charge <- data.table(df, key = c("guest", "charge"))
+df.charge <- df.charge[ , list(ka = mean(ka)), by = c("guest", "charge")]
+# Finding guest molecules that have data on multiple charges
+df.charge <- df.charge %>% 
+  filter(guest %in% df.charge$guest[duplicated(df.charge$guest)])
+
+ggplot(df.charge, aes(x = charge, y = ka, group = guest, color = guest)) + 
+  geom_line() + 
+  theme_bw() 
