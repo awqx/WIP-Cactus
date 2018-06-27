@@ -36,6 +36,24 @@ split.train.test <- function(times, data, info, path) {
   }
 }
 
+# data: data.frame with first column being guest, second column being DelG or
+# the response 
+# path: string of the target directory, ending with a backslash
+split.train.test <- function(times, data, path) {
+  guest <- data[ , 1]
+  folds <- createFolds(data[ , 1], k = times)
+  for(i in 1:times) {
+    tst.ind <- folds[[i]]
+    tst <- cbind(guest[tst.ind], data[tst.ind, ])
+    trn <- cbind(guest[-tst.ind], data[-tst.ind, ])
+    
+    tst.path <- paste0(path, "tst", n, ".RDS")
+    trn.path <- paste0(path, "trn", n, ".RDS")
+    saveRDS(tst, tst.path)
+    saveRDS(trn, trn.path)
+  }
+}
+
 # Performing pre-processing on the files created by split.train.test
 preprocess.splits <- function(filepath, writepath) {
   files <- list.files(path = filepath) %>% 
@@ -137,13 +155,13 @@ saveRDS(gamma.outliers, "./pre-process/outliers/gamma.RDS")
 # Of course, separate external validation sets should be created for each 
 # cyclodextrin type (as they construct completely different models)
 alpha <- readRDS("./descriptors/alpha.padel.RDS")
-alpha.outlers <- readRDS('./pre-process/outliers/alpha.RDS')
+alpha.outliers <- readRDS('./pre-process/outliers/alpha.RDS')
 alpha <- alpha %>% filter(!guest %in% alpha.outliers)
 beta <- readRDS("./descriptors/beta.padel.RDS")
-beta.outlers <- readRDS('./pre-process/outliers/beta.RDS')
+beta.outliers <- readRDS('./pre-process/outliers/beta.RDS')
 beta <- beta %>% filter(!guest %in% beta.outliers)
 gamma <- readRDS("./descriptors/gamma.padel.RDS")
-gamma.outlers <- readRDS('./pre-process/outliers/gamma.RDS')
+gamma.outliers <- readRDS('./pre-process/outliers/gamma.RDS')
 gamma <- gamma %>% filter(!guest %in% gamma.outliers)
 
 dir.create("./ext.validation")
@@ -181,27 +199,40 @@ saveRDS(gamma.md, "./model.data/gamma.md.RDS")
 
 # Loading data
 alpha <- readRDS("./model.data/alpha.md.RDS") %>% 
-  dplyr::select(., -guest:-data.source)
-alpha.info <- readRDS("./model.data/alpha.md.RDS") %>%
-  dplyr::select(guest, DelG)
-beta <- readRDS("./model.data/beta.md.RDS") %>%
-  dplyr::select(-guest:-data.source)
-beta.info <- readRDS("./model.data/beta.md.RDS") %>%
-  dplyr::select(guest, DelG)
-gamma <- readRDS("./model.data/gamma.md.RDS") %>%
-  dplyr::select(-guest:-data.source) %>%
-  dplyr::select(., -guest.charge)
-gamma.info <- readRDS("./model.data/gamma.md.RDS") %>%
-  dplyr::select(guest, DelG)
+  select(-host, -data.source)
+# %>% 
+#   dplyr::select(., -guest:-data.source)
+# alpha.info <- readRDS("./model.data/alpha.md.RDS") %>%
+#   dplyr::select(guest, DelG)
+beta <- readRDS("./model.data/beta.md.RDS") %>% 
+  select(-host, -data.source)
+gamma <- readRDS("./model.data/gamma.md.RDS") %>% 
+  select(-host, -data.source, -guest.charge) %>%
+  as.data.frame()
 
 # Splitting data
-set.seed(101)
+split.train.test <- function(times, data, path) {
+  guest <- data[ , 1]
+  folds <- createFolds(data[ , 2], k = times)
+  for(i in 1:times) {
+    tst.ind <- folds[[i]]
+    tst <- cbind(guest[tst.ind], data[tst.ind, ])
+    trn <- cbind(guest[-tst.ind], data[-tst.ind, ])
+    
+    tst.path <- paste0(path, "tst", n, ".RDS")
+    trn.path <- paste0(path, "trn", n, ".RDS")
+    saveRDS(tst, tst.path)
+    saveRDS(trn, trn.path)
+  }
+}
+
 dir.create("./model.data/alpha")
 dir.create("./model.data/beta")
 dir.create("./model.data/gamma")
-split.train.test(10, alpha, alpha.info, "./model.data/alpha/")
-split.train.test(10, beta, beta.info, "./model.data/beta/")
-split.train.test(10, gamma, gamma.info, "./model.data/gamma/")
+set.seed(101)
+split.train.test(10, alpha, "./model.data/alpha/")
+split.train.test(10, beta, "./model.data/beta/")
+split.train.test(10, gamma, "./model.data/gamma/")
 
 # Pre-processing and cleaning ---------------------------------------------
 
