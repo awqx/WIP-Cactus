@@ -72,6 +72,7 @@ c.docking <- read.csv("./data/docking/2017-12-21 gamma-cd docking affinity.csv")
   data.table(., key = "guest")
 c.docking <- c.docking[, list(DelG = min(DelG)),
                        by = guest] 
+
 # Compilation/Calculation -------------------------------------------------
 
 # Using inner join because any independence data points wil be pointless
@@ -107,7 +108,7 @@ all.data <- rbind(a.temp, b.temp, c.temp) %>% group_by(host)
 defaultSummary(as.data.frame(all.data)) 
 # RMSE  Rsquared       MAE 
 # 6.6293336 0.1686069 5.2244895 
-saveRDS(all.data, "./data/docking.RDS")
+# saveRDS(all.data, "./data/docking.RDS")
 
 # Graphs ------------------------------------------------------------------
 
@@ -137,16 +138,16 @@ ggplot(c.data, aes(x = obs, y = pred)) +
   labs(x = "Experimental DelG", y = "PyRx (Docking) DelG", 
        title = "Gamma-CD Docking Calculations")
 
-ggplot(all.data, aes(x = obs, y = pred, color = host)) +
+ggplot(all.data, aes(x = obs, y = pred, color = host, shape = host)) +
   geom_point() + 
   geom_abline(slope = 1, intercept = 0) +
   theme_bw() + 
   coord_fixed() +
+  scale_shape_manual(values=c(9, 16, 3)) +
   labs(x = "Experimental DelG", y = "PyRx (Docking) DelG", 
        title = "Cyclodextrin Docking Calculations", 
-       color = "CD type")
-ggsave("./graphs/cd docking.png")
-
+       color = "CD type", host = "CD type")
+# ggsave("./graphs/cd docking.png")
 
 # Analysis of molecules ---------------------------------------------------
 
@@ -159,7 +160,7 @@ docking <- docking %>% mutate(perc.error = (pred-obs)/obs*100) %>%
 # Analysis of alpha
 alpha.guest <- docking %>% filter(host == "alpha")
 alpha.desc <- readRDS("./pre-process/alpha/2/pp.RDS") %>% 
-  select(., -DelG) %>% filter(guest %in% good.alpha$guest)
+  select(., -DelG) %>% filter(guest %in% alpha.guest$guest)
 alpha.pyrx <- inner_join(alpha.guest, alpha.desc, by = "guest") %>%
   as.data.frame()
 
@@ -201,6 +202,16 @@ ggplot(docking %>% filter(pyrx == "bad"), aes(x = obs, y = pred, color = host)) 
   labs(x = "Experimental DelG", y = "PyRx (Docking) DelG", 
        title = "Cyclodextrin Docking Calculations", 
        color = "CD type")
+ggplot(docking, aes(x = obs, y = pred, color = pyrx, shape = host)) +
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0) +
+  theme_bw() + 
+  coord_fixed() +
+  labs(x = "Experimental DelG", y = "PyRx (Docking) DelG", 
+       title = "Cyclodextrin Docking Calculations", 
+       color = "PyRx prediction", 
+       shape = "CD type") + 
+  scale_shape_manual(values=c(9, 16, 3)) 
 
 # Important features ------------------------------------------------------
 
@@ -215,21 +226,19 @@ alpha.x <- alpha.pyrx %>% select(., -guest:-pyrx)
 alpha.y <- alpha.pyrx$pyrx %>% as.factor()
 alpha.rfe <- rfe(x = alpha.x, y = alpha.y, 
                  sizes = subsets, rfeControl = ctrl)
+predictors(alpha.rfe)
 
 
 beta.x <- beta.pyrx %>% select(., -guest:-pyrx)
 beta.y <- beta.pyrx$pyrx %>% as.factor()
-
 beta.rfe <- rfe(x = beta.x, y = beta.y, 
                  sizes = subsets, rfeControl = ctrl)
+predictors(beta.rfe)
 
 gamma.x <- gamma.pyrx %>% select(., -guest:-pyrx)
 gamma.y <- gamma.pyrx$pyrx %>% as.factor()
-
 gamma.rfe <- rfe(x = gamma.x, y = gamma.y, 
                 sizes = subsets, rfeControl = ctrl)
-
-
 
 # Chemical similarity -----------------------------------------------------
 
@@ -245,11 +254,14 @@ calc.similarity <- function(mol1, mol2, sdfset) {
     score <- 1
   else
     score <- cmp.similarity(sdf2ap(sdfset[[mol1]]), sdf2ap(sdfset[[mol2]]))
-  message(paste0(mol1, " and ", mol2, " completed."))
+  if (mol1 %% 10 == 0 && mol2 %% 10 == 0)
+    message(paste0(mol1, " and ", mol2, " completed."))
   return(data.frame(
     mol1 = mol1, mol2 = mol2, similarity = score
   ))
 }
+
+#     Alpha ---------------------------------------------------------------
 
 # For some reason, read.SDFset works best with a single .SDF, so 
 # the "good" predictions on alpha must be compiled
@@ -361,3 +373,157 @@ ggplot(alpha.bad.similarity, aes(x = similarity)) +
   geom_histogram() + 
   theme_bw() + 
   labs(x = "Similarity score", title = "Alpha-CD: Bad PyRx predictions")
+
+#     Beta ----------------------------------------------------------------
+
+beta.guest.good <- beta.guest %>% filter(pyrx == "good") %>% .$guest
+beta.good.sdf <- do.call(rbind, 
+                          lapply(FUN = compile.sdf, 
+                                 X = beta.guest.good, 
+                                 path = "./molecules/betaCD"))
+write.table(beta.good.sdf, "./data/docking/beta.good.SDF", quote = F, 
+            row.names = F, col.names = F)
+beta.sdfset <- read.SDFset("./data/docking/beta.good.SDF")
+
+# Obtaining the atom pairs isn't working on the entire SDF list, 
+# so "manual' comparison must be used instead
+beta.combos <- expand.grid(1:92, 1:92) %>%
+  rename(mol1 = Var1, mol2 = Var2)
+mol1.combos <- beta.combos$mol1
+mol2.combos <- beta.combos$mol2
+beta.good.similarity <- mapply(FUN = calc.similarity, 
+                                mol1 = mol1.combos, 
+                                mol2 = mol2.combos, 
+                                MoreArgs = list(sdfset = beta.sdfset), 
+                                SIMPLIFY = F)
+beta.good.similarity <- do.call(rbind, beta.good.similarity)
+
+# A graph of similarity in the dataset
+ggplot(beta.good.similarity, aes(x = mol1, y = mol2, fill = similarity)) + 
+  geom_raster() + 
+  coord_fixed() + 
+  theme_bw() + 
+  scale_fill_gradientn(colors = terrain.colors(10)) + 
+  labs(x = "Molecule 1", y = "Molecule 2", 
+       title = "beta-CD: Good PyRx predictions", 
+       fill = 'Similarity score')
+ggplot(beta.good.similarity, aes(x = similarity)) + 
+  geom_histogram() + 
+  theme_bw() + 
+  labs(x = "Similarity score", title = "beta-CD: Good PyRx predictions")
+
+# Repeating with "meh"
+beta.guest.meh <- beta.guest %>% filter(pyrx == "meh") %>% .$guest
+beta.meh.sdf <- do.call(rbind, 
+                         lapply(FUN = compile.sdf, 
+                                X = beta.guest.meh, 
+                                path = "./molecules/betaCD"))
+write.table(beta.meh.sdf, "./data/docking/beta.meh.SDF", quote = F, 
+            row.names = F, col.names = F)
+beta.sdfset <- read.SDFset("./data/docking/beta.meh.SDF")
+
+beta.combos <- expand.grid(1:length(beta.guest.meh), 
+                            1:length(beta.guest.meh)) %>%
+  rename(mol1 = Var1, mol2 = Var2)
+mol1.combos <- beta.combos$mol1
+mol2.combos <- beta.combos$mol2
+beta.meh.similarity <- mapply(FUN = calc.similarity, 
+                               mol1 = mol1.combos, 
+                               mol2 = mol2.combos, 
+                               MoreArgs = list(sdfset = beta.sdfset), 
+                               SIMPLIFY = F)
+beta.meh.similarity <- do.call(rbind, beta.meh.similarity)
+
+ggplot(beta.meh.similarity, aes(x = mol1, y = mol2, fill = similarity)) + 
+  geom_raster() + 
+  coord_fixed() + 
+  theme_bw() + 
+  scale_fill_gradientn(colors = terrain.colors(10)) + 
+  labs(x = "Molecule 1", y = "Molecule 2", 
+       title = "beta-CD: Meh PyRx predictions", 
+       fill = 'Similarity score')
+ggplot(beta.meh.similarity, aes(x = similarity)) + 
+  geom_histogram() + 
+  theme_bw() + 
+  labs(x = "Similarity score", title = "beta-CD: Meh PyRx predictions")
+
+# Repeating with "bad"
+beta.guest.bad <- beta.guest %>% filter(pyrx == "bad") %>% .$guest
+beta.bad.sdf <- do.call(rbind, 
+                         lapply(FUN = compile.sdf, 
+                                X = beta.guest.bad, 
+                                path = "./molecules/betaCD"))
+write.table(beta.bad.sdf, "./data/docking/beta.bad.SDF", quote = F, 
+            row.names = F, col.names = F)
+beta.sdfset <- read.SDFset("./data/docking/beta.bad.SDF")
+valid <- validSDF(beta.sdfset)
+beta.sdfset <- beta.sdfset[valid]
+
+n <- length(beta.guest.bad) - sum(!valid)
+beta.combos <- expand.grid(1:n, 1:n) %>%
+  rename(mol1 = Var1, mol2 = Var2)
+mol1.combos <- beta.combos$mol1
+mol2.combos <- beta.combos$mol2
+beta.bad.similarity <- mapply(FUN = calc.similarity, 
+                               mol1 = mol1.combos, 
+                               mol2 = mol2.combos, 
+                               MoreArgs = list(sdfset = beta.sdfset), 
+                               SIMPLIFY = F)
+beta.bad.similarity <- do.call(rbind, beta.bad.similarity)
+
+ggplot(beta.bad.similarity, aes(x = mol1, y = mol2, fill = similarity)) + 
+  geom_raster() + 
+  coord_fixed() + 
+  theme_bw() + 
+  scale_fill_gradientn(colors = terrain.colors(10)) + 
+  labs(x = "Molecule 1", y = "Molecule 2", 
+       title = "beta-CD: Bad PyRx predictions", 
+       fill = 'Similarity score')
+ggplot(beta.bad.similarity, aes(x = similarity)) + 
+  geom_histogram() + 
+  theme_bw() + 
+  labs(x = "Similarity score", title = "beta-CD: Bad PyRx predictions")
+
+# Descriptor vs. Perc Error -----------------------------------------------
+
+desc.cols <- colnames(alpha.guest)
+# alpha.amw <- alpha.pyrx %>% select(desc.cols, "AMW")
+# ggplot(alpha.amw, aes(x = AMW, y = perc.error, color = pyrx)) + 
+#   geom_point() + 
+#   theme_bw()
+alpha.xlogp <- alpha.pyrx %>% select(desc.cols, "XLogP")
+# a slight pattern, especially with "bad" 
+ggplot(alpha.xlogp, aes(x = XLogP, y = perc.error, color = pyrx, shape = pyrx)) + 
+  geom_point() + 
+  theme_bw() + 
+  coord_cartesian(ylim = c(-100, 200))
+
+alpha.nring <- alpha.pyrx %>% select(desc.cols, "nRing")
+ggplot(alpha.nring, aes(x = nRing, y = perc.error, color = pyrx, shape = pyrx)) + 
+  geom_jitter() + 
+  theme_bw() + 
+  coord_cartesian(ylim = c(-100, 200))
+
+alpha.chain <- alpha.pyrx %>% select(desc.cols, "nAtomLC")
+ggplot(alpha.chain, aes(x = nAtomLC, y = perc.error, color = pyrx, shape = pyrx)) + 
+  geom_jitter() + 
+  theme_bw() + 
+  coord_cartesian(ylim = c(-100, 200))
+
+
+
+beta.amw <- beta.pyrx %>% select(desc.cols, "AMW")
+ggplot(beta.amw, aes(x = AMW, y = perc.error, color = pyrx)) +
+  geom_point() +
+  theme_bw()
+
+beta.xlogp <- beta.pyrx %>% select(desc.cols, "XLogP")
+ggplot(beta.xlogp, aes(x = XLogP, y = perc.error, color = pyrx, shape = pyrx)) + 
+  geom_point() + 
+  theme_bw() 
+
+beta.chain <- beta.pyrx %>% select(desc.cols, "nAtomLC")
+ggplot(beta.chain, aes(x = nAtomLC, y = perc.error, color = pyrx, shape = pyrx)) + 
+  geom_jitter() + 
+  theme_bw() + 
+  coord_cartesian(ylim = c(-100, 200))
