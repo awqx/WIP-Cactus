@@ -77,7 +77,7 @@ preprocess.splits <- function(filepath, writepath) {
                               method = c("knnImpute", "center", "scale"), 
                               verbose = F)
     desc.pp <- predict(pp.settings, desc)
-    
+  
     # Removing predictors with near-zero variance
     zero.pred <- nearZeroVar(desc.pp)
     desc.pp <- desc.pp[ , -zero.pred]
@@ -232,7 +232,6 @@ dir.create("./pre-process")
 dir.create("./pre-process/alpha")
 dir.create("./pre-process/beta")
 dir.create("./pre-process/gamma")
-
 preprocess.splits(filepath = "./model.data/alpha/", 
                   writepath = "./pre-process/alpha/")
 preprocess.splits(filepath = "./model.data/beta/", 
