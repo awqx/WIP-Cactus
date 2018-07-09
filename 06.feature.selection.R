@@ -1,7 +1,7 @@
 # Libraries and packages --------------------------------------------------
 
 library(caret)
-library(doParallel)
+# library(doParallel)
 library(tidyverse)
 
 # Functions ---------------------------------------------------------------
@@ -14,8 +14,8 @@ use.rfe <- function(path) {
   
   ctrl <- rfeControl(functions = rfFuncs, 
                      method = "repeatedcv", 
-                     repeats = 5, 
-                     verbose = T)
+                     # verbose = T, # uncomment to monitor
+                     repeats = 5)
   # subsets <- c(5, 10, 15, 20, 35, 50, 75, 100)
   subsets <- c(1:5, 10, 15, 20, 25, 50)
   
@@ -53,7 +53,7 @@ read.rfe <- function(var.names, file.names) {
 
 # Recursive Feature Elimination (RFE) -------------------------------------
 
-registerDoParallel(4)
+# registerDoParallel(4)
 # getDoParWorkers() # Confirming 4 cores
 
 dir.create("./feature.selection")
@@ -66,6 +66,7 @@ rfe.combos <- expand.grid(c("alpha", "beta", "gamma"), c(1:10)) %>%
 cd.combos <- rfe.combos$cd.type
 num.combos <- rfe.combos$num
 
+# If Error: worker initialization failed occurs, re-run mapply
 mapply(FUN = save.rfe, 
        cd.type = cd.combos, num = num.combos, 
        pp.dir = "./pre-process", write.dir = "./feature.selection")
@@ -112,8 +113,8 @@ varimp.alpha <- data.frame(pred.alpha.uq, count.alpha) %>%
   mutate(predictor = as.character(predictor)) %>%
   .[order(.$frequency, decreasing = T), ]
 
-# Limiting to the variables that appeared in all models
-alpha.vars <- varimp.alpha %>% filter(frequency == 10) %>% .$predictor
+# Limiting to the variables that appeared in 90% models
+alpha.vars <- varimp.alpha %>% filter(frequency >= 9) %>% .$predictor
 
 saveRDS(varimp.alpha, "./feature.selection/varimp.alpha.RDS")
 saveRDS(alpha.vars, "./feature.selection/alpha.vars.RDS")
@@ -143,7 +144,7 @@ varimp.beta <- data.frame(pred.beta.uq, count.beta) %>%
   mutate(predictor = as.character(predictor)) %>%
   .[order(.$frequency, decreasing = T), ]
 
-beta.vars <- varimp.beta %>% filter(frequency == 10) %>% .$predictor
+beta.vars <- varimp.beta %>% filter(frequency >= 9) %>% .$predictor
 
 saveRDS(varimp.beta, "./feature.selection/varimp.beta.RDS")
 saveRDS(beta.vars, "./feature.selection/beta.vars.RDS")
@@ -175,5 +176,6 @@ varimp.gamma <- data.frame(pred.gamma.uq, count.gamma) %>%
 
 gamma.vars <- varimp.gamma %>% filter(frequency == 10) %>% .$predictor
 
+# Large number of predictors indicates over-fittingm unfortunately
 saveRDS(varimp.gamma, "./feature.selection/varimp.gamma.RDS")
 saveRDS(gamma.vars, "./feature.selection/gamma.vars.RDS")
