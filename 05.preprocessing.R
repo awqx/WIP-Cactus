@@ -36,19 +36,20 @@ split.train.test <- function(times, data, info, path) {
   }
 }
 
+# Splitting data by folds instead of maxDissim
+
 # data: data.frame with first column being guest, second column being DelG or
 # the response 
 # path: string of the target directory, ending with a backslash
 split.train.test <- function(times, data, path) {
-  guest <- data[ , 1]
-  folds <- createFolds(data[ , 1], k = times)
+  folds <- createFolds(data[ , 2], k = times)
   for(i in 1:times) {
     tst.ind <- folds[[i]]
-    tst <- cbind(guest[tst.ind], data[tst.ind, ])
-    trn <- cbind(guest[-tst.ind], data[-tst.ind, ])
+    tst <- data[tst.ind, ]
+    trn <- data[-tst.ind, ]
     
-    tst.path <- paste0(path, "tst", n, ".RDS")
-    trn.path <- paste0(path, "trn", n, ".RDS")
+    tst.path <- paste0(path, "tst", i, ".RDS")
+    trn.path <- paste0(path, "trn", i, ".RDS")
     saveRDS(tst, tst.path)
     saveRDS(trn, trn.path)
   }
@@ -82,7 +83,8 @@ preprocess.splits <- function(filepath, writepath) {
     desc.pp <- desc.pp[ , -zero.pred]
     
     # Removing highly correlated predictors
-    too.high <- findCorrelation(cor(desc.pp), 0.95) # 0.95 mostly arbitrary
+    desc.pp <- desc.pp[ , sapply(desc.pp, is.numeric)]
+    too.high <- findCorrelation(cor(desc.pp, use = "pairwise.complete.obs"), 0.95) # 0.95 mostly arbitrary
     desc.pp <- desc.pp[ , -too.high]
     
     desc.pp <- cbind(info, desc.pp)
@@ -192,10 +194,16 @@ saveRDS(gamma.md, "./model.data/gamma.md.RDS")
 # Multiple combinations of test and train sets should be created in order
 # to fully validate the models. No specification was made in the paper
 # as to how many different splits should be created, exactly, so I
-# decided (arbitrarily) that 10 sets would be created
+# decided (arbitrarily) that 10 sets would be created.
 
 # Though Sphere Exclusion modeling may be preferred, there is no R package
-# that handles that algorith, so caret::maxDissim was used here
+# that handles that algorith, so caret::createFolds was used here.
+
+# Folds are created on Gibbs free energy, not the structures. This is 
+# a weakness of the process that should be rectified later. It may be
+# possible to create a Sphere Exclusion model using the instructions provided
+# by Tropsha, but it would probably not be practical given the large
+# number of descriptors. 
 
 # Loading data
 alpha <- readRDS("./model.data/alpha.md.RDS") %>% 
@@ -209,22 +217,6 @@ beta <- readRDS("./model.data/beta.md.RDS") %>%
 gamma <- readRDS("./model.data/gamma.md.RDS") %>% 
   select(-host, -data.source, -guest.charge) %>%
   as.data.frame()
-
-# Splitting data
-split.train.test <- function(times, data, path) {
-  guest <- data[ , 1]
-  folds <- createFolds(data[ , 2], k = times)
-  for(i in 1:times) {
-    tst.ind <- folds[[i]]
-    tst <- cbind(guest[tst.ind], data[tst.ind, ])
-    trn <- cbind(guest[-tst.ind], data[-tst.ind, ])
-    
-    tst.path <- paste0(path, "tst", n, ".RDS")
-    trn.path <- paste0(path, "trn", n, ".RDS")
-    saveRDS(tst, tst.path)
-    saveRDS(trn, trn.path)
-  }
-}
 
 dir.create("./model.data/alpha")
 dir.create("./model.data/beta")
