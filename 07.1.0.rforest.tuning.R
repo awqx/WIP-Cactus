@@ -189,7 +189,7 @@ ggplot(results.ntree, aes(x = ntree, y = rsquared, color = seed)) +
   theme_bw()
 
 #     Node size ---
-node.range <- c(1, 2, 5, 10, 25, 50)
+node.range <- c(1:5, 10, 25)
 results1.node <- do.call(rbind, lapply(node.range, 
                                        FUN = tune.rf.node, 
                                        data = trn, 
@@ -254,22 +254,22 @@ system.time(
   )
 )
 #  user  system elapsed 
-# 67.88    0.13   68.71 
+# 122.26    0.79  129.89 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds ntree nodesize mtry  rsquared     rmse
+#      5   500        5    2 0.6633855 2.924962
+#      5   500        3    2 0.6621848 2.892610
 results.combos[order(results.combos$rmse), ] %>% head()
+# nfolds ntree nodesize mtry  rsquared     rmse
+#      5   500        3    2 0.6621848 2.892610
+#     5   100        2   12 0.6582780 2.908318
 
-# best r2 = 0.576 (rmse = 3.25)
-# ntree = 50, nodesize = 2, mtry = 1
-
-# best rmse = 3.17 (rsquared = 0.574)
-# ntree = 250, nodesize = 5, mtry = 4
 
 dir.create("./tuning/rforest/alpha")
 saveRDS(results.combos, "./tuning/rforest/alpha/tune.RDS")
 saveRDS(results.ntree, "./tuning/rforest/alpha/ntree.RDS")
 saveRDS(results.node, "./tuning/rforest/alpha/nodesize.RDS")
 saveRDS(results.mtry, "./tuning/rforest/alpha/mtry.RDS")
-
 
 
 # Beta -------------------------------------------------------------------
@@ -373,13 +373,13 @@ system.time(
 #  user  system elapsed 
 # 452.75    1.22  466.45 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds ntree nodesize mtry  rsquared     rmse
+#     10   500        5    1 0.7434670 3.087977
+#    10    25        1    8 0.7354864 2.902842
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# best r2 = 0.789 (rmse = 2.56)
-# ntree = 25, nodesize = 10, mtry = 4
-
-# best rmse =  2.47 (r2 = 0.777)
-# ntree = 100, nodesize = 1, mtry = 4
+# nfolds ntree nodesize mtry  rsquared     rmse
+#    10   250        2    8 0.7185787 2.856612
+#    10   100       10   25 0.7286253 2.863131
 
 dir.create("./tuning/rforest/beta")
 saveRDS(results.combos, "./tuning/rforest/beta/tune.RDS")
