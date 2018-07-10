@@ -21,7 +21,7 @@ trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Cost ---
 
-cost.range <- c(1:5, 10, 25, 50)
+cost.range <- c(1:5, 10, 25)
 results1.cost <- do.call(rbind, lapply(cost.range, FUN = tune.svm.cost, 
                                        data = trn, kerneltype = "sigmoid",
                                        nfolds = 10, seed = 101)) 
@@ -39,7 +39,7 @@ ggplot(results.cost, aes(x = cost, color = seed, group = seed)) +
 
 #     Gamma ---
 
-gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5)
+gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25)
 results1.gamma <- do.call(rbind, lapply(gamma.range, FUN = tune.svm.gamma,
                                         data = trn, kerneltype = "sigmoid", 
                                         nfolds = 10, seed = 101))
@@ -107,7 +107,6 @@ saveRDS(results.coef, "./tuning/svm/alpha/sig.coef.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-# 3072 combos
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range, coef.range)
 colnames(svm.combos) <- c("cost", "gamma", "epsilon")
@@ -133,16 +132,18 @@ system.time(
 # system.time output
 #  user  system elapsed 
 # 182.17    0.38  200.66
+# 140.27    0.30  146.61
 
 saveRDS(results.combos, "./tuning/svm/alpha/sig.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds  kernel cost epsilon gamma coef0  rsquared     rmse
+#     5 sigmoid    3    0.15 0.010     0 0.6353025 2.948584
+#     5 sigmoid    4    0.15 0.010     0 0.6324963 2.946014
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# Best rsquared = 0.526, rmse = 3.48
-# cost = 50, eps = 0.01, gamma = 0.001, coef0 = 0
-# Best rmse = 3.33, r2 = 0.520 (better overall)
-# cost = 25, eps = 0.01, gamma = 0.001, coef0 = 0 
+# nfolds  kernel cost epsilon gamma coef0  rsquared     rmse
+#     5 sigmoid   25    0.15 0.001     0 0.6301625 2.913435
+#     5 sigmoid    2    0.25 0.010     0 0.6211439 2.933726
 
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
@@ -278,13 +279,15 @@ system.time(
 # system.time output
 # user  system elapsed 
 # 172.59    0.34  188.20
+# 171.70    0.39  185.94
 
 saveRDS(results.combos, "./tuning/svm/beta/sig.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds  kernel cost epsilon gamma coef0  rsquared     rmse
+#     5 sigmoid   75    0.50 0.001     0 0.6376345 3.430777
+#     5 sigmoid   75    0.25 0.001     0 0.6164235 3.459018
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# Best rsquared = 0.656 (rmse = 3.20)
-# cost = 75, epsilon = 0.1, gamma = 0.001, coef0 = 0
-# Best rmse = 3.10 (r2 = 0.641)
-# cost = 2, epsilon = 0.01, gamma = 0.01, coef0 = 0
+# nfolds  kernel cost epsilon gamma coef0  rsquared     rmse
+#     5 sigmoid   75    0.50 0.001     0 0.6376345 3.430777
+#     5 sigmoid   75    0.25 0.001     0 0.6164235 3.459018

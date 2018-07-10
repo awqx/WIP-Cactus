@@ -22,7 +22,7 @@ trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Cost ---
 
-cost.range <- c(1, 2, 5, 10, 25, 50, 100)
+cost.range <- c(1:5, 10, 25)
 results1.cost <- do.call(rbind, lapply(cost.range, FUN = tune.svm.cost, 
                                        data = trn, kerneltype = "radial",
                                        nfolds = 10, seed = 101)) 
@@ -40,7 +40,7 @@ ggplot(results.cost, aes(x = cost, color = seed, group = seed)) +
 
 #     Gamma ---
 
-gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1)
+gamma.range <- c(0.01, 0.05, 0.1, 0.25)
 results1.gamma <- do.call(rbind, lapply(gamma.range, FUN = tune.svm.gamma,
                                         data = trn, kerneltype = "radial", 
                                         nfolds = 10, seed = 101)) 
@@ -58,7 +58,7 @@ ggplot(results.gamma, aes(x = gamma, color = seed, group = seed)) +
 
 #     Epsilon ---
 
-epsilon.range <- c(0, 0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1)
+epsilon.range <- c(0.01, 0.05, 0.1, 0.25, 0.5)
 results1.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
                                           data = trn, kerneltype = "radial",
                                           nfolds = 10, seed = 101))
@@ -68,11 +68,8 @@ results2.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
 results3.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
                                           data = trn, kerneltype = "radial",
                                           nfolds = 10, seed = 103))
-results4.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
-                                          data = trn, kerneltype = "radial",
-                                          nfolds = 10, seed = 104))
 results.epsilon <- rbind(results1.epsilon, results2.epsilon, 
-                         results3.epsilon, results4.epsilon) %>%
+                         results3.epsilon) %>%
   mutate(seed = as.factor(seed))
 ggplot(results.epsilon, aes(x = epsilon, color = seed, group = seed)) + 
   geom_line(aes(y = rsquared)) + 
@@ -111,17 +108,19 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 44.71    0.06   45.40 
+# 22.18    0.06   22.49 
+# 19.84    0.09   20.19
 
 saveRDS(results.combos, "./tuning/svm/alpha/rbf.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds kernel cost epsilon gamma  rsquared     rmse
+#    10    rbf    2    0.10  0.01 0.6834522 2.694921
+#    10    rbf    1    0.25  0.01 0.6745141 2.808424
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# Best rsquared = 0.626 (rmse = 2.99)
-# cost = 5, eps = 0.25, gamma = 0.05
-# Best rmse = 2.95 (rsquared = 0.590)
-# cost = 10, eps = 0.01, gamma = 0.01
+# nfolds kernel cost epsilon gamma  rsquared     rmse
+#    10    rbf    2    0.10  0.01 0.6834522 2.694921
+#    10    rbf    2    0.05  0.01 0.6689463 2.695471
 
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
@@ -143,7 +142,7 @@ trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Cost ---
 
-cost.range <- c(1, 2, 5, 10, 25, 50, 100)
+cost.range <- c(1:5, 10, 25)
 results1.cost <- do.call(rbind, lapply(cost.range, FUN = tune.svm.cost, 
                                        data = trn, kerneltype = "radial",
                                        nfolds = 10, seed = 101)) 
@@ -161,7 +160,7 @@ ggplot(results.cost, aes(x = cost, color = seed, group = seed)) +
 
 #     Gamma ---
 
-gamma.range <- c(0.001, 0.05, 0.05, 0.1, 0.25, 0.5, 1)
+gamma.range <- c(0.01, 0.05, 0.05, 0.1, 0.25)
 results1.gamma <- do.call(rbind, lapply(gamma.range, FUN = tune.svm.gamma,
                                         data = trn, kerneltype = "radial", 
                                         nfolds = 10, seed = 101))
@@ -179,7 +178,7 @@ ggplot(results.gamma, aes(x = gamma, color = seed, group = seed)) +
 
 #     Epsilon ---
 
-epsilon.range <- c(0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1)
+epsilon.range <- c(0.01, 0.05, 0.1, 0.25, 0.5)
 results1.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
                                           data = trn, kerneltype = "radial",
                                           nfolds = 10, seed = 101))
@@ -189,11 +188,8 @@ results2.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
 results3.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
                                           data = trn, kerneltype = "radial",
                                           nfolds = 10, seed = 103))
-results4.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
-                                          data = trn, kerneltype = "radial",
-                                          nfolds = 10, seed = 104))
 results.epsilon <- rbind(results1.epsilon, results2.epsilon, 
-                         results3.epsilon, results4.epsilon) %>%
+                         results3.epsilon) %>%
   mutate(seed = as.factor(seed))
 ggplot(results.epsilon, aes(x = epsilon, color = seed, group = seed)) + 
   geom_line(aes(y = rsquared)) + 
@@ -206,9 +202,6 @@ saveRDS(results.epsilon, "./tuning/svm/beta/rbf.epsilon.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-cost.range <- c(1, 2, 5, 10, 25, 50)
-gamma.range <- c(0.001, 0.05, 0.05, 0.1, 0.25, 0.5)
-epsilon.range <- c(0, 0.01, 0.05, 0.1, 0.25, 0.5)
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range)
 colnames(svm.combos) <- c("cost", "gamma", "epsilon")
@@ -234,16 +227,15 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-#  40.92    0.04   41.19 
-
+#  42.37    0.21   45.09 
+# 39.52    0.21   41.27 
 saveRDS(results.combos, "./tuning/svm/beta/rbf.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds kernel cost epsilon gamma  rsquared     rmse
+#    10    rbf    3    0.50  0.01 0.7231572 3.099700
+#    10    rbf    5    0.01  0.01 0.7168283 3.103063
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# Best rsquared = 0.755 (rmse = 2.88)
-# cost = 5, eps = 0.25, gamma = 0.05 
-# Best rmse = 2.72 (r2 = 0.737)
-# cost = 2, eps = 0.1, gamma = 0.05
-# middle ground: r2 = 0.832, rmse = 2.56
-# cost = 25, eps = 0.25, gamma = 0.05
+# nfolds kernel cost epsilon gamma  rsquared     rmse
+#     10    rbf   10    0.05  0.01 0.7075812 2.992280
+#    10    rbf    5    0.25  0.01 0.6980419 3.012280

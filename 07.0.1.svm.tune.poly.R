@@ -24,7 +24,7 @@ trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Cost ---
 
-cost.range <- c(1, 5, 10, 20, 40, 75, 150)
+cost.range <- c(1:5, 10, 20, 40)
 results1.cost <- do.call(rbind, lapply(cost.range, FUN = tune.svm.cost, 
                          data = trn, kerneltype = "polynomial",
                          nfolds = 10, seed = 101)) 
@@ -43,7 +43,7 @@ ggplot(results.cost, aes(x = cost, color = seed, group = seed)) +
 
 #     Gamma ---
 
-gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1)
+gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5)
 results1.gamma <- do.call(rbind, lapply(gamma.range, FUN = tune.svm.gamma,
                           data = trn, kerneltype = "polynomial", 
                           nfolds = 10, seed = 101))
@@ -61,7 +61,7 @@ ggplot(results.gamma, aes(x = gamma, color = seed, group = seed)) +
 
 #     Epsilon ---
 
-epsilon.range <- 2^(-6:0)
+epsilon.range <- c(0.01, 0.05, 0.1, 0.25, 0.5, 0.75)
 results1.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
                             data = trn, kerneltype = "polynomial",
                             nfolds = 10, seed = 101))
@@ -84,7 +84,7 @@ ggplot(results.epsilon, aes(x = epsilon, color = seed, group = seed)) +
 
 #     Coef ---
 
-coef.range <- c(0, 1, 5, 10, 20, 40, 75)
+coef.range <- c(0:5, 10, 20)
 results1.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
                          data = trn, kerneltype = "polynomial", 
                          nfolds = 10, seed = 101))
@@ -94,11 +94,8 @@ results2.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
 results3.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
                                        data = trn, kerneltype = "polynomial", 
                                        nfolds = 10, seed = 103))
-results4.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
-                                       data = trn, kerneltype = "polynomial", 
-                                       nfolds = 10, seed = 104))
 results.coef <- rbind(results1.coef, results2.coef, 
-                      results3.coef, results4.coef) %>%
+                      results3.coef) %>%
   mutate(seed = as.factor(seed))
 ggplot(results.coef, aes(x = coef, color = seed, group = seed)) + 
   geom_line(aes(y = rsquared)) + 
@@ -106,7 +103,7 @@ ggplot(results.coef, aes(x = coef, color = seed, group = seed)) +
 
 #     Degree ---
 
-deg.range <- 1:5
+deg.range <- 1:4
 results1.deg <- do.call(rbind, lapply(deg.range, FUN = tune.svm.degree,
                                       data = trn, nfolds = 10, seed = 101)) 
 results2.deg <- do.call(rbind, lapply(deg.range, FUN = tune.svm.degree,
@@ -117,7 +114,6 @@ results.deg <- rbind(results1.deg, results2.deg, results3.deg) %>%
   mutate(seed = as.factor(seed))
 ggplot(results.deg, aes(x = degree, color = seed, group = seed)) + 
   geom_line(aes(y = rsquared)) + 
-  scale_x_continuous(trans = "log2") + 
   theme_bw()
 
 dir.create("./tuning/svm/alpha")
@@ -129,12 +125,11 @@ saveRDS(results.coef, "./tuning/svm/alpha/poly.deg.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-coef.range <- c(0, 1, 5, 10, 20, 40, 75)
-cost.range <- c(1, 5, 10, 20, 40, 75)
+coef.range <- c(0:5, 10, 20)
+cost.range <- c(1:5, 10, 20)
 deg.range <- 1:4
-epsilon.range <- 2^(-6:0)
-gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75)
-# 7*5*7*6*4 = 9604 tuning combinations
+epsilon.range <- c(0.01, 0.05, 0.1, 0.25, 0.5)
+gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5)
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range, coef.range, deg.range)
 colnames(svm.combos) <- c("cost", "gamma", "epsilon", "coef", "degree")
@@ -163,22 +158,18 @@ system.time(
 )
 # system.time output
 # user  system elapsed 
-# 7908.05    7.72 8145.98 
+# 1055.41    2.88 1082.83 
 
 saveRDS(results.combos, "./tuning/svm/alpha/poly.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
+#       5 polynomial      4    1    0.10  0.01     1 0.6746108 2.847249
+#       5 polynomial      1    1    0.01  0.05     4 0.6484687 2.888417
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# Best rsquared (0.775) (rmse = 604.5, no that isn't a typo)
-# degree = 4, cost = 20, eps = 0.25, gamma = 0.05, coef0 = 1 
-# Best rmse = 3.55 (r2 = 0.665)
-# deg = 4, cost = 1, epsilon = 0.5, gamma = 0.1, coef0 = 10
-# middle ground: r2 = 0.684, rmse = 4.02
-# degree = 4, cost = 10, epsilon = 0.125, gamma = 1, coef0 = 20
-
-# r2 = 0.604, rmse = 3.08
-# degree = 4, cost = 5, eps = 0.25, gammma = 0.01, coef0 = 1
+# nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
+#       5 polynomial      2    2    0.25  0.01     1 0.6481208 2.756990
+#       5 polynomial      4    1    0.10  0.01     1 0.6746108 2.847249
 
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
@@ -202,7 +193,7 @@ trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Cost ---
 
-cost.range <- 2^(1:6)
+cost.range <- c(1:5, 10)
 results1.cost <- do.call(rbind, lapply(cost.range, FUN = tune.svm.cost, 
                                        data = trn, kerneltype = "polynomial",
                                        nfolds = 10, seed = 101)) 
@@ -221,7 +212,7 @@ ggplot(results.cost, aes(x = cost, color = seed)) +
 
 #     Gamma ---
 
-gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1)
+gamma.range <- c(0.01, 0.05, 0.1, 0.25, 0.5)
 results1.gamma <- do.call(rbind, lapply(gamma.range, FUN = tune.svm.gamma,
                                         data = trn, kerneltype = "polynomial", 
                                         nfolds = 10, seed = 101))
@@ -239,7 +230,7 @@ ggplot(results.gamma, aes(x = gamma, color = seed, group = seed)) +
 
 #     Epsilon ---
 
-epsilon.range <- 2^(-4:0)
+epsilon.range <- c(0.01, 0.05, 0.1, 0.25, 0.5, 0.75)
 results1.epsilon <- do.call(rbind, lapply(epsilon.range, FUN = tune.svm.epsilon,
                                           data = trn, kerneltype = "polynomial",
                                           nfolds = 10, seed = 101))
@@ -257,12 +248,11 @@ results.epsilon <- rbind(results1.epsilon, results2.epsilon,
   mutate(seed = as.factor(seed))
 ggplot(results.epsilon, aes(x = epsilon, color = seed, group = seed)) + 
   geom_line(aes(y = rsquared)) + 
-  scale_x_continuous(trans = "log2") + 
   theme_bw()
 
 #     Coef ---
 
-coef.range <- c(0, 1, 5, 10, 25, 50, 75)
+coef.range <- c(0:5, 10)
 results1.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
                                        data = trn, kerneltype = "polynomial", 
                                        nfolds = 10, seed = 101)) 
@@ -272,11 +262,8 @@ results2.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
 results3.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
                                        data = trn, kerneltype = "polynomial", 
                                        nfolds = 10, seed = 103))
-results4.coef <- do.call(rbind, lapply(coef.range, FUN = tune.svm.coef,
-                                       data = trn, kerneltype = "polynomial", 
-                                       nfolds = 10, seed = 104))
 results.coef <- rbind(results1.coef, results2.coef, 
-                      results3.coef, results4.coef) %>%
+                      results3.coef) %>%
   mutate(seed = as.factor(seed))
 ggplot(results.coef, aes(x = coef, color = seed, group = seed)) + 
   geom_line(aes(y = rsquared)) + 
@@ -284,7 +271,7 @@ ggplot(results.coef, aes(x = coef, color = seed, group = seed)) +
 
 #     Degree ---
 
-deg.range <- 1:5
+deg.range <- 1:4
 results1.deg <- do.call(rbind, lapply(deg.range, FUN = tune.svm.degree,
                                        data = trn, nfolds = 10, seed = 101)) 
 results2.deg <- do.call(rbind, lapply(deg.range, FUN = tune.svm.degree,
@@ -295,7 +282,6 @@ results.deg <- rbind(results1.deg, results2.deg, results3.deg) %>%
   mutate(seed = as.factor(seed))
 ggplot(results.deg, aes(x = degree, color = seed, group = seed)) + 
   geom_line(aes(y = rsquared)) + 
-  scale_x_continuous(trans = "log2") + 
   theme_bw()
 
 saveRDS(results.cost, "./tuning/svm/beta/poly.cost.RDS")
@@ -307,12 +293,12 @@ saveRDS(results.coef, "./tuning/svm/beta/poly.deg.RDS")
 #     Tuning --------------------------------------------------------------
 
 # 5040 combinations
-cost.range <- c(1, 5, 10, 20, 50)
+cost.range <- c(1:5, 10)
 deg.range <- 1:4
-coef.range <- c(0, 1, 2, 5, 10, 25)
-gamma.range <- c(0.001, 0.01, 0.05, 0.1, 0.25, 0.5)
-epsilon.range <- 2^(-4:0)
-# 3600 combos
+coef.range <- c(1:5, 10)
+gamma.range <- c(0.01, 0.05, 0.1, 0.25, 0.5)
+epsilon.range <- c(0.01, 0.05, 0.1, 0.25, 0.5, 0.75)
+
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range, coef.range, deg.range)
 colnames(svm.combos) <- c("cost", "gamma", "epsilon", "coef", "degree")
@@ -342,14 +328,15 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 1633.64    1.28 1682.16 
+# 1165.10    3.78 1230.36 
 
 saveRDS(results.combos, "./tuning/svm/beta/poly.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
+#      5 polynomial      3    4    0.01  0.01     1 0.7177299 2.954320
+#      5 polynomial      4    3    0.01  0.01     1 0.6978153 3.077193
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# Best rsquared = 0.761, rmse = 2.70
-# degree = 3, cost = 10, eps = 0.25, gamma = 0.001, coef0 = 25
-# Best rmse = 2.65 (r2 = 0.757)
-# deg = 4, cost = 10, eps = 0.25, gamma = 0.001, coef0 = 5
+# nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
+#      5 polynomial      3    4    0.01  0.01     1 0.7177299 2.954320
+#      5 polynomial      4    3    0.01  0.01     1 0.6978153 3.077193
