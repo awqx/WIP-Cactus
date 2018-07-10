@@ -61,7 +61,7 @@ dir.create("./feature.selection/alpha")
 dir.create("./feature.selection/beta")
 dir.create("./feature.selection/gamma")
 
-rfe.combos <- expand.grid(c("alpha", "beta", "gamma"), c(1:10)) %>%
+rfe.combos <- expand.grid(c("alpha", "beta", "gamma"), c(1:5)) %>%
   rename(cd.type = Var1, num = Var2)
 cd.combos <- rfe.combos$cd.type
 num.combos <- rfe.combos$num
@@ -72,9 +72,9 @@ mapply(FUN = save.rfe,
        pp.dir = "./pre-process", write.dir = "./feature.selection")
 
 # Creating a vector of variable names
-rfe.alpha <- paste0("rfe", c(1:10), ".alpha")
-rfe.beta <- paste0("rfe", c(1:10), ".beta")
-rfe.gamma <- paste0("rfe", c(1:10), ".gamma")
+rfe.alpha <- paste0("rfe", c(1:5), ".alpha")
+rfe.beta <- paste0("rfe", c(1:5), ".beta")
+rfe.gamma <- paste0("rfe", c(1:5), ".gamma")
 
 # Vector of locations of all the files
 rfe.alpha.files <- paste0("./feature.selection/alpha/", list.files("./feature.selection/alpha"))
@@ -94,12 +94,7 @@ rfe.alpha.vars <- list(
   rfe2.alpha,
   rfe3.alpha,
   rfe4.alpha,
-  rfe5.alpha,
-  rfe6.alpha,
-  rfe7.alpha,
-  rfe8.alpha,
-  rfe9.alpha,
-  rfe10.alpha
+  rfe5.alpha
 )
 
 pred.alpha <- unlist(lapply(FUN = predictors, rfe.alpha.vars))
@@ -114,7 +109,7 @@ varimp.alpha <- data.frame(pred.alpha.uq, count.alpha) %>%
   .[order(.$frequency, decreasing = T), ]
 
 # Limiting to the variables that appeared in 90% models
-alpha.vars <- varimp.alpha %>% filter(frequency >= 9) %>% .$predictor
+alpha.vars <- varimp.alpha %>% filter(frequency >= 4) %>% .$predictor
 
 saveRDS(varimp.alpha, "./feature.selection/varimp.alpha.RDS")
 saveRDS(alpha.vars, "./feature.selection/alpha.vars.RDS")
@@ -125,12 +120,7 @@ rfe.beta.vars <- list(
   rfe2.beta,
   rfe3.beta,
   rfe4.beta,
-  rfe5.beta,
-  rfe6.beta,
-  rfe7.beta,
-  rfe8.beta,
-  rfe9.beta,
-  rfe10.beta
+  rfe5.beta
 )
 
 pred.beta <- unlist(lapply(FUN = predictors, rfe.beta.vars))
@@ -144,7 +134,7 @@ varimp.beta <- data.frame(pred.beta.uq, count.beta) %>%
   mutate(predictor = as.character(predictor)) %>%
   .[order(.$frequency, decreasing = T), ]
 
-beta.vars <- varimp.beta %>% filter(frequency >= 9) %>% .$predictor
+beta.vars <- varimp.beta %>% filter(frequency > 4) %>% .$predictor
 
 saveRDS(varimp.beta, "./feature.selection/varimp.beta.RDS")
 saveRDS(beta.vars, "./feature.selection/beta.vars.RDS")
@@ -155,12 +145,7 @@ rfe.gamma.vars <- list(
   rfe2.gamma,
   rfe3.gamma,
   rfe4.gamma,
-  rfe5.gamma,
-  rfe6.gamma,
-  rfe7.gamma,
-  rfe8.gamma,
-  rfe9.gamma,
-  rfe10.gamma
+  rfe5.gamma
 )
 
 pred.gamma <- unlist(lapply(FUN = predictors, rfe.gamma.vars))
@@ -174,7 +159,7 @@ varimp.gamma <- data.frame(pred.gamma.uq, count.gamma) %>%
   mutate(predictor = as.character(predictor)) %>%
   .[order(.$frequency, decreasing = T), ]
 
-gamma.vars <- varimp.gamma %>% filter(frequency == 10) %>% .$predictor
+gamma.vars <- varimp.gamma %>% filter(frequency == 5) %>% .$predictor
 
 # Large number of predictors indicates over-fittingm unfortunately
 saveRDS(varimp.gamma, "./feature.selection/varimp.gamma.RDS")

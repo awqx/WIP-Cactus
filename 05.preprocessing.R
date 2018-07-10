@@ -222,9 +222,9 @@ dir.create("./model.data/alpha")
 dir.create("./model.data/beta")
 dir.create("./model.data/gamma")
 set.seed(101)
-split.train.test(10, alpha, "./model.data/alpha/")
-split.train.test(10, beta, "./model.data/beta/")
-split.train.test(10, gamma, "./model.data/gamma/")
+split.train.test(5, alpha, "./model.data/alpha/")
+split.train.test(5, beta, "./model.data/beta/")
+split.train.test(5, gamma, "./model.data/gamma/")
 
 # Pre-processing and cleaning ---------------------------------------------
 
