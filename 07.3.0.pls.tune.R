@@ -175,15 +175,16 @@ system.time(
 # system.time
 # user  system elapsed 
 # 4.77    0.02    4.84 
+# 5.72    0.00    5.82
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds ncomp        method  rsquared     rmse
+#    10     8 widekernelpls 0.5835778 3.104212
+#    10     8     kernelpls 0.5829877 3.137241
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# r2 = 0.507, rmse = 3.46
-# ncomp = 8, method = "simpls"
-
-# r2 = 0.502, rmse = 3.42
-# ncomp = 8. methpd = oscorelpls
+# nfolds ncomp        method  rsquared     rmse
+#    10     4    oscorespls 0.5672790 3.098593
+#    10     8 widekernelpls 0.5835778 3.104212
 
 saveRDS(results.combos, "./tuning/pls/alpha/tune.RDS")
 results.combos <- results.combos %>%
@@ -259,13 +260,16 @@ system.time(
 # system.time
 #  user  system elapsed 
 # 15.59    0.05   15.83 
+# 17.06    0.33   18.00 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds ncomp        method  rsquared     rmse
+#    10    15        simpls 0.6176634 3.448375
+#    10    25    oscorespls 0.5983887 3.512012
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# r2 = 0.644, rmse = 3.21
-# ncomp = 25, method = simpls
-
+# nfolds ncomp        method  rsquared     rmse
+#    10    15        simpls 0.6176634 3.448375
+#    10    25 widekernelpls 0.5877833 3.487391
 
 saveRDS(results.combos, "./tuning/pls/beta/tune.RDS")
 results.combos <- results.combos %>%
@@ -279,4 +283,5 @@ ggplot(results.combos, aes(x = ncomp, y = method, fill = rsquared)) +
        fill = "R2")
 ggsave("./tuning/pls/beta/tune.png", dpi = 450)
 
-# General peak around 25 number of components. May be able to push higher. 
+# The tuning shows variations in the method used, but in practice there
+# is usually very little difference. SIMPLS seems like the way to go.
