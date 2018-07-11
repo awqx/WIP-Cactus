@@ -2,7 +2,7 @@ dir.create("./tuning/cubist")
 
 # Libraries ---------------------------------------------------------------
 
-install.packages("Cubist")
+# install.packages("Cubist")
 library(caret)
 library(Cubist)
 library(tidyverse)
@@ -259,8 +259,9 @@ saveRDS(results.cmte, "./tuning/cubist/alpha/cmte.RDS")
 #     Sample percentage ---
 # Keeps returning NAs. The only values that consistently work are 5, 10, 
 # 85, 90, 95
+# Will keep out of tuning for now
 samp.range <- c(5, 10, 85, 90, 95)
-# samp.range <- c(5, 10, 25, 50, 75, 95)
+ samp.range <- c(5, 10, 25, 50, 75, 95)
 results1.samp <- do.call(rbind, lapply(samp.range, FUN = tune.cubist.samp, 
                                        data = trn, nfolds = 10, seed = 101)) %>% print()
 results2.samp <- do.call(rbind, lapply(samp.range, FUN = tune.cubist.samp, 
@@ -322,9 +323,16 @@ system.time(
 # system.time output
 # user  system elapsed 
 # 41.85    0.05   42.13  
+# 58.77    0.06   59.00
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds seed committees extrapolation  rsquared     rmse
+#     5 1001         10            10 0.6118653 3.003585
+#     5 1001         10            70 0.6100001 3.058802
 results.combos[order(results.combos$rmse), ] %>% head()
+# nfolds seed committees extrapolation  rsquared     rmse
+#      5 1001         10            10 0.6118653 3.003585
+#      5 1001        100             0 0.6057734 3.019532
 
 # r2 = 0.442, rmes = 3.83
 # committees = 30, extra = 10
@@ -441,17 +449,16 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 27.66    0.05   28.28 
+# 189.24    0.36  199.34
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds seed committees extrapolation  rsquared     rmse
+# 29      5 1001         90            40 0.6485403 3.202934
+# 30      5 1001        100            40 0.6483738 3.201895
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# r2 = 0.739, rmes = 2.70
-# committees = 70, extra = 0
-
-# 2nd best
-# r2 = 0.738, rmse = 2.70
-# cmte = 90, extrapolation - 0
+# nfolds seed committees extrapolation  rsquared     rmse
+# 36      5 1001        100            50 0.6479029 3.193700
+# 35      5 1001         90            50 0.6469835 3.200482
 
 saveRDS(results.combos, "./tuning/cubist/beta/tune.RDS")
 
