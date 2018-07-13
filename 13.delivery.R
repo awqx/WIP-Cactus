@@ -160,23 +160,169 @@ ggplot(drug.out, aes(x = time, y = location, fill = value)) +
        x = "Time")
 ggsave("./graphs/presentation/diffusion.png", dpi = 600)
 
-dmr.sum1 <- dmr.sum %>% mutate(dG = -18)
-dmr.sum1 <- accumulate.new.dg(-25)
-dmr.sum2 <- accumulate.new.dg(-5)
-dmr.sum3 <- accumulate.new.dg(-10)
-dmr.sum4 <- accumulate.new.dg(-15)
-dmr.sum5 <- accumulate.new.dg(-20)
-ggplot(dmr.sum2, aes(x = times, y = rr)) + 
-  geom_line() + 
-  theme_bw() + 
-  labs(x = "Time, in hours", y = "Cumulative proportion of drug released")
-dmr.sum.all <- rbind(dmr.sum1, dmr.sum2, dmr.sum3, dmr.sum4, dmr.sum5) %>%
+
+dmr.sum.all <- do.call(rbind, lapply(c(-5, -10, -15, -18, -20, -25), 
+                                     accumulate.new.dg)) %>%
   mutate(dG = as.factor(dG))
 ggplot(dmr.sum.all, aes(x = times, y = rr, color = dG)) + 
   geom_line() + 
-  theme.paper.2018 + 
+  # theme.paper.2018 + 
   labs(x = "Time, in hours", y = "Cumulative proportion of drug released")
 ggsave("./graphs/presentation/profiles.png", dpi = 600)
+
+
+# Testing RMSE ranges -----------------------------------------------------
+
+# Results from external validation
+ev.results <- readRDS("./results/ensemble.RDS")
+# (The following observations are limited to beta-CD)
+# As an example, a strong binder would be protriptyline and a weak binder
+# would be d-arabinose.
+# Ensemble predictions: 
+#     -23.143283 kJ/mol for protriptyline
+#     -6.603071 kJ/mol for d-arabinose
+
+# The RMSE of prediction for the beta-CD ensemble is 2.6439926 kJ/mol. 
+# The RMSEof prediction for PyRx on beta-CD is 7.0252935 kJ/mol (weird, 
+# that's higher than I remember. Will recalculate if necessary). 
+
+# Adjusting parameters for the molecules
+# protriptyline
+set.strong <- function() { 
+  # Known
+  ka <<- convert.delg.ka(protriptyline) # benzoic acid
+  # ct <<- 0.22 # at 1 g/4 mL (Fu)
+  D <<- 0.1 # technically searchable, but this is arbitrary
+  # just using benzoic acid
+  D <<- get.diffusivity(263.384)
+  # width <<- 0.05 # width of half of hydrogel
+  # vol <<- 0.0785 # cm^2, vol when swollen
+  
+  # Reasonably derivable
+  k2 <<- 35 # h^-1, according to Fu
+  k1 <<- k2*ka # ka = k1/k2 
+  
+  # Educated guesses
+  # c0 <<- 0.15 # total drug concentration
+  # cc <<- 0.08 # concentration of uncomplexed cd
+  # clc.eq <<- ct - cc
+  # cl.eq <<- c0 - clc.eq
+  # # Checking for approximate accuracy
+  # clc.eq
+  # c0 - c0/(1 + ka*cc)
+  
+  # Dimensionless
+  P1 <<- k1/k2*c0
+  # P2 <<- D/(k2*width^2)
+  # P2  <<- 0.8 # approximation from Fu
+  # P3 <<- ct/c0
+}
+
+set.weak <- function() { 
+  # Known
+  ka <<- convert.delg.ka(d_arabinose) 
+  D <<- get.diffusivity(150.13)
+  
+  k2 <<- 35 # h^-1, according to Fu
+  k1 <<- k2*ka # ka = k1/k2 
+  
+  # Dimensionless
+  P1 <<- k1/k2*c0
+  # P2 <<- D/(k2*width^2)
+  # P2  <<- 0.8 # approximation from Fu
+  # P3 <<- ct/c0
+}
+
+protriptyline <- -23.143
+d_arabinose <- -6.603
+qsar.sd <- 2.644
+docking.sd <- 7.025
+set.seed(1337)
+strong.qsar.range <- rnorm(n = 15, mean = protriptyline, sd = qsar.sd)
+weak.qsar.range <- rnorm(15, d_arabinose, qsar.sd)
+strong.docking.range <- rnorm(15, protriptyline, docking.sd)
+weak.docking.range <- rnorm(15, d_arabinose, docking.sd)
+
+# Strong binding 
+set.strong()
+strong.qsar.release <- do.call(rbind, 
+        lapply(strong.qsar.range, accumulate.new.dg)) %>% 
+  mutate(dG = as.factor(dG)) %>% 
+  mutate(method = "QSAR", strength = "strong")
+strong.docking.release <- do.call(rbind, 
+                              lapply(strong.docking.range, accumulate.new.dg)) %>% 
+  mutate(dG = as.factor(dG)) %>% 
+  mutate(method = "Docking", strength = "strong")
+strong.release <- rbind(strong.qsar.release, strong.docking.release)
+
+ggplot(strong.qsar.release, aes(x = times, y = rr, color = dG)) + 
+  geom_line() + 
+  theme_bw() + 
+  # theme.paper.2018 + 
+  labs(x = "Time, in hours", y = "Cumulative drug release",
+       title = "QSAR RMSE range in release curves")
+ggplot(strong.docking.release, aes(x = times, y = rr, color = dG)) + 
+  geom_line() + 
+  theme_bw() + 
+  # theme.paper.2018 + 
+  labs(x = "Time, in hours", y = "Cumulative drug release",
+       title = "Docking RMSE range in relese curves")
+ggplot(strong.release, aes(x = times, y = rr, color = method)) + 
+  geom_line() + 
+  theme_bw() + 
+  # theme.paper.2018 + 
+  labs(x = "Time", y = "Cumulative drug release", 
+       title = "Release profiles for a strong binder (protriptyline)")
+ggsave("./graphs/release profile, strong, block.png")
+
+ggplot(strong.release, aes(x = times, y = rr, 
+                           color = method, group = dG)) + 
+  geom_line() + 
+  theme_bw() + 
+  # theme.paper.2018 + 
+  labs(x = "Time", y = "Cumulative drug release", 
+       title = "Release profiles for a strong binder (protriptyline)")
+ggsave("./graphs/release profile, strong, line.png")
+
+# Weak binding
+set.weak() 
+weak.qsar.release <- do.call(rbind, 
+                               lapply(weak.qsar.range, accumulate.new.dg)) %>% 
+  mutate(dG = as.factor(dG)) %>% 
+  mutate(method = "QSAR", strength = "weak")
+weak.docking.release <- do.call(rbind, 
+                                  lapply(weak.docking.range, accumulate.new.dg)) %>% 
+  mutate(dG = as.factor(dG)) %>% 
+  mutate(method = "Docking", strength = "weak")
+weak.release <- rbind(weak.qsar.release, weak.docking.release)
+
+ggplot(weak.qsar.release, aes(x = times, y = rr, color = dG)) + 
+  geom_line() + 
+  theme_bw() + 
+  # theme.paper.2018 + 
+  labs(x = "Time, in hours", y = "Cumulative drug release",
+       title = "QSAR RMSE range in release curves")
+ggplot(weak.docking.release, aes(x = times, y = rr, color = dG)) + 
+  geom_line() + 
+  theme_bw() + 
+  # theme.paper.2018 + 
+  labs(x = "Time, in hours", y = "Cumulative drug release",
+       title = "Docking RMSE range in relese curves")
+ggplot(weak.release, aes(x = times, y = rr, color = method)) + 
+  geom_line() + 
+  theme_bw() + 
+  # theme.paper.2018 + 
+  labs(x = "Time", y = "Cumulative drug release", 
+       title = "Release profiles for a weak binder")
+ggsave("./graphs/release profile, weak, block.png")
+ggplot(weak.release, aes(x = times, y = rr, color = method, group = dG)) + 
+  geom_line() + 
+  theme_bw() + 
+  # theme.paper.2018 + 
+  labs(x = "Time, in hours", y = "Cumulative drug release", 
+       title = "Release profiles for a weak binder", 
+       color = "Method")
+ggsave("./graphs/release profile, weak, line.png")
 
 
 # ODE with dimensions -----------------------------------------------------
@@ -253,34 +399,6 @@ ggplot(delg.variance, aes(x = times, y = rr, color = param)) +
   coord_fixed(ratio = 12500) +
   theme.isef
 ggsave("./graphs/2018 isef/dg and release.png", dpi = 450)
-
-#     P2 and k2 -----------------------------------------------------------
-
-vary.k2 <- function(newk2) {
-  k2 <<- newk2
-  P2 <<- D/(k2*width^2)
-  ode.out <- ode(y = state, times = times, func = drug.model, parms = NULL)
-  result <- accumulate.dMr(out = ode.out) %>% .[-1, ] %>%
-    mutate(param = as.factor(newk2))
-  return(result)
-}
-
-
-# Initial conditions
-ka <- convert.delg.ka(-15)
-k2 <- 35 # h^-1, according to Fu
-k1 <- k2*ka # ka = k1/k2 
-P1 <- k1/k2*c0
-P2 <- D/(k2*width^2)
-
-k2.variance <- do.call(rbind, lapply(seq(20, 420, 50),
-                                       FUN = vary.k2)) 
-ggplot(k2.variance, aes(x = times, y = rr, color = param)) + 
-  geom_line() +
-  labs(title = "Effect of k2, rate of dissociation, on release profiles", 
-       x = "Time, hr", y = "Cumulative release", color = "k2, h^-1") + 
-  theme_bw() 
-ggsave("./release/k2.variance.png")
 
 #     P3 ------------------------------------------------------------------
 
