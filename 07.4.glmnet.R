@@ -14,13 +14,16 @@ glm.looq2 <- function(read.dir, nsplits, a, max) {
   q2.results <- c(rep(0.0, nsplits))
   if(str_detect(read.dir, "alpha"))
     features <- readRDS("./feature.selection/alpha.vars.RDS")
-  else
+  else if(str_detect(read.dir, "beta"))
     features <- readRDS("./feature.selection/beta.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/gamma.vars.RDS")
   for(n in 1:nsplits) {
     data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
       select(., -guest)
     obs <- data[ , 1]
-    data <- data %>% select(., DelG, features) %>% data.matrix()
+    data <- data %>% select(., DelG, one_of(features)) %>%
+      data.matrix()
     pred <- c(rep(0.0, nrow(data) - 1))
     # In this loop, i represents the index of the datapoint left out of 
     # model building
@@ -73,18 +76,20 @@ glm.tst <- function(pp.dir, tst.dir, nsplits, a, max) {
   rmse.results <- rep(0.0, nsplits)
   if(str_detect(pp.dir, "alpha"))
     features <- readRDS("./feature.selection/alpha.vars.RDS")
-  else
+  else if(str_detect(pp.dir, "beta"))
     features <- readRDS("./feature.selection/beta.vars.RDS")
+  else
+    features <- readRDS("./feature.selection/gamma.vars.RDS")
   for(n in 1:nsplits) {
     # Reading the training data
     trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
       select(., -guest)
-    trn.x <- select(trn, features) %>% data.matrix()
+    trn.x <- select(trn, one_of(features)) %>% data.matrix()
     trn.y <- select(trn, DelG) %>% data.matrix()
     
     # Reading and pre-processing the test set
     tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
-                              feat = features, n = n)
+                              feat = colnames(trn.x), n = n)
     tst.y <- data.matrix(tst)[ , 1, drop = F]
     tst.x <- data.matrix(tst)[ , -1]
     # Building the model
@@ -117,33 +122,39 @@ glm.tst <- function(pp.dir, tst.dir, nsplits, a, max) {
 
 # LOO-Q2 analysis ---------------------------------------------------------
 
-# Alpha
-# Either split 1 or 8
-# However, none actually pass the q2 test, which is unfortunate
-glm.looq2("./pre-process/alpha/", nsplits = 10, a = 0.8, max = 15)
+# Everything except 3
+# but 3 has one outlier so it's probably fine
+glm.looq2("./pre-process/alpha/", nsplits = 5, a = 0.0, max = 50)
 
-# Beta
-glm.looq2("./pre-process/beta/", nsplits = 10, a = 0.6, max = 100) # 0.634
-glm.looq2("./pre-process/beta/", nsplits = 10, a = 1, max = 20) # 0.637
-# Both settings work fine...maybe consider two different models?
+# Everything passes
+glm.looq2("./pre-process/beta/", nsplits = 5, a = 0.7, max = 20) # 0.591
 
+# glm.looq2("./pre-process/gamma/", nsplits = 10, a = 0.7, max = 20) 
 
 # Test sets ---------------------------------------------------------------
 
-# Split 5 or 7 turned out the best, R2 = 0.714, .609 
+# Split 2 or 5 turned out the best, R2 = 0.714, .609 
+# split r2.results rmse.results
+#  2  0.6269625     2.968312
+#  5  0.6540026     2.759815
+# Split 3 or 5
 alpha.tst <- glm.tst("./pre-process/alpha/", "./model.data/alpha/", 
-                     nsplits = 10, a = 0.8, max = 15)
+                     nsplits = 5, a = 0.0, max = 50) %>% print()
 
-# All passed except 4 (0.592)
-# Split 6 turned out the best, r2 = 0.758
+
+# All passed except 4 (0.582)
+# Split 5
 beta.tst <- glm.tst("./pre-process/beta/", "./model.data/beta/", 
-                    nsplits = 10, a = 1, max = 20)
+                    nsplits = 5, a = .7, max = 20) %>% print()
+# 
+# gamma.tst <- glm.tst("./pre-process/gamma/", "./model.data/gamma/", 
+#                     nsplits = 10, a = 0.7, max = 20)
 
 # Single model ------------------------------------------------------------
 
 #     Alpha ----
 
-trn.alpha <- readRDS("./pre-process/alpha/5/pp.RDS") %>%
+trn.alpha <- readRDS("./pre-process/alpha/3/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/alpha.vars.RDS")
 colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
@@ -152,12 +163,12 @@ trn.alpha.x <- select(trn.alpha, -DelG) %>% data.matrix()
 trn.alpha.y <- select(trn.alpha, DelG) %>% data.matrix()
 
 glm.alpha <- glmnet(x = trn.alpha.x, y = trn.alpha.y, 
-                  dfmax = 15, alpha = 0.8,
+                  dfmax = 50, alpha = 0,
                   pmax = ncol(trn.alpha.x), 
                   family = "mgaussian")
 
 tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
-                                features, 5) %>% data.matrix()
+                                features, 3) %>% data.matrix()
 tst.alpha.x <- tst.alpha[ , -1]
 tst.alpha.y <- tst.alpha[ , 1, drop = F]
 
@@ -173,12 +184,12 @@ graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) +
   coord_fixed()  +
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Experimental dG, kJ/mol", 
-       title = "GLMNet for Alpha")
+       title = "Alpha-CD GLMNet")
 print(graph.alpha)
 
 #     Beta ----
 
-trn.beta <- readRDS("./pre-process/beta/6/pp.RDS") %>%
+trn.beta <- readRDS("./pre-process/beta/5/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/beta.vars.RDS")
 colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
@@ -187,12 +198,12 @@ trn.beta.x <- select(trn.beta, -DelG) %>% data.matrix()
 trn.beta.y <- select(trn.beta, DelG) %>% data.matrix()
 
 glm.beta <- glmnet(x = trn.beta.x, y = trn.beta.y, 
-                    dfmax = 20, alpha = 1,
+                    dfmax = 20, alpha = .7,
                     pmax = ncol(trn.beta.x), 
                     family = "mgaussian")
 
 tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
-                                features, 6) %>% data.matrix()
+                                features, 5) %>% data.matrix()
 tst.beta.x <- tst.beta[ , -1]
 tst.beta.y <- tst.beta[ , 1, drop = F]
 
@@ -213,61 +224,15 @@ print(graph.beta)
 
 # Saving models -----------------------------------------------------------
 
-pp.settings <- readRDS("./pre-process/alpha/7/pp.settings.RDS")
+pp.settings <- readRDS("./pre-process/alpha/3/pp.settings.RDS")
 saveRDS(list(pp.settings, glm.alpha), "./models/alpha/glmnet.RDS")
 saveRDS(tst.alpha.df, "./results/alpha/glmnet.RDS")
 print(graph.alpha)
 ggsave("./results/alpha/glmnet.png")
 
 
-pp.settings <- readRDS("./pre-process/beta/6/pp.settings.RDS")
+pp.settings <- readRDS("./pre-process/beta/5/pp.settings.RDS")
 saveRDS(list(pp.settings, glm.beta), "./models/beta/glmnet.RDS")
 saveRDS(tst.beta.df, "./results/beta/glmnet.RDS")
 print(graph.beta)
 ggsave("./results/beta/glmnet.png")
-
-# External validation -----------------------------------------------------
-
-# # Reading the pre-processing settings
-# ev.alpha <- preprocess.ev("alpha", 7, features)
-# ev.alpha.x <- ev.alpha[ , -1] %>% data.matrix()
-# ev.alpha.y <- ev.alpha[ , 1] %>% data.matrix()
-# 
-# ev.alpha.df <- predict.glmnet(glm.alpha, ev.alpha.x, 
-#                               s = tail(glm.alpha$lambda, n = 1)) %>%
-#   cbind(ev.alpha.y, .) %>% 
-#   data.frame()
-# colnames(ev.alpha.df) <- c("obs", "pred")
-# ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
-#   geom_point() + 
-#   theme_bw() + 
-#   labs(title = "GLMNet for alpha-CD", 
-#        x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
-#   # geom_smooth(method = "lm") + 
-#   geom_abline(slope = 1, intercept = 0) + 
-#   coord_fixed()
-# defaultSummary(ev.alpha.df)
-# # Passes everything except R2
-# eval.tropsha(ev.alpha.df)
-# 
-# # Reading the pre-processing settings
-# ev.beta <- preprocess.ev("beta", 6, features)
-# ev.beta.x <- ev.beta[ , -1] %>% data.matrix()
-# ev.beta.y <- ev.beta[ , 1] %>% data.matrix()
-# 
-# ev.beta.df <- predict.glmnet(glm.beta, ev.beta.x, 
-#                              s = tail(glm.beta$lambda, n = 1)) %>%
-#   cbind(ev.beta.y, .) %>% 
-#   data.frame()
-# colnames(ev.beta.df) <- c("obs", "pred")
-# ggplot(ev.beta.df, aes(x = obs, y = pred)) + 
-#   geom_point() + 
-#   theme_bw() + 
-#   labs(title = "GLMNet for beta-CD", 
-#        x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
-#   # geom_smooth(method = "lm") + 
-#   geom_abline(slope = 1, intercept = 0) + 
-#   coord_fixed()
-# defaultSummary(ev.beta.df)
-# # Passes everything except R2
-# eval.tropsha(ev.beta.df)

@@ -227,15 +227,17 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-# 9.92    0.00    9.95 
+# 10.39    0.00   10.44 
+# 13.34    0.00   13.61 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds alpha dfmax  rsquared     rmse
+#    10   0.0   150 0.6364452 2.972314
+#    10   0.0    50 0.6277415 2.875179
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# rsquared of 0.545, rmse = 3.36
-# alpha = 0.7, dfmax = 10
-
-# best rmse = same as above
+# nfolds alpha dfmax  rsquared     rmse
+#    10   0.0    50 0.6277415 2.875179
+#    10   0.0   150 0.6364452 2.97231
 
 saveRDS(results.combos, "./tuning/glmnet/alpha/tune.RDS")
 results.combos$alpha <- as.factor(results.combos$alpha)
@@ -300,7 +302,6 @@ saveRDS(results.df, "./tuning/glmnet/beta/dfmax.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-# 11 * 8 = 88 combinations
 glm.combos <- expand.grid(alpha.range, df.range)
 colnames(glm.combos) <- c("alpha", "dfmax")
 alpha.combos <- glm.combos$alpha
@@ -323,16 +324,17 @@ system.time(
 
 # system.time output
 #  user  system elapsed 
-# 12.53    0.05   12.71 
+# 10.72    0.00   10.87
+# 13.42    0.04   13.58 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds alpha dfmax  rsquared     rmse
+#    10   0.7    20 0.6628094 3.367248
+#    10   0.5    20 0.6485293 3.316619
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# rsquared of 0.704, rmse = 2.96
-# alpha = 1, dfmax = 20
-
-# rmse = 2.94, rsquared = 0.684
-# alpha = 0.6, dfmax = 100
+# nfolds alpha dfmax  rsquared     rmse
+#    10   1.0    20 0.6207187 3.315109
+#    10   0.5    20 0.6485293 3.316619
 
 saveRDS(results.combos, "./tuning/glmnet/beta/tune.RDS")
 results.combos$alpha <- as.factor(results.combos$alpha)
@@ -344,3 +346,135 @@ ggplot(results.combos, aes(x = alpha, y = dfmax, fill = rsquared)) +
   labs(title = "GLMNet tuning for beta-CD", x = "Alpha", y = "Maximum degrees of freedom", 
        fill = "R2")
 ggsave("./tuning/glmnet/beta/tune.png", dpi = 450)
+
+# Gamma -------------------------------------------------------------------
+#     Loading Data --------------------------------------------------------
+
+convert.delg.ka <- function(delg) {
+  # exp(n) = e^n
+  joules <- delg*1000
+  return (exp(joules / (-8.314 * 298)))
+}
+# Reading data with all descriptors
+trn.all <- readRDS("./pre-process/gamma/1/pp.RDS") 
+colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
+trn.guest <- trn.all$guest
+trn.df <- select(trn.all, -guest)
+
+features <- readRDS("./feature.selection/gamma.vars.RDS")
+trn.df <- trn.df[ , colnames(trn.df) %in% c("DelG", features)] 
+trn.logk <- trn.df %>%
+  mutate(DelG = convert.delg.ka(DelG)) %>%
+  mutate(DelG = log10(DelG))
+trn <- data.matrix(trn.df)
+
+#     Estimation ----------------------------------------------------------
+
+#     Alpha ---
+alpha.range <- seq(0, 1, 0.1)
+results1.alpha <- do.call(rbind, lapply(alpha.range, FUN = tune.glm.alpha, 
+                                        data = trn, nfolds = 10, seed = 101))
+results2.alpha <- do.call(rbind, lapply(alpha.range, FUN = tune.glm.alpha, 
+                                        data = trn, nfolds = 10, seed = 102)) 
+results3.alpha <- do.call(rbind, lapply(alpha.range, FUN = tune.glm.alpha, 
+                                        data = trn, nfolds = 10, seed = 103)) 
+results.alpha <- rbind(results1.alpha, results2.alpha, results3.alpha) %>%
+  mutate(seed = as.factor(seed))
+ggplot(results.alpha, aes(x = alpha, y = rsquared, 
+                          group = seed, color = seed)) + 
+  geom_line() + 
+  theme_bw()
+
+# Maximum Degrees of Freedom ---
+
+df.range <- c(0, 1, 2, 5, 10, 20, 50, 100, 150, 200)
+results1.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
+                                     data = trn, nfolds = 10, seed = 101)) 
+results2.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
+                                     data = trn, nfolds = 10, seed = 102)) 
+results3.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
+                                     data = trn, nfolds = 10, seed = 103)) 
+results.df <- rbind(results1.df, results2.df, results3.df) %>%
+  mutate(seed = as.factor(seed))
+ggplot(results.df, aes(x = dfmax, y = rsquared, 
+                       group = seed, color = seed)) + 
+  geom_line() + 
+  theme_bw()
+
+dir.create("./tuning/glmnet/gamma")
+saveRDS(results.alpha, "./tuning/glmnet/gamma/alpha.RDS")
+saveRDS(results.df, "./tuning/glmnet/gamma/dfmax.RDS")
+
+#     Tuning --------------------------------------------------------------
+
+glm.combos <- expand.grid(alpha.range, df.range)
+colnames(glm.combos) <- c("alpha", "dfmax")
+alpha.combos <- glm.combos$alpha
+df.combos <- glm.combos$dfmax
+
+set.seed(1001)
+system.time(
+  results.combos <- do.call(
+    rbind,
+    mapply(
+      FUN = tune.glm,
+      a = alpha.combos,
+      max = df.combos,
+      MoreArgs = 
+        list(nfolds = 10, data = trn), 
+      SIMPLIFY = F
+    )
+  )
+)
+
+# system.time output
+#  user  system elapsed 
+# 23.96    0.03   24.22 
+
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds alpha dfmax  rsquared     rmse
+# 98     10   0.9   150 0.3750145 2.358541
+# 96     10   0.7   150 0.3624671 2.281942
+results.combos[order(results.combos$rmse), ] %>% head()
+# nfolds alpha dfmax  rsquared     rmse
+# 59     10   0.3    20 0.1884544 1.620755
+# 50     10   0.5    10 0.2105923 1.650430
+
+saveRDS(results.combos, "./tuning/glmnet/gamma/tune.RDS")
+results.combos$alpha <- as.factor(results.combos$alpha)
+results.combos$dfmax <- as.factor(results.combos$dfmax)
+ggplot(results.combos, aes(x = alpha, y = dfmax, fill = rsquared)) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = terrain.colors(20)) + 
+  theme_bw() + 
+  labs(title = "GLMNet tuning for gamma-CD", x = "Alpha", y = "Maximum degrees of freedom", 
+       fill = "R2")
+ggsave("./tuning/glmnet/gamma/tune.png", dpi = 450)
+
+results.dg <- results.combos
+
+trn <- data.matrix(trn.logk)
+set.seed(1001)
+system.time(
+  results.combos <- do.call(
+    rbind,
+    mapply(
+      FUN = tune.glm,
+      a = alpha.combos,
+      max = df.combos,
+      MoreArgs = 
+        list(nfolds = 10, data = trn), 
+      SIMPLIFY = F
+    )
+  )
+)
+
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds alpha dfmax  rsquared      rmse
+# 22      10   1.0     1 0.3460379 0.2988205
+# 86      10   0.8   100 0.3326182 0.4125980
+results.combos[order(results.combos$rmse), ] %>% head()
+# nfolds alpha dfmax  rsquared      rmse
+# 39     10   0.5     5 0.2231151 0.2880625
+# 11     10   1.0     0        NA 0.2895304
+# 48     10   0.3    10 0.1606005 0.2897449

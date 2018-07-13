@@ -107,16 +107,21 @@ ev.alpha.pred <- predict.alpha(ev.alpha)
 # No outliers
 alpha.outliers <- ev.alpha.pred[[3]]
   
-ev.alpha.df <- inner_join(ev.alpha.pred, ev.alpha.dg, by = "guests") %>%
-  rename(obs = ev.alpha.dg, pred = dG)
+ev.alpha.df <- inner_join(ev.alpha.pred[[1]], ev.alpha.dg, by = "guests") %>%
+  rename(pred = dG)
 defaultSummary(ev.alpha.df)
+defaultSummary(ev.alpha.df[-16, ])
+
+ev.alpha.df.orig <- ev.alpha.df
+ev.alpha.df <- ev.alpha.df[-16, ]
 ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
   theme_bw() + 
   coord_fixed() 
+
 # Everything passes
-# R2 = 0.66
+# R2 = 0.62
 eval.tropsha(ev.alpha.df)
 
 # Beta --------------------------------------------------------------------
@@ -129,7 +134,7 @@ ev.beta.dg <- ev.beta %>% select(., guest, DelG) %>%
 ev.beta <- ev.beta %>% select(., -DelG)
 
 ev.beta.pred <- predict.beta(ev.beta)
-# No outliers
+# 1, 4-dibromobenzene, 1, 4-diiodobenzene
 beta.outliers <- ev.beta.pred[[3]]
 
 ev.beta.df <- inner_join(ev.beta.pred[[1]], ev.beta.dg, by = "guests") %>%
@@ -157,6 +162,6 @@ ggplot(combined.df, aes(x = obs, y = pred, color = host)) +
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
        title = "Ensemble QSAR results", 
        color = "CD type")
-
+ggsave("./results/ensemble.png", dpi = 450)
 saveRDS(combined.df, "./results/ensemble.RDS")
  

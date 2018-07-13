@@ -26,7 +26,7 @@ cubist.looq2 <- function(read.dir, nsplits, cmte, extra, seed) {
     data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
       select(., -guest)
     obs <- data[ , 1]
-    data <- data %>% select(., DelG, features)
+    data <- data %>% select(., DelG, one_of(features))
     pred <- c(rep(0.0, nrow(data) - 1))
     # In this loop, i represents the index of the datapoint left out of 
     # model building
@@ -86,10 +86,10 @@ cube.tst <- function(pp.dir, tst.dir, nsplits, cmte, extra, seed) {
     trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
       select(., -guest)
     trn.y <- trn$DelG
-    trn.x <- select(trn, features)
+    trn.x <- select(trn, one_of(features))
     
     tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
-                              feat = features, n = n)
+                              feat = colnames(trn.x), n = n)
     tst.y <- tst[ , 1]
     tst.x <- tst[ , -1]
     
@@ -120,43 +120,32 @@ cube.tst <- function(pp.dir, tst.dir, nsplits, cmte, extra, seed) {
 
 # LOOCV-Q2 ----------------------------------------------------------------
 
-# 3 passes. 8 and 9 sort of pass.
-# Q2 = 0.368393118712259
-# Q2 = 0.303807425780733
-# Q2 = 0.503604271484987
-# Q2 = 0.283483487043784
-# Q2 = 0.419974823431514
-# Q2 = 0.350065835353248
-# Q2 = 0.357207789214112
-# Q2 = 0.455132013162395
-# Q2 = 0.463307985785176
-# Q2 = 0.302970599355523
-# 0.3807947
-cubist.looq2(read.dir = "./pre-process/alpha/", nsplits = 10, 
-              cmte = 10, extra = 0, seed = 101)
+# 3 doesn't pass (narrow margin, attributable to outliers)
+# Q2 = 0.566354858323843
+# Q2 = 0.589559116758517
+# Q2 = 0.48999827195408
+# Q2 = 0.563288142160792
+# Q2 = 0.521585431960149
+cubist.looq2(read.dir = "./pre-process/alpha/", nsplits = 5, 
+              cmte = 100, extra = 10, seed = 101)
 
-# Q2 = 0.711546416588894
-# Q2 = 0.701130736684873
-# Q2 = 0.733101969979448
-# Q2 = 0.675850054665382
-# Q2 = 0.769398319572569
-# Q2 = 0.744973721991518
-# Q2 = 0.742186145231216
-# Q2 = 0.726238111754197
-# Q2 = 0.650537013975868
-# Q2 = 0.648989388869814
-# 0.7103952
-cubist.looq2(read.dir = "./pre-process/beta/", nsplits = 10, 
-             cmte = 90, extra = 0, seed = 101)
+# Q2 = 0.626784727883507
+# Q2 = 0.608993472263807
+# Q2 = 0.616364600727912
+# Q2 = 0.640192027871673
+# Q2 = 0.703439843542136
+cubist.looq2(read.dir = "./pre-process/beta/", nsplits = 5, 
+             cmte = 100, extra = 50, seed = 101)
 
 # Test sets ---------------------------------------------------------------
 
-# split 5
+# split 2 is alright, except for a single outlier
+# split 3 is the best, but it doesn't pass q2 test
 alpha.tst <- cube.tst("./pre-process/alpha/", "./model.data/alpha", 
-                      nsplits = 10, cmte = 10, extra = 0, seed = 101)
-# split 6
+                      nsplits = 5, cmte = 50, extra = 50, seed = 101)
+# split 5
 beta.tst <- cube.tst("./pre-process/beta/", "./model.data/beta", 
-                      nsplits = 10, cmte = 90, extra = 0, seed = 101)
+                      nsplits = 5, cmte = 100, extra = 50, seed = 101)
 
 
 # Single models -----------------------------------------------------------
@@ -166,43 +155,44 @@ beta.tst <- cube.tst("./pre-process/beta/", "./model.data/beta",
 
 #    Alpha ----
 
-trn.alpha <- readRDS("./pre-process/alpha/5/pp.RDS") %>%
+trn.alpha <- readRDS("./pre-process/alpha/2/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/alpha.vars.RDS")
 colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
-trn.alpha <- trn.alpha %>% select(., DelG, features) 
+trn.alpha <- trn.alpha %>% select(., DelG, one_of(features)) 
 trn.alpha.x <- select(trn.alpha, -DelG) 
 trn.alpha.y <- trn.alpha$DelG
 
 cube.alpha.ctrl <- cubistControl(
   seed = 101, 
-  extrapolation = 0
+  extrapolation = 50
 )
 
 cube.alpha <- cubist(x = trn.alpha.x, y = trn.alpha.y,  
-                     committees = 10, 
+                     committees = 100, 
                      control = cube.alpha.ctrl)
 
 tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
-                                features, 5)
+                                colnames(trn.alpha.x), 2)
 
 tst.alpha.df <- predict(cube.alpha, tst.alpha[ , -1]) %>%
   cbind(tst.alpha[ , 1], .) %>% data.frame()
 colnames(tst.alpha.df) <- c("obs", "pred")
 
 # Yay, you pass
-eval.tropsha(tst.alpha.df)
+# R2 = 0.749 without outlier
+eval.tropsha(tst.alpha.df[ -6, ])
 graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   theme_bw() + 
   coord_fixed()  + 
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
-       title = "Cubist for Alpha")
+       title = "Alpha-CD Cubist")
 
 #    Beta ----
 
-trn.beta <- readRDS("./pre-process/beta/6/pp.RDS") %>%
+trn.beta <- readRDS("./pre-process/beta/5/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/beta.vars.RDS")
 colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
@@ -212,15 +202,15 @@ trn.beta.y <- trn.beta$DelG
 
 cube.beta.ctrl <- cubistControl(
   seed = 101, 
-  extrapolation = 0
+  extrapolation = 50
 )
 
 cube.beta <- cubist(x = trn.beta.x, y = trn.beta.y,  
-                     committees = 10, 
+                     committees = 100, 
                      control = cube.beta.ctrl)
 
 tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
-                                features, 6)
+                                features, 5)
 
 tst.beta.df <- predict(cube.beta, tst.beta[ , -1]) %>%
   cbind(tst.beta[ , 1], .) %>% data.frame()
@@ -234,18 +224,18 @@ graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) +
   coord_fixed()  + 
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
-       title = "Cubist for Beta")
+       title = "Beta-CD Cubist")
 
 #     Saving models ----
 
-pp.settings <- readRDS("./pre-process/alpha/5/pp.settings.RDS")
+pp.settings <- readRDS("./pre-process/alpha/2/pp.settings.RDS")
 saveRDS(list(pp.settings, cube.alpha), "./models/alpha/cube.RDS")
 saveRDS(tst.alpha.df, "./results/alpha/cube.RDS")
 print(graph.alpha)
 ggsave("./results/alpha/cube.png")
 
 
-pp.settings <- readRDS("./pre-process/beta/6/pp.settings.RDS")
+pp.settings <- readRDS("./pre-process/beta/5/pp.settings.RDS")
 saveRDS(list(pp.settings, cube.beta), "./models/beta/cube.RDS")
 saveRDS(tst.beta.df, "./results/beta/cube.RDS")
 print(graph.beta)

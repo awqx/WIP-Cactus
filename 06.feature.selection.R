@@ -1,7 +1,7 @@
 # Libraries and packages --------------------------------------------------
 
 library(caret)
-library(doParallel)
+# library(doParallel)
 library(tidyverse)
 
 # Functions ---------------------------------------------------------------
@@ -12,10 +12,10 @@ use.rfe <- function(path) {
   pred <- trn %>% dplyr::select(., -guest, -DelG)
   obs <- trn$DelG
   
-  ctrl <- rfeControl(functions = treebagFuncs, 
+  ctrl <- rfeControl(functions = rfFuncs, 
                      method = "repeatedcv", 
-                     repeats = 5, 
-                     verbose = T)
+                     # verbose = T, # uncomment to monitor
+                     repeats = 5)
   # subsets <- c(5, 10, 15, 20, 35, 50, 75, 100)
   subsets <- c(1:5, 10, 15, 20, 25, 50)
   
@@ -53,32 +53,38 @@ read.rfe <- function(var.names, file.names) {
 
 # Recursive Feature Elimination (RFE) -------------------------------------
 
-registerDoParallel(4)
+# registerDoParallel(4)
 # getDoParWorkers() # Confirming 4 cores
 
 dir.create("./feature.selection")
 dir.create("./feature.selection/alpha")
 dir.create("./feature.selection/beta")
+dir.create("./feature.selection/gamma")
 
-mapply(FUN = save.rfe, 
-       cd.type = c("alpha", "beta"), num = c(1:10), 
-       pp.dir = "./pre-process", write.dir = "./feature.selection")
+rfe.combos <- expand.grid(c("alpha", "beta", "gamma"), c(1:5)) %>%
+  rename(cd.type = Var1, num = Var2)
+cd.combos <- rfe.combos$cd.type
+num.combos <- rfe.combos$num
 
-# Reversing the order to capture all possible ocmbinations
+# If Error: worker initialization failed occurs, re-run mapply
 mapply(FUN = save.rfe, 
-       cd.type = c("beta", "alpha"), num = c(1:10), 
+       cd.type = cd.combos, num = num.combos, 
        pp.dir = "./pre-process", write.dir = "./feature.selection")
 
 # Creating a vector of variable names
-rfe.alpha <- paste0("rfe", c(1:10), ".alpha")
-rfe.beta <- paste0("rfe", c(1:10), ".beta")
+rfe.alpha <- paste0("rfe", c(1:5), ".alpha")
+rfe.beta <- paste0("rfe", c(1:5), ".beta")
+rfe.gamma <- paste0("rfe", c(1:5), ".gamma")
 
 # Vector of locations of all the files
 rfe.alpha.files <- paste0("./feature.selection/alpha/", list.files("./feature.selection/alpha"))
-rfe.beta.files <- paste0("./feature.selection/beta/", list.files("./feature.selection/beta"))
-
 read.rfe(rfe.alpha, rfe.alpha.files)
+
+rfe.beta.files <- paste0("./feature.selection/beta/", list.files("./feature.selection/beta"))
 read.rfe(rfe.beta, rfe.beta.files)
+
+rfe.gamma.files <- paste0("./feature.selection/gamma/", list.files("./feature.selection/gamma"))
+read.rfe(rfe.gamma, rfe.gamma.files)
 
 #     Analyzing patterns --------------------------------------------------
 
@@ -88,12 +94,7 @@ rfe.alpha.vars <- list(
   rfe2.alpha,
   rfe3.alpha,
   rfe4.alpha,
-  rfe5.alpha,
-  rfe6.alpha,
-  rfe7.alpha,
-  rfe8.alpha,
-  rfe9.alpha,
-  rfe10.alpha
+  rfe5.alpha
 )
 
 pred.alpha <- unlist(lapply(FUN = predictors, rfe.alpha.vars))
@@ -107,8 +108,8 @@ varimp.alpha <- data.frame(pred.alpha.uq, count.alpha) %>%
   mutate(predictor = as.character(predictor)) %>%
   .[order(.$frequency, decreasing = T), ]
 
-# Limiting to the variables that appeared in all models
-alpha.vars <- varimp.alpha %>% filter(frequency == 10) %>% .$predictor
+# Limiting to the variables that appeared in 90% models
+alpha.vars <- varimp.alpha %>% filter(frequency >= 4) %>% .$predictor
 
 saveRDS(varimp.alpha, "./feature.selection/varimp.alpha.RDS")
 saveRDS(alpha.vars, "./feature.selection/alpha.vars.RDS")
@@ -119,12 +120,7 @@ rfe.beta.vars <- list(
   rfe2.beta,
   rfe3.beta,
   rfe4.beta,
-  rfe5.beta,
-  rfe6.beta,
-  rfe7.beta,
-  rfe8.beta,
-  rfe9.beta,
-  rfe10.beta
+  rfe5.beta
 )
 
 pred.beta <- unlist(lapply(FUN = predictors, rfe.beta.vars))
@@ -138,7 +134,33 @@ varimp.beta <- data.frame(pred.beta.uq, count.beta) %>%
   mutate(predictor = as.character(predictor)) %>%
   .[order(.$frequency, decreasing = T), ]
 
-beta.vars <- varimp.beta %>% filter(frequency == 10) %>% .$predictor
+beta.vars <- varimp.beta %>% filter(frequency > 4) %>% .$predictor
 
 saveRDS(varimp.beta, "./feature.selection/varimp.beta.RDS")
 saveRDS(beta.vars, "./feature.selection/beta.vars.RDS")
+
+# Gamma-CD
+rfe.gamma.vars <- list(
+  rfe1.gamma,
+  rfe2.gamma,
+  rfe3.gamma,
+  rfe4.gamma,
+  rfe5.gamma
+)
+
+pred.gamma <- unlist(lapply(FUN = predictors, rfe.gamma.vars))
+pred.gamma.uq <- unique(pred.gamma)
+pred.gamma.pattern <- paste0("^", pred.gamma.uq) 
+pred.gamma.pattern <- paste0(pred.gamma.pattern, "$")
+count.gamma <- lapply(FUN = str_count, X = pred.gamma.pattern, string = pred.gamma) %>%
+  lapply(FUN = sum, X = .) %>% unlist()
+varimp.gamma <- data.frame(pred.gamma.uq, count.gamma) %>%
+  rename(predictor = pred.gamma.uq, frequency = count.gamma) %>%
+  mutate(predictor = as.character(predictor)) %>%
+  .[order(.$frequency, decreasing = T), ]
+
+gamma.vars <- varimp.gamma %>% filter(frequency == 5) %>% .$predictor
+
+# Large number of predictors indicates over-fittingm unfortunately
+saveRDS(varimp.gamma, "./feature.selection/varimp.gamma.RDS")
+saveRDS(gamma.vars, "./feature.selection/gamma.vars.RDS")

@@ -1,3 +1,5 @@
+dir.create("./cleaning")
+
 # Libraries and Packages --------------------------------------------------
 
 library(data.table)
@@ -307,8 +309,8 @@ comb.dg.nodup <- comb.dg[!duplicated(comb.dg), ] # filtering for unique
 
 # The full combined data contains everything, where replicated points
 # are all included
-saveRDS(comb.dg, "./dwnld/02.full.combined.ri.suzuki.RDS")
-saveRDS(comb.dg.nodup, "./dwnld/02.combined.data.RDS")
+saveRDS(comb.dg, "./cleaning/02.full.combined.ri.suzuki.RDS")
+saveRDS(comb.dg.nodup, "./cleaning/02.combined.data.RDS")
 
 
 # Information about Data
@@ -387,3 +389,83 @@ ggplot(ri.dmfh2o.wide, aes(x = DelG, y = dG.h20)) +
   geom_abline(intercept = 0, slope = 1) + 
   coord_fixed() + 
   theme_bw()
+
+#####
+
+# Connors (gamma-CD) ------------------------------------------------------
+
+# Connors, K.A. Feb 24, 1995, School of Pharmacy, University of Wisconsin.
+# Population characteristics of cyclodextrin complex stabilities in aqueous
+# solution
+# File found from University of Wisconsin archives
+# Shoutout to Debra King and Joni Mitchell - the real MVPs
+connors.raw <- read.csv("./dwnld/connors-gamma.csv")
+colnames(connors.raw) <- c("guest", "charge", "ka")
+
+# cleaning for neutral charge
+connors <- connors.raw %>% filter(charge == "0") %>%
+  mutate(ka = as.numeric(ka))
+
+# collapsing same guests
+# Unit conversion
+# According to Connors, T = 298 K 
+convert.ka.delg <- function(ka) {
+  lnk <- log(ka)
+  return(-8.314 * 298 * lnk / 1000)
+}
+connors.original <- connors
+saveRDS(connors.original, "./data/connors.ka.RDS")
+connors <- data.table(connors, key = "guest")
+connors <- connors[ , list(ka = mean(ka)), by = "guest"] %>% 
+  mutate(DelG = convert.ka.delg(ka)) %>%
+  mutate(guest = tolower(as.character(guest)))
+
+# Checking DelG
+ggplot(connors, aes(x = DelG)) + 
+  geom_histogram()
+
+saveRDS(connors, "./cleaning/02.connors.RDS")
+
+# Analyzing the data
+View(connors.raw)
+df <- connors.raw[complete.cases(connors.raw), ] %>%
+  mutate(ka = as.numeric(ka)) %>%
+  filter(!charge == "")
+ggplot(df, aes(x = ka)) + 
+  geom_histogram() + 
+  facet_grid(charge~.) + 
+  theme_bw() + 
+  labs(title = "Distribution of Ka between charges")
+
+# Removing plus-or-minus data points because they don't graph well
+# on an x-axis
+df <- df %>% filter(!str_detect(charge, "±"))
+# Collapsing df for multiple instances of a molecule with the same charge
+df.charge <- data.table(df, key = c("guest", "charge"))
+df.charge <- df.charge[ , list(ka = mean(ka)), by = c("guest", "charge")]
+# Finding guest molecules that have data on multiple charges
+df.charge <- df.charge %>% 
+  filter(guest %in% df.charge$guest[duplicated(df.charge$guest)])
+
+ggplot(df.charge, aes(x = charge, y = ka, group = guest, color = guest)) + 
+  geom_line() + 
+  theme_bw() 
+
+# comparisons against Rekharsky and Inoue
+ri.clean <- readRDS("./cleaning/02.combined.data.RDS") %>%
+  as.data.frame() %>%
+  select(., -data.source)
+ri.gamma <- ri.clean %>% filter(host == "gamma")
+df.dg <- df %>% filter(charge == "0") %>% select(-charge)
+df.dg <- data.table(df.dg, key = "guest")
+df.dg <- df.dg[ , list(ka = mean(ka)), by = "guest"] %>% 
+  mutate(connors.DelG = convert.ka.delg(ka)) %>%
+  mutate(guest = tolower(as.character(guest)))
+ric.gamma <- inner_join(ri.gamma, df.dg, by = "guest")
+ggplot(ric.gamma, aes(x = DelG, y = connors.DelG)) + 
+  geom_point() + 
+  theme_bw() + 
+  coord_fixed(ylim = c(-5, -20)) + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Rekharsky and Inoue DelG, kJ/mol", 
+       y = "Connors DelG, kJ/mol")

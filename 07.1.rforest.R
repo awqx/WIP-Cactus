@@ -19,7 +19,7 @@ rf.looq2 <- function(read.dir, rfe.dir, nsplits, ntree, node, m) {
     data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
       select(., -guest)
     obs <- data[ , 1]
-    data <- data %>% select(., DelG, features) 
+    data <- data %>% select(., DelG, one_of(features)) 
     pred <- c(rep(0.0, nrow(data) - 1))
     # In this loop, i represents the index of the datapoint left out of 
     # model building
@@ -76,10 +76,10 @@ rf.tst <- function(pp.dir, tst.dir, nsplits, ntree, node, m) {
     trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
       select(., -guest)
     trn.y <- trn$DelG
-    trn.x <- select(trn, features)
+    trn.x <- select(trn, one_of(features))
     
     tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
-                              feat = features, n = n)
+                              feat = colnames(trn.x), n = n)
     tst.y <- tst[ , 1]
     tst.x <- tst[ , -1]
     
@@ -112,24 +112,26 @@ rf.tst <- function(pp.dir, tst.dir, nsplits, ntree, node, m) {
 # LOOCV-Q2 analysis -------------------------------------------------------
 
 # Alpha
-# 2, 3, 4, 5, and 7 pass
+# All pass
 rf.looq2("./pre-process/alpha/", 
-          nsplits = 10, ntree = 250, node = 5, m = 4)
-# 0.509
+          nsplits = 5, ntree = 100, node = 2, m = 15)
+# 0.584
 
 # Beta
 # all pass
 rf.looq2("./pre-process/beta/", "./feature.selection/beta", 
-         nsplits = 10, ntree = 25, node = 10, m = 4)
-# 0.694
+         nsplits = 5, ntree = 250, node = 2, m = 10)
+# 0.667
 
 # Test sets ---------------------------------------------------------------
 
-# Split 5 is the best, r2 = 0.769, rmse = 2.18
-alpha.tst <- rf.tst("./pre-process/alpha/", "./model.data/alpha/", nsplits = 10, ntree = 250, node = 5, m = 4)
-# Split 8 is the best, r2 = 0.855, rmse = 2.01
-# split 9 is also pretty good, r2 = 0.845, rmse = 1.94
-beta.tst <- rf.tst("./pre-process/beta/", "./model.data/beta/", nsplits = 10, ntree = 25, node = 10, m = 4)
+# Split 5 is the best R2 RMSE balance
+alpha.tst <- rf.tst("./pre-process/alpha/", "./model.data/alpha/", 
+                    nsplits = 5, ntree = 100, node = 2, m = 15)
+
+# Split 4 is pretty good R2 RMSE balanace
+beta.tst <- rf.tst("./pre-process/beta/", "./model.data/beta/", 
+                   nsplits = 5, ntree = 250, node = 2, m = 10)
 
 # Single models -----------------------------------------------------------
 
@@ -144,7 +146,7 @@ trn.alpha.x <- select(trn.alpha, -DelG)
 trn.alpha.y <- trn.alpha$DelG
 
 rf.alpha <- randomForest(x = trn.alpha.x, y = trn.alpha.y, 
-                         ntree = 250, nodesize = 5, mtry = 4)
+                         ntree = 100, nodesize = 2, mtry = 15)
 
 tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
                                 features, 5)
@@ -161,23 +163,23 @@ graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) +
   coord_fixed()  + 
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
-       title = "Random Forest for Alpha")
+       title = "Alpha-CD Random Forest")
 
 #     Beta ----
 
-trn.beta <- readRDS("./pre-process/beta/8/pp.RDS") %>%
+trn.beta <- readRDS("./pre-process/beta/4/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/beta.vars.RDS")
 colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
-trn.beta <- trn.beta %>% select(., DelG, features) 
+trn.beta <- trn.beta %>% select(., DelG, one_of(features)) 
 trn.beta.x <- select(trn.beta, -DelG) 
 trn.beta.y <- trn.beta$DelG
 
 rf.beta <- randomForest(x = trn.beta.x, y = trn.beta.y, 
-                         ntree = 25, nodesize = 10, mtry = 4)
+                         ntree = 250, nodesize = 2, mtry = 10)
 
 tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
-                                features, 8)
+                                colnames(trn.beta.x), 4)
 
 tst.beta.df <- predict(rf.beta, tst.beta[ , -1]) %>%
   cbind(tst.beta[ , 1], .) %>% data.frame()
@@ -191,7 +193,7 @@ graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) +
   coord_fixed()  + 
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
-       title = "Random Forest for Beta")
+       title = "Beta-CD Random Forest")
 
 #     Saving models ----
 
@@ -202,7 +204,7 @@ print(graph.alpha)
 ggsave("./results/alpha/rf.png")
 
 
-pp.settings <- readRDS("./pre-process/beta/8/pp.settings.RDS")
+pp.settings <- readRDS("./pre-process/beta/4/pp.settings.RDS")
 saveRDS(list(pp.settings, rf.beta), "./models/beta/rf.RDS")
 saveRDS(tst.beta.df, "./results/beta/rf.RDS")
 print(graph.beta)

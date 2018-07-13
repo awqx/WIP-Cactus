@@ -17,7 +17,7 @@ pls.looq2 <- function(read.dir, rfe.dir, nsplits, method, ncomp) {
     data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
       select(., -guest)
     obs <- data[ , 1]
-    data <- data %>% select(., DelG, features) 
+    data <- data %>% select(., DelG, one_of(features)) 
     pred <- c()
     # In this loop, i represents the index of the datapoint left out of 
     # model building
@@ -34,10 +34,10 @@ pls.looq2 <- function(read.dir, rfe.dir, nsplits, method, ncomp) {
       pred[i] <- predict(pls.mod, tst[ , -1]) %>% .[2]
     }
     # Handling outliers
-    for(i in 1:length(pred)) {
-      if(abs(pred[i]) > 85)
-        pred[i] <- mean(obs)
-    }
+    # for(i in 1:length(pred)) {
+    #   if(abs(pred[i]) > 85)
+    #     pred[i] <- mean(obs)
+    # }
     pred.df <- data.frame(obs, pred)
     colnames(pred.df) <- c("obs", "pred")
     p <- ggplot(pred.df, aes(x = obs, y = pred)) + 
@@ -68,9 +68,10 @@ pls.tst <- function(pp.dir, tst.dir, nsplits, ncomp, method) {
   
   for(n in 1:nsplits) {
     trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
-      select(., DelG, features)
+      select(., DelG, one_of(features))
     tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
-                              feat = features, n = n)
+                              feat = colnames(trn %>% select(-DelG)), 
+                              n = n)
     
     pls.mod <- plsr(DelG~., data = trn, 
                     ncomp = ncomp, method = method)
@@ -97,30 +98,33 @@ pls.tst <- function(pp.dir, tst.dir, nsplits, ncomp, method) {
 
 # LOOCV-Q2 Evaluation -----------------------------------------------------
 
-# None pass D:. Split 1 comes the closest.
-pls.looq2("./pre-process/alpha/", nsplits = 10, 
+# Split 1 passes
+# All are very close to 0.5
+# Many spliuts brought down by single outlier
+pls.looq2("./pre-process/alpha/", nsplits = 5, 
           ncomp = 8, method = "simpls")
 
-# All pass. 0.572
-pls.looq2("./pre-process/beta/", nsplits = 10, 
+# All pass. 0.526
+pls.looq2("./pre-process/beta/", nsplits = 5, 
           ncomp = 25, method = "simpls")
 
 # Test sets ---------------------------------------------------------------
 
-# Only split 5 passes
+# Only split 3 passes
 # Q2 is brought down by single outlier - it's probably fine otherwise
 alpha.tst <- pls.tst("./pre-process/alpha/", "./model.data/alpha/", 
-                     nsplits = 10, ncomp = 8, method = "simpls")
+                     nsplits = 5, ncomp = 8, method = "simpls")
 
-# Split 1 looks the best
+# Split 3 looks the best
+# Honestly, 2, 3, and 5 all work
 beta.tst <- pls.tst("./pre-process/beta/", "./model.data/beta/", 
-                     nsplits = 10, ncomp = 25, method = "simpls")
+                     nsplits = 5, ncomp = 25, method = "simpls")
 
 # Single models -----------------------------------------------------------
 
 #    Alpha ----
 
-trn.alpha <- readRDS("./pre-process/alpha/5/pp.RDS") %>%
+trn.alpha <- readRDS("./pre-process/alpha/3/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/alpha.vars.RDS")
 colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
@@ -130,7 +134,7 @@ pls.alpha <- plsr(DelG ~., data = trn.alpha,
                   ncomp = 8, method = "simpls")
 
 tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
-                                features, 5)
+                                features, 3)
 
 tst.alpha.df <- predict(pls.alpha, tst.alpha[ , -1], ncomp = 8) %>%
   cbind(tst.alpha[ , 1], .) %>% data.frame()
@@ -143,22 +147,11 @@ graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) +
   coord_fixed()  + 
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
-       title = "PLS for Alpha")
-# Loading Data ------------------------------------------------------------
-
-dir.create("./models/pls")
-df.raw <- readRDS("./data/padel.pp.RDS")
-df <- df.raw %>% select(-guest, -host, -data.source)
-
-set.seed(10)
-trn.ind <- sample(x = 1:nrow(df), 
-                  size = round(0.8 * nrow(df)))
-trn <- df[trn.ind, ]
-tst <- df[-trn.ind, ]
+       title = "Alpha-CD PLS")
 
 #    Beta ----
 
-trn.beta <- readRDS("./pre-process/beta/1/pp.RDS") %>%
+trn.beta <- readRDS("./pre-process/beta/3/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/beta.vars.RDS")
 colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
@@ -168,7 +161,7 @@ pls.beta <- plsr(DelG ~., data = trn.beta,
                   ncomp = 25, method = "simpls")
 
 tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
-                                features, 1)
+                                features, 3)
 
 tst.beta.df <- predict(pls.beta, tst.beta[ , -1], ncomp = 25) %>%
   cbind(tst.beta[ , 1], .) %>% data.frame()
@@ -182,18 +175,18 @@ graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) +
   coord_fixed()  + 
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
-       title = "PLS for Beta")
+       title = "Beta-CD PLS")
 
 #     Saving models ----
 
-pp.settings <- readRDS("./pre-process/alpha/5/pp.settings.RDS")
+pp.settings <- readRDS("./pre-process/alpha/3/pp.settings.RDS")
 saveRDS(list(pp.settings, pls.alpha), "./models/alpha/pls.RDS")
 saveRDS(tst.alpha.df, "./results/alpha/pls.RDS")
 print(graph.alpha)
 ggsave("./results/alpha/pls.png")
 
 
-pp.settings <- readRDS("./pre-process/beta/1/pp.settings.RDS")
+pp.settings <- readRDS("./pre-process/beta/3/pp.settings.RDS")
 saveRDS(list(pp.settings, pls.beta), "./models/beta/pls.RDS")
 saveRDS(tst.beta.df, "./results/beta/pls.RDS")
 print(graph.beta)
