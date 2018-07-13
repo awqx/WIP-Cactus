@@ -386,3 +386,118 @@ saveRDS(results.combos, "./tuning/rforest/beta/tune.RDS")
 saveRDS(results.ntree, "./tuning/rforest/beta/ntree.RDS")
 saveRDS(results.node, "./tuning/rforest/beta/nodesize.RDS")
 saveRDS(results.mtry, "./tuning/rforest/beta/mtry.RDS")
+
+# Gamma -------------------------------------------------------------------
+
+#     Data Organization ---------------------------------------------------
+
+trn.all <- readRDS("./pre-process/gamma/1/pp.RDS") 
+colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
+trn.guest <- trn.all$guest
+trn <- select(trn.all, -guest)
+
+features <- readRDS("./feature.selection/gamma.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
+
+#     Estimation ----------------------------------------------------------
+
+# Number of trees ---
+ntree.range <- c(50, 75, 100, 250, 400, 700)
+results1.ntree <- do.call(rbind, lapply(ntree.range, 
+                                        FUN = tune.rf.ntree, 
+                                        data = trn, 
+                                        nfolds =10, seed = 101)) 
+results2.ntree <- do.call(rbind, lapply(ntree.range, 
+                                        FUN = tune.rf.ntree, 
+                                        data = trn, 
+                                        nfolds =10, seed = 102))
+results3.ntree <- do.call(rbind, lapply(ntree.range, 
+                                        FUN = tune.rf.ntree, 
+                                        data = trn, 
+                                        nfolds =10, seed = 103))
+results.ntree <- rbind(results1.ntree, results2.ntree, results3.ntree) %>%
+  mutate(seed = as.factor(seed))
+ggplot(results.ntree, aes(x = ntree, y = rsquared, color = seed)) + 
+  geom_line() + 
+  theme_bw()
+
+#     Node size ---
+node.range <- c(1, 2, 5, 10, 25, 50)
+results1.node <- do.call(rbind, lapply(node.range, 
+                                       FUN = tune.rf.node, 
+                                       data = trn, 
+                                       nfolds =10, seed = 101)) 
+results2.node <- do.call(rbind, lapply(node.range, 
+                                       FUN = tune.rf.node, 
+                                       data = trn, 
+                                       nfolds =10, seed = 102))
+results3.node <- do.call(rbind, lapply(node.range, 
+                                       FUN = tune.rf.node, 
+                                       data = trn, 
+                                       nfolds =10, seed = 103))
+results.node <- rbind(results1.node, results2.node, results3.node) %>%
+  mutate(seed = as.factor(seed))
+ggplot(results.node, aes(x = nodesize, y = rsquared, color = seed)) + 
+  geom_line() + 
+  theme_bw() 
+
+#     Number of variables (mtry) ---
+mtry.range <- c(1, 2, 4, 8, 15, 20, 25)
+results1.mtry <- do.call(rbind, lapply(mtry.range, 
+                                       FUN = tune.rf.mtry, 
+                                       data = trn,  
+                                       nfolds =10, seed = 101)) 
+results2.mtry <- do.call(rbind, lapply(mtry.range, 
+                                       FUN = tune.rf.mtry, 
+                                       data = trn, 
+                                       nfolds =10, seed = 102))
+results3.mtry <- do.call(rbind, lapply(mtry.range, 
+                                       FUN = tune.rf.mtry, 
+                                       data = trn, 
+                                       nfolds =10, seed = 103))
+results.mtry <- rbind(results1.mtry, results2.mtry, results3.mtry) %>%
+  mutate(seed = as.factor(seed))
+ggplot(results.mtry, aes(x = mtry, y = rsquared, color = seed)) + 
+  geom_line() + 
+  theme_bw()
+
+#     Tuning --------------------------------------------------------------
+
+# 5*6*7 = 210 combinations
+rf.combos <- expand.grid(ntree.range, node.range, mtry.range)
+colnames(rf.combos) <- c("ntree", "node", "mtry")
+ntree.combos <- rf.combos$ntree
+node.combos <- rf.combos$node
+mtry.combos <- rf.combos$mtry
+
+set.seed(1001)
+system.time(
+  results.combos <- do.call(
+    rbind,
+    mapply(
+      FUN = tune.rf,
+      ntree = ntree.combos, 
+      node = node.combos, 
+      m = mtry.combos, 
+      MoreArgs = 
+        list(nfolds = 10, data = trn), 
+      SIMPLIFY = F
+    )
+  )
+)
+# user  system elapsed 
+# 200.83    0.30  201.37 
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds ntree nodesize mtry  rsquared     rmse
+# 151     10    50        2   15 0.4113123 1.612422
+# 136     10   250       25    8 0.3656744 1.584186
+results.combos[order(results.combos$rmse), ] %>% head()
+# nfolds ntree nodesize mtry  rsquared     rmse
+# 38      10    75        1    2 0.3619169 1.509415
+# 87      10   100        5    4 0.3134317 1.547824
+
+dir.create("./tuning/rforest/gamma")
+saveRDS(results.combos, "./tuning/rforest/gamma/tune.RDS")
+saveRDS(results.ntree, "./tuning/rforest/gamma/ntree.RDS")
+saveRDS(results.node, "./tuning/rforest/gamma/nodesize.RDS")
+saveRDS(results.mtry, "./tuning/rforest/gamma/mtry.RDS")

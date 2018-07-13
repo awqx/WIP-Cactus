@@ -472,3 +472,123 @@ ggplot(results.combos, aes(x = committees, y = extrapolation, fill = rsquared)) 
   labs(x = "Number of committees", y = "Degree of extrapolation", 
        title = "Cubist tuning for beta-CD")
 ggsave("./tuning/cubist/beta/tune.png", dpi = 450)
+
+# gamma -------------------------------------------------------------------
+
+dir.create("./tuning/cubist/gamma")
+
+#     Data Organization ---------------------------------------------------
+
+trn.all <- readRDS("./pre-process/gamma/1/pp.RDS") 
+colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
+trn.guest <- trn.all$guest
+trn <- select(trn.all, -guest)
+
+features <- readRDS("./feature.selection/gamma.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
+
+#     Estimation ----------------------------------------------------------
+
+#     Committee number ---
+cmte.range <- c(10*seq(1, 9, 2), 100)
+results1.cmte <- do.call(rbind, lapply(cmte.range, FUN = tune.cubist.cmte, 
+                                       data = trn, nfolds = 10, seed = 101))
+results2.cmte <- do.call(rbind, lapply(cmte.range, FUN = tune.cubist.cmte, 
+                                       data = trn, nfolds = 10, seed = 102))
+results3.cmte <- do.call(rbind, lapply(cmte.range, FUN = tune.cubist.cmte, 
+                                       data = trn, nfolds = 10, seed = 103))
+results.cmte <- rbind(results1.cmte, results2.cmte, results3.cmte) %>%
+  mutate(seed = as.factor(seed)) 
+ggplot(results.cmte, aes(x = committees, y = rsquared, color = seed)) + 
+  geom_line() + 
+  theme_bw()
+saveRDS(results.cmte, "./tuning/cubist/gamma/cmte.RDS")
+
+# #     Sample percentage ---
+# # Keeps returning NAs. The only values that consistently work are 5, 10, 
+# # 85, 90, 95
+# samp.range <- c(5, 10, 85, 90, 95)
+# samp.range <- c(5, 10, 25, 50, 75, 95)
+# results1.samp <- do.call(rbind, lapply(samp.range, FUN = tune.cubist.samp, 
+#                                        data = trn, nfolds = 10, seed = 101)) %>% print()
+# results2.samp <- do.call(rbind, lapply(samp.range, FUN = tune.cubist.samp, 
+#                                        data = trn, nfolds = 10, seed = 102)) %>% print()
+# results3.samp <- do.call(rbind, lapply(samp.range, FUN = tune.cubist.samp, 
+#                                        data = trn, nfolds = 10, seed = 103)) %>% print()
+# results.samp <- rbind(results1.samp, results2.samp, results3.samp) %>%
+#   mutate(seed = as.factor(seed)) 
+# ggplot(results.samp, aes(x = samp, y = rsquared, color = seed)) + 
+#   geom_line() + 
+#   theme_bw()
+# saveRDS(results.samp, "./tuning/cubist/gamma/samp.RDS")
+
+#     Extrapolation ---
+extra.range <- 10 * (0:10)
+results1.extra <- do.call(rbind, lapply(extra.range, FUN = tune.cubist.extra, 
+                                        data = trn, nfolds = 10, seed = 101))
+results2.extra <- do.call(rbind, lapply(extra.range, FUN = tune.cubist.extra, 
+                                        data = trn, nfolds = 10, seed = 102))
+results3.extra <- do.call(rbind, lapply(extra.range, FUN = tune.cubist.extra, 
+                                        data = trn, nfolds = 10, seed = 103))
+results.extra <- rbind(results1.extra, results2.extra, results3.extra) %>%
+  mutate(seed = as.factor(seed)) 
+ggplot(results.extra, aes(x = extrapolation, y = rsquared, color = seed)) + 
+  geom_line() + 
+  theme_bw()
+
+saveRDS(results.extra, "./tuning/cubist/gamma/extra.RDS")
+
+#     Tuning --------------------------------------------------------------
+
+# 6*5*6 = 150 combinations
+cube.combos <- expand.grid(cmte.range, 
+                           #samp.range, 
+                           extra.range)
+colnames(cube.combos) <- c("cmte",
+                           # "samp", 
+                           "extra") 
+cmte.combos <- cube.combos$cmte
+# samp.combos <- cube.combos$samp
+extra.combos <- cube.combos$extra
+
+set.seed(1001)
+# I reduce the number of folds because cubist takes a while
+system.time(
+  results.combos <- do.call(
+    rbind,
+    mapply(
+      FUN = tune.cubist,
+      cmte = cmte.combos,
+      extra = extra.combos,
+      MoreArgs = 
+        list(nfolds = 5, data = trn, seed = 1001), 
+      SIMPLIFY = F
+    )
+  )
+)
+
+# system.time output
+# user  system elapsed 
+# 189.24    0.36  199.34
+
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds seed committees extrapolation  rsquared     rmse
+# 37      5 1001         10            60 0.1911192 1.713634
+# 40      5 1001         70            60 0.1854841 1.757859
+results.combos[order(results.combos$rmse), ] %>% head()
+# nfolds seed committees extrapolation  rsquared     rmse
+# 13      5 1001         10            20 0.1129040 1.677326
+# 19      5 1001         10            30 0.1566335 1.684599
+
+saveRDS(results.combos, "./tuning/cubist/gamma/tune.RDS")
+
+results.combos <- results.combos %>% 
+  mutate(committees = as.factor(committees), 
+         extrapolation = as.factor(extrapolation))
+ggplot(results.combos, aes(x = committees, y = extrapolation, fill = rsquared)) + 
+  geom_raster() + 
+  scale_fill_gradientn(colors = terrain.colors(20)) + 
+  theme_bw() + 
+  labs(x = "Number of committees", y = "Degree of extrapolation", 
+       title = "Cubist tuning for gamma-CD")
+ggsave("./tuning/cubist/gamma/tune.png", dpi = 450)

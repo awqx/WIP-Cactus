@@ -356,7 +356,7 @@ convert.delg.ka <- function(delg) {
   return (exp(joules / (-8.314 * 298)))
 }
 # Reading data with all descriptors
-trn.all <- readRDS("./pre-process/gamma/6/pp.RDS") 
+trn.all <- readRDS("./pre-process/gamma/1/pp.RDS") 
 colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn.df <- select(trn.all, -guest)
@@ -387,7 +387,7 @@ ggplot(results.alpha, aes(x = alpha, y = rsquared,
 
 # Maximum Degrees of Freedom ---
 
-df.range <- c(0, 1, 2, 5, 10, 20, 50, 100)
+df.range <- c(0, 1, 2, 5, 10, 20, 50, 100, 150, 200)
 results1.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
                                      data = trn, nfolds = 10, seed = 101)) 
 results2.df <- do.call(rbind, lapply(df.range, FUN = tune.glm.dfmax, 
@@ -407,7 +407,6 @@ saveRDS(results.df, "./tuning/glmnet/gamma/dfmax.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-# 11 * 8 = 88 combinations
 glm.combos <- expand.grid(alpha.range, df.range)
 colnames(glm.combos) <- c("alpha", "dfmax")
 alpha.combos <- glm.combos$alpha
@@ -430,15 +429,16 @@ system.time(
 
 # system.time output
 #  user  system elapsed 
-# 9.97    0.00   10.16
+# 23.96    0.03   24.22 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
-results.combos[order(results.combos$rmse), ] %>% head()
-
 # nfolds alpha dfmax  rsquared     rmse
-#    10   0.3    50 0.3675429 1.672413
-#    10   0.6    10 0.3010348 1.607742
-#    10   0.7    20 0.3522579 1.647089
+# 98     10   0.9   150 0.3750145 2.358541
+# 96     10   0.7   150 0.3624671 2.281942
+results.combos[order(results.combos$rmse), ] %>% head()
+# nfolds alpha dfmax  rsquared     rmse
+# 59     10   0.3    20 0.1884544 1.620755
+# 50     10   0.5    10 0.2105923 1.650430
 
 saveRDS(results.combos, "./tuning/glmnet/gamma/tune.RDS")
 results.combos$alpha <- as.factor(results.combos$alpha)
@@ -469,4 +469,12 @@ system.time(
   )
 )
 
-results.combos.dg <- results.combos
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds alpha dfmax  rsquared      rmse
+# 22      10   1.0     1 0.3460379 0.2988205
+# 86      10   0.8   100 0.3326182 0.4125980
+results.combos[order(results.combos$rmse), ] %>% head()
+# nfolds alpha dfmax  rsquared      rmse
+# 39     10   0.5     5 0.2231151 0.2880625
+# 11     10   1.0     0        NA 0.2895304
+# 48     10   0.3    10 0.1606005 0.2897449
