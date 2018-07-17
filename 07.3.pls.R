@@ -75,7 +75,7 @@ pls.tst <- function(pp.dir, tst.dir, nsplits, ncomp, method) {
     
     pls.mod <- plsr(DelG~., data = trn, 
                     ncomp = ncomp, method = method)
-     tst.df <- predict(pls.mod, tst[ , -1], ncomp = ncomp) %>%
+    tst.df <- predict(pls.mod, tst[ , -1], ncomp = ncomp) %>%
       cbind(tst[ , 1], .) %>%
       as.data.frame()
     colnames(tst.df) <- c("obs", "pred")
@@ -100,25 +100,25 @@ pls.tst <- function(pp.dir, tst.dir, nsplits, ncomp, method) {
 
 # Split 1 passes
 # All are very close to 0.5
-# Many spliuts brought down by single outlier
+# Many splits brought down by single outlier
 pls.looq2("./pre-process/alpha/", nsplits = 5, 
-          ncomp = 8, method = "simpls")
+          ncomp = 8, method = "oscorespls")
 
 # All pass. 0.526
 pls.looq2("./pre-process/beta/", nsplits = 5, 
-          ncomp = 25, method = "simpls")
+          ncomp = 25, method = "oscorespls")
 
 # Test sets ---------------------------------------------------------------
 
 # Only split 3 passes
 # Q2 is brought down by single outlier - it's probably fine otherwise
 alpha.tst <- pls.tst("./pre-process/alpha/", "./model.data/alpha/", 
-                     nsplits = 5, ncomp = 8, method = "simpls")
+                     nsplits = 5, ncomp = 8, method = "oscorespls")
 
 # Split 3 looks the best
 # Honestly, 2, 3, and 5 all work
 beta.tst <- pls.tst("./pre-process/beta/", "./model.data/beta/", 
-                     nsplits = 5, ncomp = 25, method = "simpls")
+                    nsplits = 5, ncomp = 25, method = "oscorespls")
 
 # Single models -----------------------------------------------------------
 
@@ -131,7 +131,7 @@ colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
 trn.alpha <- trn.alpha %>% select(., DelG, features) 
 
 pls.alpha <- plsr(DelG ~., data = trn.alpha, 
-                  ncomp = 8, method = "simpls")
+                  ncomp = 8, method = "oscorespls")
 
 tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
                                 features, 3)
@@ -158,10 +158,10 @@ colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
 trn.beta <- trn.beta %>% select(., DelG, features) 
 
 pls.beta <- plsr(DelG ~., data = trn.beta, 
-                  ncomp = 25, method = "simpls")
+                 ncomp = 25, method = "oscorespls")
 
 tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
-                                features, 3)
+                               features, 3)
 
 tst.beta.df <- predict(pls.beta, tst.beta[ , -1], ncomp = 25) %>%
   cbind(tst.beta[ , 1], .) %>% data.frame()
