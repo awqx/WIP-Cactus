@@ -57,7 +57,7 @@ rf   <- readRDS("./models/alpha/rf.RDS")[[2]]
 polysvm <- readRDS("./models/alpha/polysvm.RDS")[[2]]
 rbfsvm  <- readRDS("./models/alpha/rbfsvm.RDS")[[2]]
 
-# Variable importance -----------------------------------------------------
+#     Variable importance -----------------------------------------------------
 
 # Cubist
 cube.imp <- varImp(cube) %>%
@@ -158,7 +158,7 @@ rf   <- readRDS("./models/beta/rf.RDS")[[2]]
 polysvm <- readRDS("./models/beta/polysvm.RDS")[[2]]
 rbfsvm  <- readRDS("./models/beta/rbfsvm.RDS")[[2]]
 
-# Variable importance -----------------------------------------------------
+#     Variable importance -----------------------------------------------------
 
 # Cubist
 cube.imp <- varImp(cube) %>%
@@ -250,13 +250,12 @@ beta.imp <- rbind(
 
 # Data compiling ----------------------------------------------------------
 
-alpha.imp <- alpha.imp %>% mutate(host = "alpha") 
-beta.imp <- beta.imp %>% mutate(host = "beta")
 comb.desc <- inner_join(alpha.imp, beta.imp, by = 'desc') %>%
   .$desc %>% unique()
 comb.imp <- rbind(alpha.imp %>% filter(desc %in% comb.desc), 
                   beta.imp %>% filter(desc %in% comb.desc))
 
+# Creating wide tables to visualize averages
 alpha.dt <- alpha.imp %>% select(-host) %>% 
   mutate(desc = as.factor(desc)) %>%
   mutate(model = as.factor(model)) %>%
@@ -265,8 +264,8 @@ alpha.dt <- dcast.data.table(alpha.dt, desc ~ model,
                              value.var = "importance")
 alpha.dt$cubist <-  replace(alpha.dt$cubist, is.na(alpha.dt$cubist), 0)
 alpha.dt <- alpha.dt %>% mutate(overall = 
-                                  rowMeans(select(., cubist:rforest))) 
-alpha.dt <- alpha.dt[order(-alpha.dt$overall), ] %>% data.frame()
+                                  rowMeans(select(., cubist:rforest))) %>%
+  data.frame()
 
 beta.dt <- beta.imp %>% select(-host) %>% 
   mutate(desc = as.factor(desc)) %>%
@@ -275,9 +274,24 @@ beta.dt <- beta.imp %>% select(-host) %>%
 beta.dt <- dcast.data.table(beta.dt, desc ~ model, 
                             value.var = "importance")
 beta.dt$cubist <-  replace(beta.dt$cubist, is.na(beta.dt$cubist), 0)
+beta.dt$rforest <-  replace(beta.dt$rforest, is.na(beta.dt$rforest), 0)
 beta.dt <- beta.dt %>% mutate(overall = 
-                                rowMeans(select(., cubist:rforest))) 
-beta.dt <- beta.dt[order(-beta.dt$overall), ] %>% data.frame()
+                                rowMeans(select(., cubist:rforest))) %>%
+  data.frame()
+
+# Adding a column to the original importance table of 'ensemble'
+# (basically the average importance)
+alpha.ens <- alpha.dt %>% select(desc, overall) %>%
+  mutate(model = 'ensemble', host = 'alpha') %>%
+  rename(importance = overall) 
+alpha.imp <- rbind(alpha.imp, alpha.ens) %>%
+  mutate(desc = as.factor(desc), model = as.factor(model))
+
+beta.ens <- beta.dt %>% select(desc, overall) %>%
+  mutate(model = 'ensemble', host = 'beta') %>%
+  rename(importance = overall) 
+beta.imp <- rbind(beta.imp, beta.ens) %>%
+  mutate(desc = as.factor(desc), model = as.factor(model))
 
 dir.create('var.imp')
 saveRDS(alpha.imp, 'var.imp/alpha.varimp.RDS')
@@ -288,28 +302,54 @@ saveRDS(beta.dt, 'var.imp/beta.wide.RDS')
 
 # Graphs ------------------------------------------------------------------
 
-ggplot(alpha.imp, aes(x = model, y = desc, fill = importance)) + 
+alpha.order <- alpha.imp %>% filter(model == 'ensemble') %>%
+  .[order(.$importance), ] %>% .$desc
+alpha.imp$desc <- factor(alpha.imp$desc, levels = alpha.order)
+alpha.imp$model <- factor(alpha.imp$model, 
+                          levels = c('cubist', 'glmnet', 'pls', 
+                                     'polysvm', 'rbfsvm', 'rforest', 
+                                     'ensemble'))
+alpha.temp <- alpha.imp[!is.na(alpha.imp$desc), ]
+ggplot(alpha.temp, aes(x = model, y = desc, fill = importance)) + 
   theme.plos +
-  theme(text=element_text(size=12)) +
+  theme(text = element_text(size=11), 
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10)) +
   geom_tile() + 
   scale_fill_gradient2(high = "#f8766d", low = "#619cff",
-                       mid = "white", midpoint = 0.5) + 
-  scale_x_discrete(labels = c("Cubist", "GLMNet", "PLS", "Poly-SVM", 
-                              "RBF-SVM", "Random forest")) + 
-  labs(x = "Model", y = "Descriptor Variable", fill = "Importance") +
-  coord_fixed(ratio = 0.2)
+                       mid = "white", midpoint = 0.5,
+                       name = "Importance") +
+  # scale_fill_gradientn(colors = terrain.colors(8), 
+  #                      name = "Importance")
+  scale_x_discrete(labels = c("Cubist", "GLMNet", "PLS", "Poly-SVM",
+                              "RBF-SVM", "RF", "Ensemble")) +
+  labs(x = "Model", y = "Descriptor Variable", 
+       title = "Alpha-CD") +
+  coord_fixed(ratio = 0.32)
 ggsave("./graphs/alpha.varimp.png", scale = 1, dpi = 600)
 
 
-ggplot(beta.imp, aes(x = model, y = desc, fill = importance)) + 
+beta.order <- beta.imp %>% filter(model == 'ensemble') %>%
+  .[order(.$importance), ] %>% .$desc
+beta.imp$desc <- factor(beta.imp$desc, levels = beta.order)
+beta.imp$model <- factor(beta.imp$model, 
+                          levels = c('cubist', 'glmnet', 'pls', 
+                                     'polysvm', 'rbfsvm', 'rforest', 
+                                     'ensemble'))
+beta.temp <- beta.imp[!is.na(beta.imp$desc), ]
+ggplot(beta.temp, aes(x = model, y = desc, fill = importance)) + 
   theme.plos +
-  theme(text=element_text(size=12)) +
+  theme(text = element_text(size=11), 
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10)) +
   geom_tile() + 
-  scale_fill_gradient2(high = "#f8766d", low = "#619cff", mid = "white", midpoint = 0.5) + 
-  scale_x_discrete(labels = c("Cubist", "GLMNet", "PLS", "Poly-SVM", 
-                              "RBF-SVM", "Random forest")) + 
-  labs(x = "Model", y = "Descriptor Variable", fill = "Importance") +
-  coord_fixed(ratio = 0.25)
+  scale_fill_gradient2(high = "#f8766d", low = "#619cff",
+                       mid = "white", midpoint = 0.5) + 
+  scale_x_discrete(labels = c("Cubist", "GLMNet", "PLS", "Poly-SVM",
+                              "RBF-SVM", "RF", "Ensemble")) +
+  labs(x = "Model", y = "Descriptor Variable", fill = "Importance", 
+       title = "Beta-CD") +
+  coord_fixed(ratio = 0.36)
 ggsave("./graphs/beta.varimp.png", scale = 1, dpi = 600)
 
 # Variables shared between alpha- and beta-CD
