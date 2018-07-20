@@ -8,6 +8,7 @@ library(tidyverse)
 # Functions ---------------------------------------------------------------
 
 pls.looq2 <- function(read.dir, rfe.dir, nsplits, method, ncomp) {
+  trn.split <- 1:nsplits
   q2.results <- c(rep(0.0, nsplits))
   if(str_detect(read.dir, "alpha"))
     features <- readRDS("./feature.selection/alpha.vars.RDS")
@@ -48,77 +49,95 @@ pls.looq2 <- function(read.dir, rfe.dir, nsplits, method, ncomp) {
       coord_fixed()
     print(p)
     PRESS <- sum((obs - pred)^2)
-    # total sum of squares
     TSS <- sum((obs - mean(obs))^2)
     q2 <- 1 - PRESS/TSS
     message("Q2 = ", q2)
     q2.results[n] <- q2
   }
-  return(mean(q2.results))
+  return(data.frame(trn.split, q2.results))
 }
 
 pls.tst <- function(pp.dir, tst.dir, nsplits, ncomp, method) {
   split <- 1:nsplits
-  r2.results <- c(rep(0.0, nsplits))
-  rmse.results <- c(rep(0.0, nsplits))
+  results.all <- data.frame()
   if(str_detect(pp.dir, "alpha"))
     features <- readRDS("./feature.selection/alpha.vars.RDS")
   else
     features <- readRDS("./feature.selection/beta.vars.RDS")
-  
-  for(n in 1:nsplits) {
-    trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
+  pls.mod <- NULL
+  for(i in 1:nsplits) {
+    trn <- readRDS(paste0(pp.dir, i, "/pp.RDS")) %>%
       select(., DelG, one_of(features))
-    tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
-                              feat = colnames(trn %>% select(-DelG)), 
-                              n = n)
-    
     pls.mod <- plsr(DelG~., data = trn, 
                     ncomp = ncomp, method = method)
-    tst.df <- predict(pls.mod, tst[ , -1], ncomp = ncomp) %>%
-      cbind(tst[ , 1], .) %>%
-      as.data.frame()
-    colnames(tst.df) <- c("obs", "pred")
-    p <- ggplot(tst.df, aes(x = obs, y = pred)) + 
+    tst.all <- data.frame()
+    
+    for(j in 1:nsplits) {
+      tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
+                                feat = features, n = j)
+      tst.y <- tst[ , 1]
+      tst.x <- tst[ , -1]
+      
+      tst.df <- predict(pls.mod, tst[ , -1], ncomp = ncomp) %>%
+        cbind(tst[ , 1], .) %>%
+        as.data.frame()
+      colnames(tst.df) <- c("obs", "pred")
+      tst.df <- tst.df %>% mutate(split = j)
+      # for(k in 1:nrow(tst.df))
+      #   if(abs(tst.df$pred[k]) > 80)
+      #     tst.df$pred[k] <- mean(trn.y)
+      results.tst <- data.frame(trn.split = i, tst.split = j, 
+                                r2 = defaultSummary(tst.df)[2], 
+                                rmse = defaultSummary(tst.df)[1])
+      results.all <- rbind(results.all, results.tst)
+      tst.all <- rbind(tst.all, tst.df)
+    }
+    tst.all$split <- as.factor(tst.all$split)
+    p <- ggplot(tst.all, aes(x = obs, y = pred, color = split)) + 
       theme_bw() + 
       geom_point() + 
-      labs(title = n) + 
+      labs(title = i) + 
       geom_abline(slope = 1, intercept = 0) + 
       coord_fixed()
     print(p)
-    for(i in 1:nrow(tst.df))
-      if(abs(tst.df$pred[i]) > 80)
-        tst.df$pred[i] <- mean(trn.y)
-    print(defaultSummary(tst.df))
-    r2.results[n] <- defaultSummary(tst.df)[2]
-    rmse.results[n] <- defaultSummary(tst.df)[1]
   }
-  return(data.frame(split, r2.results, rmse.results))
+  row.names(results.all) <- NULL
+  return(results.all)
 }
 
 # LOOCV-Q2 Evaluation -----------------------------------------------------
 
-# Split 1 passes
-# All are very close to 0.5
-# Many splits brought down by single outlier
-pls.looq2("./pre-process/alpha/", nsplits = 5, 
+# 1, 4, 5, 6, 8, 9, 10
+pls.looq2("./pre-process/alpha/", nsplits = 10, 
           ncomp = 8, method = "oscorespls")
 
 # All pass. 0.526
-pls.looq2("./pre-process/beta/", nsplits = 5, 
-          ncomp = 25, method = "oscorespls")
+pls.looq2("./pre-process/beta/", nsplits = 10, 
+          ncomp = 16, method = "oscorespls")
+
+# None
+pls.looq2("./pre-process/gamma/", nsplits = 10, 
+          ncomp = 2, method = "oscorespls")
 
 # Test sets ---------------------------------------------------------------
 
-# Only split 3 passes
-# Q2 is brought down by single outlier - it's probably fine otherwise
+# ALPHA - NA
 alpha.tst <- pls.tst("./pre-process/alpha/", "./model.data/alpha/", 
-                     nsplits = 5, ncomp = 8, method = "oscorespls")
+                     nsplits = 10, ncomp = 8, method = "oscorespls")
+alpha.1to1 <- alpha.tst %>% filter(trn.split == tst.split)
+alpha.avg <- avg.tst(alpha.tst) %>% print()
 
-# Split 3 looks the best
-# Honestly, 2, 3, and 5 all work
+# BETA - NA
 beta.tst <- pls.tst("./pre-process/beta/", "./model.data/beta/", 
-                    nsplits = 5, ncomp = 25, method = "oscorespls")
+                    nsplits = 10, ncomp = 16, method = "oscorespls")
+beta.1to1 <- beta.tst %>% filter(trn.split == tst.split)
+beta.avg <- avg.tst(beta.tst) %>% print()
+
+# GAMMA - NA
+gamma.tst <- pls.tst("./pre-process/gamma/", "./model.data/gamma/", 
+                    nsplits = 10, ncomp = 2, method = "oscorespls")
+gamma.1to1 <- gamma.tst %>% filter(trn.split == tst.split)
+gamma.avg <- avg.tst(gamma.tst) %>% print()
 
 # Single models -----------------------------------------------------------
 

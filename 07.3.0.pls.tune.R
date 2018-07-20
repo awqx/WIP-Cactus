@@ -140,7 +140,7 @@ saveRDS(results.methods, "./tuning/pls/alpha/methods.RDS")
 
 #     Number of components ------------------------------------------------
 
-ncomp.range <- c(1:5, 8, 13, 20)
+ncomp.range <- c(1:5, 8, 13)
 results1.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
                                           data = trn, nfolds = 10, seed = 101))
 results2.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
@@ -179,12 +179,12 @@ system.time(
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds ncomp        method  rsquared     rmse
-#    10     8 widekernelpls 0.5835778 3.104212
-#    10     8     kernelpls 0.5829877 3.137241
+#    10     8     kernelpls 0.5681803 2.960522
+#    10     5        simpls 0.5627528 2.992275
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds ncomp        method  rsquared     rmse
-#    10     4    oscorespls 0.5672790 3.098593
-#    10     8 widekernelpls 0.5835778 3.104212
+#    10    13    oscorespls 0.5603242 2.918423
+#    10    13        simpls 0.5385912 2.935400
 
 saveRDS(results.combos, "./tuning/pls/alpha/tune.RDS")
 results.combos <- results.combos %>%
@@ -225,7 +225,7 @@ saveRDS(results.methods, "./tuning/pls/beta/methods.RDS")
 
 #     Number of components ------------------------------------------------
 
-ncomp.range <- c(1:5, 10, 15, 25)
+ncomp.range <- c(1:5, 10, 16)
 results1.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
                                         data = trn, nfolds = 10, seed = 101))
 results2.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
@@ -264,12 +264,12 @@ system.time(
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds ncomp        method  rsquared     rmse
-#    10    15        simpls 0.6176634 3.448375
-#    10    25    oscorespls 0.5983887 3.512012
+#    10    16    oscorespls 0.5371219 3.162317
+#    10    10     kernelpls 0.5310655 3.180940
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds ncomp        method  rsquared     rmse
-#    10    15        simpls 0.6176634 3.448375
-#    10    25 widekernelpls 0.5877833 3.487391
+#    10    16     kernelpls 0.5145462 3.115462
+#    10    16        simpls 0.5239408 3.143840
 
 saveRDS(results.combos, "./tuning/pls/beta/tune.RDS")
 results.combos <- results.combos %>%
@@ -353,12 +353,12 @@ system.time(
 # 10.53    0.07   11.30 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
-# 28     10    15 widekernelpls 0.1868555 1.908760
-# 5      10     2     kernelpls 0.1725485 1.844986
+# 10     1 widekernelpls 0.3592355 1.678300
+# 10     1     kernelpls 0.2797436 1.710834
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds ncomp        method   rsquared     rmse
-# 1      10     1     kernelpls 0.11729211 1.752050
-# 9      10     3     kernelpls 0.10752550 1.757054
+# 10     4 widekernelpls 0.2198986 1.660071
+# 10     5 widekernelpls 0.2178128 1.676818
 
 saveRDS(results.combos, "./tuning/pls/gamma/tune.RDS")
 results.combos <- results.combos %>%
@@ -373,4 +373,5 @@ ggplot(results.combos, aes(x = ncomp, y = method, fill = rsquared)) +
 ggsave("./tuning/pls/gamma/tune.png", dpi = 450)
 
 # The tuning shows variations in the method used, but in practice there
-# is usually very little difference. SIMPLS seems like the way to go.
+# is usually very little difference. oscorespls is preferred because it
+# is the only one whose variable imporance can be measured
