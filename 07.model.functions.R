@@ -56,6 +56,14 @@ preprocess.tst.mod <- function(pp.dir, tst.dir, feat, n) {
   return(cbind(tst.dg, tst))
 }
 
+avg.tst <- function(data) {
+  results <- data.table(data, key = 'trn.split')
+  results <- results[ , list(r2 = mean(r2), 
+                             rmse = mean(rmse)), 
+                      by = trn.split]
+  return(results)
+}
+
 # preprocess.ev <- function(cd.type, n, feat) {
 #   if (cd.type == "alpha")
 #     ev <- readRDS("./ext.validation/alpha.RDS")
