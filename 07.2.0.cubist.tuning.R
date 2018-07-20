@@ -305,7 +305,6 @@ cmte.combos <- cube.combos$cmte
 extra.combos <- cube.combos$extra
 
 set.seed(1001)
-# I reduce the number of folds because Cubist takes a while
 system.time(
   results.combos <- do.call(
     rbind,
@@ -314,7 +313,7 @@ system.time(
       cmte = cmte.combos,
       extra = extra.combos,
       MoreArgs = 
-        list(nfolds = 5, data = trn, seed = 1001), 
+        list(nfolds = 10, data = trn, seed = 1001), 
       SIMPLIFY = F
     )
   )
@@ -327,12 +326,12 @@ system.time(
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds seed committees extrapolation  rsquared     rmse
-#     5 1001         10            10 0.6118653 3.003585
-#     5 1001         10            70 0.6100001 3.058802
+#     10 1001         90            10 0.5724209 2.862038
+#     10 1001        100            10 0.5716058 2.865362
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds seed committees extrapolation  rsquared     rmse
-#      5 1001         10            10 0.6118653 3.003585
-#      5 1001        100             0 0.6057734 3.019532
+#     10 1001         90            10 0.5724209 2.862038
+#     10 1001        100            10 0.5716058 2.865362
 
 # r2 = 0.442, rmes = 3.83
 # committees = 30, extra = 10
@@ -450,15 +449,16 @@ system.time(
 # system.time output
 # user  system elapsed 
 # 189.24    0.36  199.34
+# 122.72    0.03  122.79 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds seed committees extrapolation  rsquared     rmse
-# 29      5 1001         90            40 0.6485403 3.202934
-# 30      5 1001        100            40 0.6483738 3.201895
+# 5 1001         50            40 0.6895438 2.516462
+# 5 1001         70            40 0.6872119 2.531829
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds seed committees extrapolation  rsquared     rmse
-# 36      5 1001        100            50 0.6479029 3.193700
-# 35      5 1001         90            50 0.6469835 3.200482
+#      5 1001         50            40 0.6895438 2.516462
+#      5 1001         70            40 0.6872119 2.531829
 
 saveRDS(results.combos, "./tuning/cubist/beta/tune.RDS")
 
@@ -573,12 +573,12 @@ system.time(
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds seed committees extrapolation  rsquared     rmse
-# 37      5 1001         10            60 0.1911192 1.713634
-# 40      5 1001         70            60 0.1854841 1.757859
+#  5 1001        100            20 0.08350216 1.932669
+# 5 1001         90            20 0.08337140 1.931386
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds seed committees extrapolation  rsquared     rmse
-# 13      5 1001         10            20 0.1129040 1.677326
-# 19      5 1001         10            30 0.1566335 1.684599
+# 5 1001         10            10 0.05656574 1.875758
+# 5 1001         30            10 0.06279515 1.911733
 
 saveRDS(results.combos, "./tuning/cubist/gamma/tune.RDS")
 
