@@ -2,17 +2,26 @@ source("07.model.functions.R")
 
 # Libraries and Packages -------------------------------------------------
 
-library(caret)
-library(Cubist)
-library(e1071)
-library(glmnet)
-library(kernlab)
-library(pls)
-library(randomForest)
-library(tidyverse)
+if(!require("pacman")) { 
+  install.packages("pacman")
+  library(pacman)
+} else
+  library(pacman)
+
+p_load(caret,
+       Cubist,
+       e1071, 
+       earth,
+       glmnet,
+       kernlab, 
+       # pls, 
+       randomForest, 
+       tidyverse
+       )
 
 # Functions ---------------------------------------------------------------
 
+source("./07.model.functions.R")
 # df: data.frame containing names of guests as well as 1376 PaDEL-desc
 predict.alpha <- function(df) {
   outliers <- c()
@@ -29,12 +38,10 @@ predict.alpha <- function(df) {
     guests <- desc.pp$guests
     desc.pp <- desc.pp[ , -1]
     qsar <- readRDS(path.models[n])[[2]]
-    if(str_detect(name.models[n], "glm")) {
-      desc.pp <- data.matrix(desc.pp)
-      pred <- predict.glmnet(qsar, desc.pp, 
-                             s = tail(qsar$lambda, n = 1))
-    } else if (str_detect(name.models[n], "pls"))
-      pred <- predict(qsar, desc.pp, ncomp = 8)
+    if(str_detect(name.models[n], "gbm")) 
+      pred <- predict(qsar, desc.pp, n.trees = 500)
+    # else if(str_detect(name.models[n], "cubist"))
+    #   pred <- Cubist::predict(qsar, desc.pp)
     else
       pred <- predict(qsar, desc.pp)
     results.qsar <- data.frame(guests, pred) 
@@ -68,12 +75,8 @@ predict.beta <- function(df) {
     guests <- desc.pp$guests
     desc.pp <- desc.pp[ , -1]
     qsar <- readRDS(path.models[n])[[2]]
-    if(str_detect(name.models[n], "glm")) {
-      desc.pp <- data.matrix(desc.pp)
-      pred <- predict.glmnet(qsar, desc.pp, 
-                             s = tail(qsar$lambda, n = 1))
-    } else if (str_detect(name.models[n], "pls"))
-      pred <- predict(qsar, desc.pp, ncomp = 25)
+    if(str_detect(name.models[n], "gbm")) 
+      pred <- predict(qsar, desc.pp, n.trees = 500)
     else
       pred <- predict(qsar, desc.pp)
     results.qsar <- data.frame(guests, pred) 
@@ -104,7 +107,7 @@ ev.alpha.dg <- ev.alpha %>% select(., guest, DelG) %>%
 ev.alpha <- ev.alpha %>% select(., -DelG)
 
 ev.alpha.pred <- predict.alpha(ev.alpha)
-# No outliers
+# Outliers: iodobenzene, chlorcyclizine
 alpha.outliers <- ev.alpha.pred[[3]]
   
 ev.alpha.df <- inner_join(ev.alpha.pred[[1]], ev.alpha.dg, by = "guests") %>%
@@ -112,8 +115,8 @@ ev.alpha.df <- inner_join(ev.alpha.pred[[1]], ev.alpha.dg, by = "guests") %>%
 defaultSummary(ev.alpha.df)
 defaultSummary(ev.alpha.df[-16, ])
 
-ev.alpha.df.orig <- ev.alpha.df
-ev.alpha.df <- ev.alpha.df[-16, ]
+# ev.alpha.df.orig <- ev.alpha.df
+# ev.alpha.df <- ev.alpha.df[-16, ]
 ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
   geom_point() + 
   geom_abline(intercept = 0, slope = 1) + 
@@ -136,8 +139,9 @@ ev.beta <- ev.beta %>% select(., -DelG)
 ev.beta.pred <- predict.beta(ev.beta)
 # 1, 4-dibromobenzene, 1, 4-diiodobenzene
 beta.outliers <- ev.beta.pred[[3]]
-
-ev.beta.df <- inner_join(ev.beta.pred[[1]], ev.beta.dg, by = "guests") %>%
+# For some reason, flufenamic acid decided to duplicate itself
+ev.beta.temp <- ev.beta.pred[[1]][!duplicated(ev.beta.pred[[1]]), ]
+ev.beta.df <- inner_join(ev.beta.temp, ev.beta.dg, by = "guests") %>%
   rename(pred = dG)
 defaultSummary(ev.beta.df)
 ggplot(ev.beta.df, aes(x = obs, y = pred)) + 
@@ -146,7 +150,6 @@ ggplot(ev.beta.df, aes(x = obs, y = pred)) +
   theme_bw() + 
   coord_fixed() 
 # Everything passes
-# R2 = 0.62
 eval.tropsha(ev.beta.df)
 
 combined.df <- rbind(
@@ -162,6 +165,6 @@ ggplot(combined.df, aes(x = obs, y = pred, color = host)) +
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
        title = "Ensemble QSAR results", 
        color = "CD type")
-ggsave("./results/ensemble.png", dpi = 450)
+ggsave("./results/2018-08 ensemble.png", dpi = 450)
 saveRDS(combined.df, "./results/ensemble.RDS")
  

@@ -1,5 +1,13 @@
-library(caret)
-library(tidyverse)
+# Libraries and packages
+
+if(!require("pacman")) { 
+  install.packages("pacman")
+  library(pacman)
+} else
+  library(pacman)
+# install.packages('stringi')
+p_load(caret, tidyverse)
+
 source("10.0.ad.functions.R")
 source("eval.functions.R")
 
@@ -62,6 +70,15 @@ avg.tst <- function(data) {
                              rmse = mean(rmse)), 
                       by = trn.split]
   return(results)
+}
+
+find.features <- function(words) {
+  if(str_detect(words, 'alpha'))
+    return(readRDS("./feature.selection/alpha.vars.RDS"))
+  else if (str_detect(words, 'beta'))
+    return(readRDS("./feature.selection/beta.vars.RDS")) 
+  else
+    return(readRDS("./feature.selection/gamma.vars.RDS"))
 }
 
 # preprocess.ev <- function(cd.type, n, feat) {
