@@ -8,14 +8,11 @@ source("./07.model.functions.R")
 
 # Functions ---------------------------------------------------------------
 
-rf.looq2 <- function(read.dir, rfe.dir, nsplits, ntree, node, m) {
+rf.looq2 <- function(read.dir, nsplits, ntree, node, m) {
   trn.split <- 1:nsplits
   q2.results <- c(rep(0.0, nsplits))
   
-  if(str_detect(read.dir, "alpha"))
-    features <- readRDS("./feature.selection/alpha.vars.RDS")
-  else
-    features <- readRDS("./feature.selection/beta.vars.RDS")
+  features <- find.features(read.dir)
   
   for(n in 1:nsplits) {
     data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
@@ -71,8 +68,10 @@ rf.tst <- function(pp.dir, tst.dir, nsplits, ntree, node, m) {
   
   if(str_detect(pp.dir, "alpha"))
     features <- readRDS("./feature.selection/alpha.vars.RDS")
-  else
+  else if(str_detect(pp.dir, 'beta'))
     features <- readRDS("./feature.selection/beta.vars.RDS")
+  else
+    features <- readRDS('feature.selection/gamma.vars.RDS')
   
   results.all <- data.frame() 
   
