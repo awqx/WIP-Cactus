@@ -1,65 +1,13 @@
-# Libraries and packages --------------------------------------------------
-
-library(caret)
-# library(doParallel)
-library(tidyverse)
-
-# Functions ---------------------------------------------------------------
-
-# path: location of the pre-processed training dataset
-use.rfe <- function(path) {
-  trn <- readRDS(path)
-  pred <- trn %>% dplyr::select(., -guest, -DelG)
-  obs <- trn$DelG
-  
-  ctrl <- rfeControl(functions = rfFuncs, 
-                     method = "repeatedcv", 
-                     # verbose = T, # uncomment to monitor
-                     repeats = 5)
-  # subsets <- c(5, 10, 15, 20, 35, 50, 75, 100)
-  subsets <- c(1:5, 10, 15, 20, 25, 50)
-  
-  rfe.profile <- rfe(x = pred, y = obs, 
-                     sizes = subsets, rfeControl = ctrl)
-  
-  return(rfe.profile)
-}
-
-# pp.path: folder where pre-processed files reside
-#     Here, it should be "./pre-process
-# write.path: target folder, no backslash at the end
-#     "./feature.selection
-# cd.type: string ("alpha" or "beta")
-# num: integer referring to the trn-tst split
-save.rfe <- function(pp.dir, write.dir, cd.type, num) {
-  
-  info.path <- paste0(pp.dir, "/", cd.type, "/", num, "/pp.RDS")
-  rfe.profile <- use.rfe(info.path)
-  rfe.name <- paste0("rfe", num, ".RDS")
-  target.path <- paste0(write.dir, "/", cd.type, "/", rfe.name)
-  saveRDS(rfe.profile, target.path)
-  message("RFE of test-train split ", num, " completed.")
-  
-}
-
-# var.name: strings for variable names
-# file.name: strings for filepaths
-read.rfe <- function(var.names, file.names) {
-  for(n in 1:length(var.names)) {
-    temp <- readRDS(file.names[n])
-    assign(var.names[n], temp, envir = .GlobalEnv)
-  }
-}
+source('data.handling.R')
+dir.create('feature.selection')
+dir.create('feature.selection/alpha')
+dir.create('feature.selection/beta')
+dir.create('feature.selection/gamma')
 
 # Recursive Feature Elimination (RFE) -------------------------------------
 
 # registerDoParallel(4)
 # getDoParWorkers() # Confirming 4 cores
-
-dir.create("./feature.selection")
-dir.create("./feature.selection/alpha")
-dir.create("./feature.selection/beta")
-dir.create("./feature.selection/gamma")
 
 rfe.combos <- expand.grid(c("alpha", "beta", "gamma"), c(1:10)) %>%
   rename(cd.type = Var1, num = Var2)
