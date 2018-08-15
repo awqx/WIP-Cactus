@@ -78,6 +78,22 @@ split.train.test <- function(times, data, path) {
   }
 }
 
+# Basically the same as split.train.test, but modified for DelG as col1
+tt.split <- function(times, data, path) {
+  parts <- createDataPartition(data[ , 1], times = times, 
+                               p = 0.75)
+  for(i in 1:times) {
+    trn.ind <- parts[[i]]
+    tst <- data[-trn.ind, ]
+    trn <- data[trn.ind, ]
+    
+    tst.path <- paste0(path, "tst", i, ".RDS")
+    trn.path <- paste0(path, "trn", i, ".RDS")
+    saveRDS(tst, tst.path)
+    saveRDS(trn, trn.path)
+  }
+}
+
 # Finding activity outliers
 # Because there's no "good way" to do this, and some QSARs are actually 
 # fairly good at managing to capture outliers (> 2 SD away from mean)
@@ -138,7 +154,56 @@ preprocess.splits <- function(filepath, writepath) {
   }
 }
 
+# preprocess.splits without the need for guests (assuming DelG is col1)
+pp.split <- function(filepath, writepath) {
+  files <- list.files(path = filepath) %>% 
+    str_extract(., "trn[[:print:]]+") %>% 
+    .[!is.na(.)]
+  for(n in 1:length(files)) {
+    dirpath <- paste0(writepath, n)
+    dir.create(dirpath)
+    data <- readRDS(paste0(filepath, files[n]))
+    info <- data[ , 1]
+    desc <- data[ , -1]
+    
+    # Replacing inconvenient values
+    desc <- do.call(data.frame, lapply(desc, 
+                                       function(x)
+                                         replace(x, is.infinite(x), NA)))
+    
+    # Initial pre-processing
+    pp.settings <- preProcess(desc, na.remove = T, 
+                              method = c("knnImpute", "center", "scale"), 
+                              verbose = F)
+    desc.pp <- predict(pp.settings, desc)
+    
+    # Removing predictors with near-zero variance
+    zero.pred <- nearZeroVar(desc.pp)
+    desc.pp <- desc.pp[ , -zero.pred]
+    
+    # Removing highly correlated predictors
+    desc.pp <- desc.pp[ , sapply(desc.pp, is.numeric)]
+    too.high <- findCorrelation(cor(desc.pp, use = "pairwise.complete.obs"), 0.95) # 0.95 mostly arbitrary
+    desc.pp <- desc.pp[ , -too.high]
+    
+    desc.pp <- cbind(info, desc.pp)
+    saveRDS(pp.settings, paste0(dirpath, "/pp.settings.RDS"))
+    saveRDS(desc.pp, paste0(dirpath, "/pp.RDS"))
+    saveRDS(zero.pred, paste0(dirpath, "/zero.pred.RDS"))
+    saveRDS(too.high, paste0(dirpath, "/high.cor.RDS"))
+    
+    message("Pre-processing of split ", n, " completed.")
+  }
+}
 
+# So far, only used for y-random
+ev.split <- function(data, writepath) {
+  ev <- sample_frac(data, size = 0.15)
+  md <- data[!row.names(data) %in% row.names(ev), ]
+  saveRDS(ev, paste0(writepath, '/extval.RDS'))
+  saveRDS(md, paste0(writepath, '/model.data.RDS'))
+  return(md)
+}
 
 # Feature selection -------------------------------------------------------
 
@@ -154,6 +219,26 @@ use.rfe <- function(path) {
                      repeats = 5)
   # subsets <- c(5, 10, 15, 20, 35, 50, 75, 100)
   subsets <- c(1:5, 10, 15, 20, 25, 50)
+  
+  rfe.profile <- rfe(x = pred, y = obs, 
+                     sizes = subsets, rfeControl = ctrl)
+  
+  return(rfe.profile)
+}
+
+# An RFE for yrand data
+use.rfe.yrand <- function(path) {
+  trn <- readRDS(path)
+  # For some reason, instead of DelG, dG info is listed as 'info'
+  pred <- trn %>% dplyr::select(., -info)
+  obs <- trn$info
+  
+  ctrl <- rfeControl(functions = rfFuncs, 
+                     method = "repeatedcv", 
+                     # verbose = T, # uncomment to monitor
+                     repeats = 5)
+  # Slightly smaller for time efficency
+  subsets <- c(1, 5, 10, 20, 50)
   
   rfe.profile <- rfe(x = pred, y = obs, 
                      sizes = subsets, rfeControl = ctrl)
@@ -186,4 +271,45 @@ read.rfe <- function(var.names, file.names) {
     assign(var.names[n], temp, envir = .GlobalEnv)
   }
 }
+
+# A second version of save.rfe for yrand analysis
+# Only saves a copy of the important variables
+# host.dir: the directory that contains all the files for the cyclodextrin host
+    # should end in backslash
+# num.trial: the number of repetitions of yrand
+# num.split: the number of test splits
+# write.dir
+rfe.yrand <- function(host.dir, num.trial, num.split) {
+  # Create the RFE profiles
+  # This has to be looped through the number of yrand trials
+  for (i in 1:num.trial) {
+    message('Starting RFE of yrand trial ', i)
+    # Creates the combinations of filepaths where pre-processed data can be found
+    pp.paths <- paste0(host.dir, i, '/pp/', 1:num.split, '/pp.RDS')
+    # List of the RFE objects
+    rfe.list <- lapply(pp.paths, use.rfe.yrand)
+    # Finding the most used variables (same as in 06.feature.selection)
+    pred <- unlist(lapply(FUN = predictors, rfe.list))
+    pred.uq <- unique(pred)
+    pred.pattern <- paste0("^", pred.uq) 
+    pred.pattern <- paste0(pred.pattern, "$")
+    count <- lapply(FUN = str_count, X = pred.pattern, string = pred) %>%
+      lapply(FUN = sum, X = .) %>% unlist()
+    varimp <- data.frame(pred.uq, count) %>%
+      rename(predictor = pred.uq, frequency = count) %>%
+      mutate(predictor = as.character(predictor)) %>%
+      .[order(.$frequency, decreasing = T), ]
+    # print(head(varimp))
+    vars <- varimp %>% filter(frequency == max(varimp$frequency)) %>%
+      .$predictor
+    # print(vars)
+    if(length(vars) < 2) 
+      vars <- varimp %>% filter(frequency >= (max(varimp$frequency) - 1)) %>%
+      .$predictor
+    saveRDS(vars, paste0(host.dir, i, '/vars.RDS'))
+    message('RFE of yrand trial ', i, ' completed.')
+  }
+}
+
+
 
