@@ -4,6 +4,81 @@ source('tuning.R')
 
 #     Analysis ------------------------------------------------------------
 
+cube.q2.yr <- function(vars, trial.path, nsplits, cmte, extra, seed) {
+  trn.split <- 1:nsplits # Used for first col of saved table
+  q2.results <- c(rep(0.0, nsplits))
+  
+  ctrl <- cubistControl(
+    seed = seed, 
+    extrapolation = extra
+  )
+  
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(trial.path, 'pp/', n, '/pp.RDS'))
+    data <- data %>% select(., info, one_of(vars)) 
+    obs <- data$info
+    pred <- c() # initializing
+    # In this loop, i represents the index of the datapoint left out of 
+    # model building
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, ]
+      x <- trn[ , -1]
+      y <- trn[ , 1]
+      
+      cube <- cubist(x = x, y = y,  
+                     committees = cmte, 
+                     control = ctrl)
+      pred[i] <- predict(cube, tst[ , -1]) 
+    }
+    pred.df <- data.frame(obs, pred)
+    colnames(pred.df) <- c("obs", "pred")
+    PRESS <- sum((obs - pred)^2)
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    q2.results[n] <- q2
+  }
+  results <- data.frame(trn.split, q2.results)
+  print(results)
+  return(results)
+}
+
+rf.q2.yr <- function(vars, trial.path, nsplits, ntree, node, m) {
+  trn.split <- 1:nsplits # Used for first col of saved table
+  q2.results <- c(rep(0.0, nsplits))
+  
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(trial.path, 'pp/', n, '/pp.RDS'))
+    data <- data %>% select(., info, one_of(vars)) 
+    obs <- data$info
+    pred <- c() # initializing
+    # In this loop, i represents the index of the datapoint left out of 
+    # model building
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, ]
+      x <- trn[ , -1]
+      y <- trn[ , 1]
+      
+      rf <- svm(x = x, y = y,
+                    ntree = ntree,
+                    nodesize = node,
+                    mtry = m,  
+                    importance = T)
+      pred[i] <- predict(rf, tst[ , -1]) 
+    }
+    pred.df <- data.frame(obs, pred)
+    colnames(pred.df) <- c("obs", "pred")
+    PRESS <- sum((obs - pred)^2)
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    q2.results[n] <- q2
+  }
+  results <- data.frame(trn.split, q2.results)
+  print(results)
+  return(results)
+}
+
 polysvm.q2.yr <- function(vars, trial.path, nsplits, d, cost, e, g, c0) {
   trn.split <- 1:nsplits # Used for first col of saved table
   q2.results <- c(rep(0.0, nsplits))
@@ -193,7 +268,143 @@ pls.q2.yr <- function(vars, trial.path, nsplits, method, ncomp) {
 
 #     Model building ------------------------------------------------------
 
-# SVM - Polynomial kernel
+# Cubist === 
+build.cube <- function(host, ntrial, nsplit, seed) {
+  trial.path <- paste0('yrand/', host, '/', ntrial, '/')
+  # Tuning
+  trn <- readRDS(paste0(trial.path, 'pp/1/pp.RDS'))
+  colnames(trn) <- str_replace(colnames(trn), "-", ".")
+  features <- readRDS(paste0(trial.path, 'vars.RDS'))
+  trn <- trn %>% select(., info, one_of(features)) 
+    # Ranges
+  cmte.range <- c(10, 30, 60, 80, 100)
+  extra.range <- c(0, 10, 30, 60, 100)
+  
+  cube.combos <- expand.grid(cmte.range, extra.range)
+  cmte.combos <- cube.combos$Var1
+  extra.combos <- cube.combos$Var2
+  
+  set.seed(seed)
+  system.time(
+    results.combos <- do.call(
+      rbind,
+      mapply(
+        FUN = tune.cubist,
+        cmte= cmte.combos, 
+        extra = extra.combos, 
+        MoreArgs = 
+          list(nfolds = 5, data = trn, seed = seed), 
+        SIMPLIFY = F
+      )
+    )
+  )
+  temp <<- results.combos
+  message('Tuning of trial ', ntrial, ' completed.')
+  thecmte <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'committees']
+  theextra <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'extrapolation']
+  message('cmte = ', thecmte, ' || extra = ', theextra)
+  
+  q2 <- cube.q2.yr(vars = features, trial.path = trial.path, nsplits = 5, 
+                   cmte = thecmte, 
+                   extra = theextra, seed = seed)
+  best.split <- which.max(q2$q2.results)
+  saveRDS(q2, paste0(trial.path, 'results/cubist.q2.RDS'))
+  
+  # Building a Cubist model
+  if(is.null(best.split) || length(best.split) == 0) # Just in case
+    best.split <- 1
+  trn <- readRDS(paste0(trial.path, 'pp/', best.split, '/pp.RDS'))
+  colnames(trn) <- str_replace(colnames(trn), "-", ".")
+  features <- readRDS(paste0(trial.path, 'vars.RDS'))
+  trn <- trn[ , colnames(trn) %in% c("info", features)]
+  
+  ctrl <- cubistControl(
+    seed = seed, 
+    extrapolation = theextra
+  )
+  
+  cube <- cubist(x = trn[ , -1], y = trn[ , 1],  
+                 committees = thecmte, 
+                 control = ctrl)
+  
+  saveRDS(cube, paste0(trial.path, 'models/cubist.RDS'))
+  message('Cubist model of yrand trial ', ntrial, ' completed.')
+}
+
+# Random forest ===
+build.rf <- function(host, ntrial, nsplit, seed) {
+  trial.path <- paste0('yrand/', host, '/', ntrial, '/')
+  # Tuning
+  # Import the data
+  # Loading split 1 is pretty arbitrary
+  trn <- readRDS(paste0(trial.path, 'pp/1/pp.RDS'))
+  colnames(trn) <- str_replace(colnames(trn), "-", ".")
+  features <- readRDS(paste0(trial.path, 'vars.RDS'))
+  trn <- trn %>% select(., info, one_of(features)) 
+  # Establishing ranges for tuning
+  ntree.range <- c(25, 50, 75, 150, 250)
+  node.range <- c(1, 3, 5, 8, 15)
+  mtry.range <- c(1, 2, 3, 5, 8) %>%
+    .[. <= length(features)]
+  
+  rf.combos <- expand.grid(ntree.range, node.range, mtry.range)
+  ntree.combos <- rf.combos$Var1
+  node.combos <- rf.combos$Var2
+  mtry.combos <- rf.combos$Var3
+  
+  set.seed(seed)
+  system.time(
+    results.combos <- do.call(
+      rbind,
+      mapply(
+        FUN = tune.rf,
+        ntree = ntree.combos, 
+        node = node.combos, 
+        m = mtry.combos,
+        MoreArgs = 
+          list(nfolds = 5, data = trn), 
+        SIMPLIFY = F
+      )
+    )
+  )
+  
+  message('Tuning of trial ', ntrial, ' completed.')
+  thentree <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'ntree'] 
+  thenodesize <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'nodesize']
+  themtry <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'mtry'] 
+  message('ntree = ', thentree, ' || node = ', thenodesize, ' || mtry = ', themtry)
+  
+  q2 <- rf.q2.yr(vars = features, trial.path = trial.path, nsplits = 5, 
+                 ntree = thentree, 
+                 node = thenodesize, 
+                 m = themtry)
+  best.split <- which.max(q2$q2.results)
+  saveRDS(q2, paste0(trial.path, 'results/rf.q2.RDS'))
+  
+  # Building and saving a SVM model
+  # Importing training data
+  if(is.null(best.split) || length(best.split) == 0) # Just in case
+    best.split <- 1
+  trn <- readRDS(paste0(trial.path, 'pp/', best.split, '/pp.RDS'))
+  colnames(trn) <- str_replace(colnames(trn), "-", ".")
+  features <- readRDS(paste0(trial.path, 'vars.RDS'))
+  trn <- trn[ , colnames(trn) %in% c("info", features)]
+  
+  rf.mod <- randomForest(x = trn[ , -1], y = trn[ , 1],
+                         ntree = thentree, 
+                         nodesize = thenodesize, 
+                         mtry = themtry) 
+  
+  saveRDS(rf.mod, paste0(trial.path, 'models/rf.RDS'))
+  message('RF model of yrand trial ', ntrial, ' completed.')
+}
+
+# SVM ===
 build.polysvm <- function(host, ntrial, nsplit, seed) {
   trial.path <- paste0('yrand/', host, '/', ntrial, '/')
   # Tuning

@@ -102,7 +102,7 @@ rfe.yrand('yrand/alpha/', 25, 5)
     # selected as important varies greatly among the different trials, 
     # ranging from 2 to 200+. 
 
-# 6. Tuning ====
+# 6. Model building ====
 # Create directories to store the results and models
 lapply(c(paste0(alpha.path, '/models'), 
          paste0(alpha.path, '/results')),
@@ -110,8 +110,21 @@ lapply(c(paste0(alpha.path, '/models'),
 
 # Using lapply for the build.[model] functions to avoid an addition for loop
 # X in the function indicates the ntrial
+  # Cubist
+lapply(X = c(1:25), 
+       FUN = build.cube, 
+       host = 'alpha', 
+       nsplit = 5, 
+       seed = 101)
+
   # GLMNet
 
+  # Random forest
+lapply(X = c(1:25), 
+       FUN = build.rf, 
+       host = 'alpha', 
+       nsplit = 5, 
+       seed = 101)
   # SVM
     # Polynomial
 lapply(X = c(1:25), 
@@ -140,3 +153,109 @@ lapply(X = c(1:25),
        seed = 101)
 
 
+# Beta-CD -----------------------------------------------------------------
+
+dir.create('yrand/beta')
+
+#     Organizing data -----------------------------------------------------
+
+# 1. Initial data ====
+# Merging the external validation data and the modeling data because this
+# is the easiest way to get the data without outliers
+beta1 <- readRDS('ext.validation/beta.RDS') %>%
+  select(., -guest, -host, -data.source)
+beta2 <- readRDS('model.data/beta.md.RDS') %>%
+  select(., -guest, -host, -data.source)
+beta.info <- rbind(beta1, beta2)
+
+# 25 is the number of iterations used in the Rucker et al. paper
+set.seed(101)
+beta.perm <- permy.ntimes(beta.info, 25)
+save.perms(beta.perm, 'yrand/beta')
+
+# 2. Creating external validation sets ====
+beta.path <- paste0('yrand/beta/', 1:25)
+# Sorting out the modeling data
+beta.md <- mapply(ev.split,
+                   beta.perm, beta.path, 
+                   SIMPLIFY = F)
+
+# 3. Creating train-test splits  ====
+# Only 5 each for time's sake
+beta.tt.path <- paste0(beta.path, '/tt/')
+lapply(beta.tt.path, dir.create)
+mapply(tt.split, 
+       beta.md, beta.tt.path, 
+       MoreArgs = list(times = 5))
+
+# 4. Pre-processing ====
+set.seed(101)
+beta.pp.path <- paste0(beta.path, '/pp/')
+lapply(beta.pp.path, dir.create)
+mapply(pp.split, 
+       beta.tt.path, beta.pp.path)
+
+# 5. Feature selection ====
+# Using recursive feature elimination
+set.seed(101)
+rfe.yrand('yrand/beta/', 25, 5)
+# Though I've since removed the function's ability to print the list of
+# variables to the console, I can attest that the number of variables
+# selected as important varies greatly among the different trials, 
+# ranging from 2 to 200+. 
+
+# 6. Model building ====
+# Create directories to store the results and models
+lapply(c(paste0(beta.path, '/models'), 
+         paste0(beta.path, '/results')),
+       dir.create)
+
+# Using lapply for the build.[model] functions to avoid an addition for loop
+# X in the function indicates the ntrial
+# Cubist
+lapply(X = c(1:25), 
+       FUN = build.cube, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
+
+# GLMNet
+
+# Random forest
+lapply(X = c(1:25), 
+       FUN = build.rf, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
+# SVM
+# Polynomial
+lapply(X = c(1:25), 
+       FUN = build.polysvm, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
+# Radial 
+lapply(X = c(1:25), 
+       FUN = build.rbfsvm, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
+# Sigmoid
+lapply(X = c(1:25), 
+       FUN = build.sigsvm, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
+
+# PLS 
+# Doesn't work with trial 13, for some reason
+lapply(X = c(1:12), 
+       FUN = build.pls, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
+lapply(X = c(14:25), 
+       FUN = build.pls, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)

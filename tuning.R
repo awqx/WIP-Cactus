@@ -15,6 +15,7 @@ p_load(caret,
        glmnet,
        Matrix,
        pls, 
+       randomForest,
        stringr,
        tidyverse)
 
@@ -178,9 +179,9 @@ tune.cubist <- function(data, nfolds, cmte, samp, extra, seed) {
     rmse.results[i] <- defaultSummary(cube.df)[1]
     r2.results[i] <- defaultSummary(cube.df)[2]
   }
-  message(nfolds, "-fold cross-validation of ", cmte, " committees, ",
-          samp, "% sample size, ",
-          extra, " extrapolation completed.")
+  # message(nfolds, "-fold cross-validation of ", cmte, " committees, ",
+  #         samp, "% sample size, ",
+  #         extra, " extrapolation completed.")
   return(data.frame(
     nfolds = nfolds,
     seed = seed,
@@ -196,7 +197,6 @@ tune.cubist <- function(data, nfolds, cmte, extra, seed) {
   fold.list <- createFolds(y = data[ , 1], k = nfolds)
   r2.results <- c(rep(0.0, nfolds))
   rmse.results <- c(rep(0.0, nfolds))
-  
   ctrl <- cubistControl(
     seed = seed, 
     extrapolation = extra
@@ -223,16 +223,13 @@ tune.cubist <- function(data, nfolds, cmte, extra, seed) {
     rmse.results[i] <- defaultSummary(cube.df)[1]
     r2.results[i] <- defaultSummary(cube.df)[2]
   }
-  message(nfolds, "-fold cross-validation of ", 
-          cmte, " committees, ",
-          extra, " extrapolation completed.")
   return(data.frame(
     nfolds = nfolds,
     seed = seed,
     committees = cmte, 
     extrapolation = extra,
-    rsquared = sum(r2.results)/nfolds, 
-    rmse = sum(rmse.results)/nfolds))
+    rsquared = sum(r2.results, na.rm = T)/nfolds, 
+    rmse = sum(rmse.results, na.rm = T)/nfolds))
 }
 
 
@@ -1043,10 +1040,10 @@ tune.rf <- function(data, nfolds, ntree, node, m) {
     rmse.results[i] <- defaultSummary(rf.df)[1]
     r2.results[i] <- defaultSummary(rf.df)[2]
   }
-  message(nfolds, "-fold cross-validation of ntree = ", ntree,
-          ", nodesize = ", node,
-          ", mtry = ", m, 
-          " completed.")
+  # message(nfolds, "-fold cross-validation of ntree = ", ntree,
+  #         ", nodesize = ", node,
+  #         ", mtry = ", m, 
+  #         " completed.")
   return(data.frame( 
     nfolds = nfolds, 
     ntree = ntree, 
