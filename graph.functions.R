@@ -2,16 +2,19 @@
 
 # Libraries and Packages --------------------------------------------------
 
-library(data.table)
-library(extrafont)
-library(tidyverse)
+# install.packages("data.table")
+# install.packages("extrafont")
+require(data.table)
+require(extrafont)
+require(tidyverse)
 
 # Functions ---------------------------------------------------------------
 
-font_import(pattern = "[B/b]ahnschrift")
-font_import(pattern = "Average")
-font_import(pattern = "ClearSans")
-loadfonts(device = "win")
+# font_import(pattern = "Average")
+# font_import(pattern = "ClearSans")
+# font_import(paths = "fonts", pattern = "Roboto")
+# font_import(paths = "fonts", pattern = "ClearSans")
+# loadfonts(device = "win")
 
 theme.2018 <- theme(
   plot.background = element_rect(fill = "#EFF0F5", color = NA), 
@@ -74,3 +77,14 @@ plot.paper.2018 <- function(data) {
     labs(x = "Experimental dG, kJ/mol", y = "Predicted dG, kJ/mol",
          color = "CD Type")
 }
+
+theme.plos <- theme(
+  plot.background = element_rect(fill = "white", color = NA), 
+  panel.grid.major = element_line(color = NA),
+  panel.background = element_rect(fill = "NA", color = "black"), 
+  panel.border = element_rect(fill = NA, color = "black"),
+  legend.background = element_rect(fill = "white", color = NA),
+  legend.key = element_rect(fill = "white", color = NA),
+  text = element_text(size = 11),
+  strip.background = element_rect(fill = "white", color = NA)
+)

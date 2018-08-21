@@ -35,17 +35,11 @@ cubist.looq2 <- function(read.dir, nsplits, cmte, extra, seed) {
       tst <- data[i, ]
       x <- trn[ , -1]
       y <- trn[ , 1]
-      
-      # Refer to 07.0.1.svm.tune.poly.R for values
       cube <- cubist(x = x, y = y,  
                      committees = cmte, 
                      control = ctrl)
       pred[i] <- predict(cube, tst[ , -1]) 
     }
-    # test.df <- data.frame(obs, pred) %>% print()
-    # test.df <<- test.df
-    # defaultSummary(test.df) %>% print()
-    # prediction error sum of squares
     for(i in 1:length(pred)) {
       if(abs(pred[i]) > 50)
         pred[i] <- mean(obs)

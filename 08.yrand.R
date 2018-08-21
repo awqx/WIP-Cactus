@@ -116,8 +116,21 @@ lapply(X = c(1:25),
        host = 'alpha', 
        nsplit = 5, 
        seed = 101)
+  # GBM
+lapply(X = c(1:25), 
+       FUN = build.gbm, 
+       host = 'alpha', 
+       nsplit = 5, 
+       seed = 101)
 
   # GLMNet
+
+  # MARS
+lapply(X = c(1:25), 
+       FUN = build.mars, 
+       host = 'alpha', 
+       nsplit = 5, 
+       seed = 101)
 
   # Random forest
 lapply(X = c(1:25), 
@@ -213,15 +226,44 @@ lapply(c(paste0(beta.path, '/models'),
 # Using lapply for the build.[model] functions to avoid an addition for loop
 # X in the function indicates the ntrial
 # Cubist
-lapply(X = c(1:25), 
+lapply(X = c(1:12), 
+       FUN = build.cube, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
+# Had to re-do 13 b/c code needed to be fixed
+# Would re-run everything, but unfortunately cubist takes very long
+build.cube('beta', 13, 5, 101)
+lapply(X = c(14:25), 
        FUN = build.cube, 
        host = 'beta', 
        nsplit = 5, 
        seed = 101)
 
-# GLMNet
+  # GBM
+lapply(X = c(1:12), 
+       FUN = build.gbm, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
+# Doesn't appear GBM is compatible w/ single variable
+build.gbm('beta', 13, 5, 101)
+lapply(X = c(14:25), 
+       FUN = build.gbm, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
 
-# Random forest
+  # GLMNet
+
+  # MARS
+lapply(X = c(1:25), 
+       FUN = build.mars, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
+
+  # Random forest
 lapply(X = c(1:25), 
        FUN = build.rf, 
        host = 'beta', 
@@ -248,8 +290,7 @@ lapply(X = c(1:25),
        seed = 101)
 
 # PLS 
-# Doesn't work with trial 13, for some reason
-lapply(X = c(1:12), 
+lapply(X = c(1:25), 
        FUN = build.pls, 
        host = 'beta', 
        nsplit = 5, 

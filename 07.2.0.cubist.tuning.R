@@ -185,7 +185,6 @@ tune.cubist <- function(data, nfolds, cmte, extra, seed) {
   fold.list <- createFolds(y = data[ , 1], k = nfolds)
   r2.results <- c(rep(0.0, nfolds))
   rmse.results <- c(rep(0.0, nfolds))
-  
   ctrl <- cubistControl(
     seed = seed, 
     extrapolation = extra
@@ -212,9 +211,9 @@ tune.cubist <- function(data, nfolds, cmte, extra, seed) {
     rmse.results[i] <- defaultSummary(cube.df)[1]
     r2.results[i] <- defaultSummary(cube.df)[2]
   }
-  message(nfolds, "-fold cross-validation of ", 
-          cmte, " committees, ",
-          extra, " extrapolation completed.")
+  # message(nfolds, "-fold cross-validation of ", 
+  #         cmte, " committees, ",
+  #         extra, " extrapolation completed.")
   return(data.frame(
     nfolds = nfolds,
     seed = seed,

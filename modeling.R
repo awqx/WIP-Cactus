@@ -23,13 +23,136 @@ cube.q2.yr <- function(vars, trial.path, nsplits, cmte, extra, seed) {
     for(i in 1:nrow(data)) {
       trn <- data[-i, ]
       tst <- data[i, ]
-      x <- trn[ , -1]
-      y <- trn[ , 1]
+      x <- trn[ , -1, drop = F]
+      y <- trn$info
       
       cube <- cubist(x = x, y = y,  
                      committees = cmte, 
                      control = ctrl)
-      pred[i] <- predict(cube, tst[ , -1]) 
+      pred[i] <- predict(cube, tst[ , -1, drop = F]) 
+    }
+    pred.df <- data.frame(obs, pred)
+    colnames(pred.df) <- c("obs", "pred")
+    PRESS <- sum((obs - pred)^2)
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    q2.results[n] <- q2
+  }
+  results <- data.frame(trn.split, q2.results)
+  print(results)
+  return(results)
+}
+
+gbm.q2.yr <- function(vars, trial.path, nsplits, num, d, s, n) {
+  
+  trn.split <- 1:nsplits # Used for first col of saved table
+  q2.results <- c(rep(0.0, nsplits))
+  
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(trial.path, 'pp/', n, '/pp.RDS'))
+    data <- data %>% select(., info, one_of(vars)) 
+    obs <- data$info
+    pred <- c() # initializing
+    # In this loop, i represents the index of the datapoint left out of 
+    # model building
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, ]
+      trn.x <- trn[ , -1]
+      trn.y <- trn[ , 1]
+      tst.x <- tst[ , -1, drop = F]
+      tst.y <- tst[ , 1]
+      
+      gbm <- gbm.fit(x = trn.x, 
+                     y = trn.y,
+                     n.trees = num,
+                     interaction.depth = d, 
+                     shrinkage = s, 
+                     n.minobsinnode = n,
+                     verbose = F, 
+                     distribution = 'gaussian')
+      pred[i] <- predict(gbm, tst.x, 
+                         n.trees = num) 
+    }
+    pred.df <- data.frame(obs, pred)
+    colnames(pred.df) <- c("obs", "pred")
+    PRESS <- sum((obs - pred)^2)
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    q2.results[n] <- q2
+  }
+  results <- data.frame(trn.split, q2.results)
+  print(results)
+  return(results)
+}
+
+glm.q2.yr <- function(vars, trial.path, nsplits, a, max) {
+  trn.split <- 1:nsplits 
+  q2.results <- c(rep(0.0, nsplits))
+  
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(trial.path, 'pp/', n, '/pp.RDS'))
+    data <- data %>% select(., info, one_of(vars)) %>% data.matrix()
+    obs <- data[ , 1]
+    pred <- c() 
+    
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, drop = F]
+      x <- trn[ , -1, drop = F]
+      y <- trn[ , 1, drop = F]
+      tst.x <- tst[ , -1, drop = F]
+      
+      rf <- svm(x = x, y = y,
+                dfmax = max, alpha = a,
+                pmax = ncol(trn.x), 
+                family = "mgaussian")
+      pred[i] <- predict.glmnet(glm.mod, tst.x,
+                                s = tail(glm.mod$lambda, n = 1)) 
+    }
+    pred.df <- data.frame(obs, pred)
+    colnames(pred.df) <- c("obs", "pred")
+    PRESS <- sum((obs - pred)^2)
+    TSS <- sum((obs - mean(obs))^2)
+    q2 <- 1 - PRESS/TSS
+    q2.results[n] <- q2
+  }
+  results <- data.frame(trn.split, q2.results)
+  print(results)
+  return(results)
+}
+
+mars.q2.yr <- function(vars, trial.path, nsplits, d, p, nk, t, m, fk) {
+  
+  trn.split <- 1:nsplits # Used for first col of saved table
+  q2.results <- c(rep(0.0, nsplits))
+  
+  for(n in 1:nsplits) {
+    data <- readRDS(paste0(trial.path, 'pp/', n, '/pp.RDS'))
+    data <- data %>% select(., info, one_of(vars)) 
+    obs <- data$info
+    pred <- c() # initializing
+    # In this loop, i represents the index of the datapoint left out of 
+    # model building
+    for(i in 1:nrow(data)) {
+      trn <- data[-i, ]
+      tst <- data[i, ]
+      trn.x <- trn[ , -1]
+      trn.y <- trn[ , 1]
+      tst.x <- tst[ , -1, drop = F]
+      tst.y <- tst[ , 1]
+      
+      mars <- earth(
+        x = trn.x,
+        y = trn.y,
+        degree = d, 
+        penalty = as.numeric(p), 
+        nk = nk, 
+        thresh = t, 
+        minspan = m, 
+        fast.k = fk
+      )
+      pred[i] <- predict(mars, tst.x) 
     }
     pred.df <- data.frame(obs, pred)
     colnames(pred.df) <- c("obs", "pred")
@@ -239,7 +362,7 @@ pls.q2.yr <- function(vars, trial.path, nsplits, method, ncomp) {
       
       pls.mod <- plsr(info ~ ., data = trn, 
                       ncomp = ncomp, method = method)
-      pred[i] <- predict(pls.mod, tst[ , -1]) %>% .[2]
+      pred[i] <- predict(pls.mod, tst[ , -1, drop = F]) %>% .[2]
     }
     # Handling outliers
     # for(i in 1:length(pred)) {
@@ -331,6 +454,242 @@ build.cube <- function(host, ntrial, nsplit, seed) {
   
   saveRDS(cube, paste0(trial.path, 'models/cubist.RDS'))
   message('Cubist model of yrand trial ', ntrial, ' completed.')
+}
+
+# GBM === 
+build.gbm <- function(host, ntrial, nsplit, seed) {
+  trial.path <- paste0('yrand/', host, '/', ntrial, '/')
+  # Tuning
+  trn <- readRDS(paste0(trial.path, 'pp/1/pp.RDS'))
+  colnames(trn) <- str_replace(colnames(trn), "-", ".")
+  features <- readRDS(paste0(trial.path, 'vars.RDS'))
+  trn <- trn %>% select(., info, one_of(features)) 
+  # Ranges
+  ntree.range <- c(250, 500, 1000, 1500, 2500, 5000)
+  depth.range <- 2:5
+  shrink.range <- c(0.01, 0.05, 0.1, 0.25)
+  node.range <- c(1, 2, 5, 10, 20)
+  
+  gbm.combos <- expand.grid(ntree.range, 
+                            depth.range, 
+                            shrink.range, 
+                            node.range)
+  ntree.combos <- gbm.combos$Var1
+  depth.combos <- gbm.combos$Var2
+  shrink.combos <- gbm.combos$Var3
+  node.combos <- gbm.combos$Var4
+  
+  set.seed(seed)
+  system.time(
+    results.combos <- do.call(
+      rbind,
+      mapply(
+        FUN = tune.gbm,
+        num = ntree.combos, 
+        d = depth.combos, 
+        s = shrink.combos,
+        n = node.combos, 
+        MoreArgs = 
+          list(nfolds = 5, data = trn), 
+        SIMPLIFY = F
+      )
+    )
+  )
+  temp <<- results.combos
+  message('Tuning of trial ', ntrial, ' completed.')
+  thentree <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'ntree']
+  thedepth <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'depth']
+  theshrink <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'shrinkage']
+  thenode <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'node']
+  params <- c(thentree, thedepth, theshrink, thenode)
+  names(params) <- c('ntree', 'depth', 'shrinkage', 'nodesize') 
+  print(params)
+  
+  q2 <- gbm.q2.yr(vars = features, trial.path = trial.path, nsplits = 5, 
+                  num = thentree, d = thedepth, 
+                  s = theshrink, n = thenode)
+  best.split <- which.max(q2$q2.results)
+  saveRDS(q2, paste0(trial.path, 'results/gbm.q2.RDS'))
+  
+  # Building a gbm model
+  if(is.null(best.split) || length(best.split) == 0) # Just in case
+    best.split <- 1
+  trn <- readRDS(paste0(trial.path, 'pp/', best.split, '/pp.RDS'))
+  colnames(trn) <- str_replace(colnames(trn), "-", ".")
+  features <- readRDS(paste0(trial.path, 'vars.RDS'))
+  trn <- trn[ , colnames(trn) %in% c("info", features)]
+  x <- trn[ , -1, drop = F]
+  y <- trn[ , 1, drop = F]
+  
+  gbm <- gbm.fit(x = x, 
+                 y = y,
+                 n.trees = thentree,
+                 interaction.depth = thedepth, 
+                 shrinkage = theshrink, 
+                 n.minobsinnode = thenode,
+                 verbose = F, 
+                 distribution = 'gaussian')
+  
+  saveRDS(gbm, paste0(trial.path, 'models/gbm.RDS'))
+  message('GBM model of yrand trial ', ntrial, ' completed.')
+}
+
+# GLMNet ===
+build.glm <- function(host, ntrial, nsplit, seed) {
+  trial.path <- paste0('yrand/', host, '/', ntrial, '/')
+  # Tuning
+  # Import the data
+  # Loading split 1 is pretty arbitrary
+  trn <- readRDS(paste0(trial.path, 'pp/1/pp.RDS'))
+  colnames(trn) <- str_replace(colnames(trn), "-", ".")
+  features <- readRDS(paste0(trial.path, 'vars.RDS'))
+  trn <- trn %>% select(., info, one_of(features)) %>%
+    data.matrix()
+  # Establishing ranges for tuning
+  alpha.range <- c(0, 0.2, 0.5, 0.8, 1)
+  dfmax.range <- c(0, 1, 5, 15, 25, 50, 100)
+  
+  glm.combos <- expand.grid(alpha.range, dfmax.range)
+  a.combos <- glm.combos$Var1
+  max.combos <- glm.combos$Var2
+  
+  set.seed(seed)
+  system.time(
+    results.combos <- do.call(
+      rbind,
+      mapply(
+        FUN = tune.glm,
+        a = a.combos, 
+        max = max.combos, 
+        MoreArgs = 
+          list(nfolds = 5, data = trn), 
+        SIMPLIFY = F
+      )
+    )
+  )
+  
+  message('Tuning of trial ', ntrial, ' completed.')
+  thealpha <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'alpha'] 
+  thedfmax <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'dfmax']
+  message('alpha = ', thealpha, ' || dfmax = ', thedfmax)
+  
+  q2 <- glm.q2.yr(vars = features, trial.path = trial.path, nsplits = 5, 
+                  alpha = thealpha, 
+                  node = thedfmax)
+  best.split <- which.max(q2$q2.results)
+  saveRDS(q2, paste0(trial.path, 'results/glm.q2.RDS'))
+  
+  # Building and saving a SVM model
+  # Importing training data
+  if(is.null(best.split) || length(best.split) == 0) # Just in case
+    best.split <- 1
+  trn <- readRDS(paste0(trial.path, 'pp/', best.split, '/pp.RDS'))
+  colnames(trn) <- str_replace(colnames(trn), "-", ".")
+  features <- readRDS(paste0(trial.path, 'vars.RDS'))
+  trn <- trn[ , colnames(trn) %in% c("info", features)] %>%
+    data.matrix()
+  x <- trn[ , -1]
+  y <- trn[ , 1, drop = F]
+  
+  glm.mod <- randomForest(x = x, y = y,
+                         alpha = thealpha, 
+                         dfmax = thedfmax, 
+                         mtry = themtry) 
+  
+  saveRDS(glm.mod, paste0(trial.path, 'models/glm.RDS'))
+  message('glm model of yrand trial ', ntrial, ' completed.')
+}
+
+# MARS ===
+build.mars <- function(host, ntrial, nsplit, seed) {
+  trial.path <- paste0('yrand/', host, '/', ntrial, '/')
+  # Tuning
+  trn <- readRDS(paste0(trial.path, 'pp/1/pp.RDS'))
+  colnames(trn) <- str_replace(colnames(trn), "-", ".")
+  features <- readRDS(paste0(trial.path, 'vars.RDS'))
+  trn <- trn %>% select(., info, one_of(features)) 
+  # Ranges
+  deg.range <- 1
+  pen.range <- c(0, 2, 4, 6)
+  nk.range <- c(15, 25, 35, 50)
+  thresh.range <- 0.01
+  minspan.range <- c(0, 10, 25, 40)
+  fk.range <- c(0, 20, 30, 40)
+  mars.combos <- expand.grid(deg.range, pen.range, nk.range, 
+                             thresh.range, minspan.range, fk.range)
+  d.combos <- mars.combos$Var1
+  p.combos <- mars.combos$Var2
+  nk.combos <- mars.combos$Var3
+  t.combos <- mars.combos$Var4
+  m.combos <- mars.combos$Var5
+  fk.combos <- mars.combos$Var6
+  
+  
+  set.seed(seed)
+  results.combos <- do.call(
+    rbind, 
+    mapply(
+      FUN = tune.mars, 
+      d = d.combos, 
+      p = p.combos, 
+      nk = nk.combos, 
+      t = t.combos, 
+      m = m.combos, 
+      fk = fk.combos, 
+      MoreArgs = 
+        list(nfolds = 10, data = trn), 
+      SIMPLIFY = F
+    )
+  )
+  temp <<- results.combos
+  message('Tuning of trial ', ntrial, ' completed.')
+  thedeg <- 1
+  thepen <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'penalty']
+  thenk <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'nk']
+  thethresh <- 0.01
+  themspan <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'minspan']
+  thefk <- results.combos[order(results.combos$rsquared, decreasing = T), ] %>% 
+    .[1, 'fast.k']
+  params <- c(thedeg, thepen, thenk, thethresh, themspan, thefk)
+  names(params) <- c('degree', 'penalty', 'nk', 'threshold', 'minspan', 'fast/k') 
+  print(params)
+  
+  q2 <- mars.q2.yr(vars = features, trial.path = trial.path, nsplits = 5, 
+                   d = thedeg, p = thepen, nk = thenk, 
+                   t = thethresh, m = themspan, fk = thefk)
+  best.split <- which.max(q2$q2.results)
+  saveRDS(q2, paste0(trial.path, 'results/mars.q2.RDS'))
+  
+  # Building a mars model
+  if(is.null(best.split) || length(best.split) == 0) # Just in case
+    best.split <- 1
+  trn <- readRDS(paste0(trial.path, 'pp/', best.split, '/pp.RDS'))
+  colnames(trn) <- str_replace(colnames(trn), "-", ".")
+  features <- readRDS(paste0(trial.path, 'vars.RDS'))
+  trn <- trn[ , colnames(trn) %in% c("info", features)]
+  x <- trn[ , -1, drop = F]
+  y <- trn[ , 1, drop = F]
+  
+  mars <- earth(x = x, 
+                y = y,
+                degree = thedeg, 
+                penalty = thepen, 
+                nk = thenk, 
+                thresh = thethresh, 
+                minspan = themspan, 
+                fast.k = thefk)
+  
+  saveRDS(mars, paste0(trial.path, 'models/mars.RDS'))
+  message('MARS model of yrand trial ', ntrial, ' completed.')
 }
 
 # Random forest ===
