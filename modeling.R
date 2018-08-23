@@ -98,15 +98,15 @@ glm.q2.yr <- function(vars, trial.path, nsplits, a, max) {
     
     for(i in 1:nrow(data)) {
       trn <- data[-i, ]
-      tst <- data[i, drop = F]
+      tst <- data[i, , drop = F]
       x <- trn[ , -1, drop = F]
       y <- trn[ , 1, drop = F]
       tst.x <- tst[ , -1, drop = F]
       
-      rf <- svm(x = x, y = y,
-                dfmax = max, alpha = a,
-                pmax = ncol(trn.x), 
-                family = "mgaussian")
+      glm.mod <- glmnet(x = x, y = y,
+                        dfmax = max, alpha = a,
+                        pmax = ncol(trn) - 1, 
+                        family = "mgaussian")
       pred[i] <- predict.glmnet(glm.mod, tst.x,
                                 s = tail(glm.mod$lambda, n = 1)) 
     }
@@ -580,8 +580,8 @@ build.glm <- function(host, ntrial, nsplit, seed) {
   message('alpha = ', thealpha, ' || dfmax = ', thedfmax)
   
   q2 <- glm.q2.yr(vars = features, trial.path = trial.path, nsplits = 5, 
-                  alpha = thealpha, 
-                  node = thedfmax)
+                  a = thealpha, 
+                  max = thedfmax)
   best.split <- which.max(q2$q2.results)
   saveRDS(q2, paste0(trial.path, 'results/glm.q2.RDS'))
   
@@ -597,10 +597,10 @@ build.glm <- function(host, ntrial, nsplit, seed) {
   x <- trn[ , -1]
   y <- trn[ , 1, drop = F]
   
-  glm.mod <- randomForest(x = x, y = y,
-                         alpha = thealpha, 
-                         dfmax = thedfmax, 
-                         mtry = themtry) 
+  glm.mod <- glmnet(x = x, y = y,
+                    alpha = thealpha, 
+                    dfmax = thedfmax, 
+                    family = 'gaussian') 
   
   saveRDS(glm.mod, paste0(trial.path, 'models/glm.RDS'))
   message('glm model of yrand trial ', ntrial, ' completed.')

@@ -124,6 +124,11 @@ lapply(X = c(1:25),
        seed = 101)
 
   # GLMNet
+lapply(X = c(1:25), 
+       FUN = build.glm, 
+       host = 'alpha', 
+       nsplit = 5, 
+       seed = 101)
 
   # MARS
 lapply(X = c(1:25), 
@@ -255,6 +260,16 @@ lapply(X = c(14:25),
        seed = 101)
 
   # GLMNet
+lapply(X = c(1:12), 
+       FUN = build.glm, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
+lapply(X = c(14:25), 
+       FUN = build.glm, 
+       host = 'beta', 
+       nsplit = 5, 
+       seed = 101)
 
   # MARS
 lapply(X = c(1:25), 
