@@ -1073,3 +1073,26 @@ build.pls <- function(host, ntrial, nsplit, seed) {
   saveRDS(pls.mod, paste0(trial.path, 'models/pls.RDS'))
   message('PLS model of yrand trial ', ntrial, ' completed.')
 }
+
+
+#     Standard deviations -------------------------------------------------
+
+get.q2.sd <- function(host, model, ntrial, skip13 = F) {
+  # Not strictly necessary, but makes parsing easier
+  host.path <- paste0('yrand/', host, '/')
+  # Initialize vector of q2
+  q2.vals <- c()
+  # Occasionally, the 13th trial will pose problems for beta
+  # Set skip13 == T in that case
+  for(n in 1:ntrial) {
+    # skip 13th trial
+    if(skip13 == T && n == 13) next
+    q2.df <- readRDS(paste0(host.path, n, '/results/', model, '.q2.RDS'))
+    q2.vals <- c(q2.vals, max(q2.df$q2.results))
+  }
+  print(q2.vals)
+  return(data.frame(model = model, 
+                    q2 = mean(q2.vals), 
+                    q2.sd = sd(q2.vals)))
+}
+

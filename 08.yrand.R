@@ -171,6 +171,23 @@ lapply(X = c(1:25),
        seed = 101)
 
 
+
+# 7. Statistics -----------------------------------------------------------
+
+# Get q2 mean and standard deviation
+models <- c('cubist', 'gbm', 'glm', 'mars', 'pls', 'rf', 
+            'svm-poly', 'svm-rbf', 'svm-sig')
+q2.alpha <- do.call(
+  rbind, 
+  lapply(
+    models, 
+    get.q2.sd, 
+    host = 'alpha', 
+    ntrial = 25
+  )
+)
+saveRDS(q2.alpha, 'yrand/alpha/q2.results.RDS')
+
 # Beta-CD -----------------------------------------------------------------
 
 dir.create('yrand/beta')
@@ -252,7 +269,6 @@ lapply(X = c(1:12),
        nsplit = 5, 
        seed = 101)
 # Doesn't appear GBM is compatible w/ single variable
-build.gbm('beta', 13, 5, 101)
 lapply(X = c(14:25), 
        FUN = build.gbm, 
        host = 'beta', 
@@ -260,7 +276,7 @@ lapply(X = c(14:25),
        seed = 101)
 
   # GLMNet
-lapply(X = c(1:12), 
+lapply(X = c(1:12), # not trial 13 compatible
        FUN = build.glm, 
        host = 'beta', 
        nsplit = 5, 
@@ -310,8 +326,31 @@ lapply(X = c(1:25),
        host = 'beta', 
        nsplit = 5, 
        seed = 101)
-lapply(X = c(14:25), 
-       FUN = build.pls, 
-       host = 'beta', 
-       nsplit = 5, 
-       seed = 101)
+
+# 7. Statistics -----------------------------------------------------------
+
+skip13.models <- c('gbm', 'glm')
+models <- models[!models %in% skip13.models]
+# Q2
+q2.beta1 <- do.call(
+  rbind, 
+  lapply(
+    skip13.models, 
+    get.q2.sd, 
+    host = 'beta', 
+    ntrial = 25, 
+    skip13 = T
+  )
+)
+q2.beta2 <- do.call(
+  rbind, 
+  lapply(
+    models, 
+    get.q2.sd, 
+    host = 'beta', 
+    ntrial = 25
+  )
+)
+
+q2.beta <- rbind(q2.beta1, q2.beta2)
+saveRDS(q2.beta, 'yrand/beta/q2.results.RDS')
