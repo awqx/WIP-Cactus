@@ -523,7 +523,7 @@ build.gbm <- function(host, ntrial, nsplit, seed) {
   features <- readRDS(paste0(trial.path, 'vars.RDS'))
   trn <- trn[ , colnames(trn) %in% c("info", features)]
   x <- trn[ , -1, drop = F]
-  y <- trn[ , 1, drop = F]
+  y <- trn[ , 1]
   
   gbm <- gbm.fit(x = x, 
                  y = y,
