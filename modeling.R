@@ -1090,9 +1090,9 @@ get.q2.sd <- function(host, model, ntrial, skip13 = F) {
     q2.df <- readRDS(paste0(host.path, n, '/results/', model, '.q2.RDS'))
     q2.vals <- c(q2.vals, max(q2.df$q2.results))
   }
-  print(q2.vals)
+  # print(q2.vals)
   return(data.frame(model = model, 
-                    q2 = mean(q2.vals), 
-                    q2.sd = sd(q2.vals)))
+                    q2 = mean(q2.vals, na.rm = T), 
+                    q2.sd = sd(q2.vals, na.rm = T)))
 }
 
