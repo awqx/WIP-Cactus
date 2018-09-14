@@ -188,6 +188,11 @@ q2.alpha <- do.call(
 )
 saveRDS(q2.alpha, 'yrand/alpha/q2.results.RDS')
 
+# Had to remove GLMNet from trials 7, 10, and 13 due to an error in 
+# lambda calculations
+r2.alpha <- get.r2.sd('alpha', 25)
+saveRDS(r2.alpha, 'yrand/alpha/r2.results.RDS')
+
 # Beta-CD -----------------------------------------------------------------
 
 dir.create('yrand/beta')
@@ -354,3 +359,5 @@ q2.beta2 <- do.call(
 
 q2.beta <- rbind(q2.beta1, q2.beta2)
 saveRDS(q2.beta, 'yrand/beta/q2.results.RDS')
+
+r2.beta <- get.r2.sd('beta', 25)

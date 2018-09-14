@@ -1,4 +1,5 @@
 source('tuning.R')
+source('modeling.R')
 
 # Y-randomization ---------------------------------------------------------
 
@@ -1096,3 +1097,94 @@ get.q2.sd <- function(host, model, ntrial, skip13 = F) {
                     q2.sd = sd(q2.vals, na.rm = T)))
 }
 
+get.r2.sd <- function(host, ntrial) {
+  host.path <- paste0('yrand/', host, '/')
+  trial <- 1:ntrial
+  ensemble <- c()
+  
+  for (n in 1:ntrial) {
+    trial.path <-  paste0(host.path, n, '/')
+    features <- readRDS(paste0(trial.path, 'vars.RDS'))
+    ev <- readRDS(paste0(trial.path, 'extval.RDS'))
+    ev <- do.call(data.frame, lapply(ev, 
+                               function(x)
+                                 replace(x, is.infinite(x), NA)))
+    
+    model.path <- list.files(paste0(trial.path, "models"), full.names = T)
+    model.q2.path <- list.files(paste0(trial.path, "results"), full.names = T) 
+    # model <- list.files(paste0(trial.path, "models")) %>% 
+    #   str_remove_all('.RDS')
+    r2 <- c()
+    
+    for(i in 1:length(model.path)) {
+      qsar <- readRDS(model.path[i])
+      best.split <- readRDS(model.q2.path[i]) %>%
+        .$q2.results %>% which.max
+      if(length(best.split) == 0)
+        best.split <- 1
+      pp.settings <- readRDS(paste0(trial.path, 'pp/', 
+                             best.split, '/pp.settings.RDS'))
+      obs <- ev$DelG
+      colnames(ev) <- str_replace(colnames(ev), '-', '.')
+      ev.pp <- predict(pp.settings, ev[ , -1])
+      x <- select(ev.pp, features)
+      
+      if(str_detect(model.path[i], 'gbm'))
+        pred <- predict(qsar, x, n.trees = length(qsar$trees))
+      else if(str_detect(model.path[i], 'glm')) {
+        x <- data.matrix(x)
+        pred <- predict.glmnet(qsar, x, s = tail(qsar$lambda, n = 1))
+        
+      } else
+        pred <- predict(qsar, x)
+      
+      results <- data.frame(obs, pred)
+      colnames(results) <- c('obs', 'pred')
+      # print(defaultSummary(results))
+      r2[i] <- defaultSummary(results)[[2]]
+    }
+    # print(mean(r2))
+    ensemble[n] <- mean(r2, na.rm = T)
+    message('Trial ', n, ' completed.')
+  }
+  return(data.frame(trial, ensemble))
+}
+# Alpha trial 7, 10, 13 GLMNet failed -- delete (or hide)
+get.r2.sd('alpha', 25)
+
+#     Other ---------------------------------------------------------------
+
+# Pre-processing yrand trials
+# desc: a data.frame containing DelG and 1376 PaDEL Descriptors
+# feat: a vector containing the list of selected variables
+# pp.settings: a preProcess object created by caret
+# pre-processes extval and returns a data.frame without any outliers
+preprocess.yrand <- function(desc, feat, pp.settings) {
+  dG <- desc[ , 1]
+  desc <- desc[ , -1]
+  colnames(desc) <- str_replace(colnames(desc), "-", ".")
+  desc <- do.call(data.frame, lapply(desc, 
+                                     function(x)
+                                       replace(x, is.infinite(x), NA)))
+  desc <- desc %>% 
+    predict(pp.settings, .) %>% select(., feat) %>% cbind(dG, .)
+  desc.ad <- domain.num(desc)
+  outliers <- desc.ad[desc.ad$domain == 'outside', ] %>% row.names()
+  desc <- desc[!rownames(desc) %in% outliers, ]
+  return(desc)
+}
+
+# desc <- readRDS(paste0('yrand/alpha/1/extval.RDS'))
+# dG <- desc[ , 1]
+# desc <- desc[ , -1]
+# colnames(desc) <- str_replace(colnames(desc), '-', '.')
+# desc <- do.call(data.frame, lapply(desc, 
+#                                    function(x)
+#                                     replace(x, is.infinite(x), NA)))
+# pp.settings <- readRDS('yrand/alpha/1/pp/1/pp.settings.RDS')
+# feat <- readRDS('yrand/alpha/1/vars.RDS')
+# desc <- desc %>%  predict(pp.settings, .) %>% select(., feat) %>% cbind(dG, .)
+# desc.ad <- domain.num(desc)
+# # rownames(desc.ad) <- 1:nrow(desc.ad)
+# outliers <- desc.ad[desc.ad$domain == 'outside', ] %>% row.names()
+# desc <- desc[!rownames(desc) %in% outliers, ]
