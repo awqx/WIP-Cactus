@@ -1109,6 +1109,9 @@ get.r2.sd <- function(host, ntrial) {
     ev <- do.call(data.frame, lapply(ev, 
                                function(x)
                                  replace(x, is.infinite(x), NA)))
+    ev <- do.call(data.frame, lapply(ev, 
+                                     function(x)
+                                       replace(x, is.na(x), 0)))
     
     model.path <- list.files(paste0(trial.path, "models"), full.names = T)
     model.q2.path <- list.files(paste0(trial.path, "results"), full.names = T) 
@@ -1117,6 +1120,7 @@ get.r2.sd <- function(host, ntrial) {
     r2 <- c()
     
     for(i in 1:length(model.path)) {
+      # print(model.path[i])
       qsar <- readRDS(model.path[i])
       best.split <- readRDS(model.q2.path[i]) %>%
         .$q2.results %>% which.max
@@ -1151,6 +1155,10 @@ get.r2.sd <- function(host, ntrial) {
 }
 # Alpha trial 7, 10, 13 GLMNet failed -- delete (or hide)
 get.r2.sd('alpha', 25)
+
+# GLM for 3, 10
+# SVM-sig for 13
+get.r2.sd('beta', 25)
 
 #     Other ---------------------------------------------------------------
 
