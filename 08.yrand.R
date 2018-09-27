@@ -194,7 +194,8 @@ r2.alpha <- get.r2.sd('alpha', 25)
 saveRDS(r2.alpha, 'yrand/alpha/r2.results.RDS')
 
 # Analyzing yrand results
-
+mean(r2.alpha$ensemble) # 0.02673239
+sd(r2.alpha$ensemble) # 0.01094102
 
 # Beta-CD -----------------------------------------------------------------
 
@@ -368,3 +369,5 @@ saveRDS(q2.beta, 'yrand/beta/q2.results.RDS')
 r2.beta <- get.r2.sd('beta', 25)
 saveRDS(r2.beta, 'yrand/beta/r2.results.RDS')
 
+mean(r2.beta$ensemble) # 0.02095
+sd(r2.beta$ensemble) # 0.01584986
