@@ -1,101 +1,5 @@
 dir.create("./pre-process")
-
-# Libraries and Packages --------------------------------------------------
-
-library(caret)
-library(data.table)
-library(Matrix)
-library(stringr)
-library(tidyverse)
-
-# Functions ---------------------------------------------------------------
-
-split.train.test <- function(times, data, info, path) {
-  for(n in 1:times) {
-    # Initialize a sample for reference for maxDissim
-    data.init <- sample_n(data, 20)
-    
-    # Generate representative training set
-    trn.ind <- maxDissim(a = data.init, b = data, 
-                         n = round(nrow(data)*0.75), 
-                         na.rm = T)
-    tst.data <- data[-trn.ind, ]
-    trn.data <- data[trn.ind, ]
-    
-    # Adding the guest molecule name and correct DelG
-    tst <- cbind(info[-trn.ind, ], tst.data)
-    trn <- cbind(info[trn.ind, ], trn.data)
-    
-    # Create logical file path name
-    tst.path <- paste0(path, "tst", n, ".RDS")
-    trn.path <- paste0(path, "trn", n, ".RDS")
-    saveRDS(tst, tst.path)
-    saveRDS(trn, trn.path)
-    
-    message("Split ", n, " completed")
-  }
-}
-
-# Splitting data by folds instead of maxDissim
-
-# data: data.frame with first column being guest, second column being DelG or
-# the response 
-# path: string of the target directory, ending with a backslash
-split.train.test <- function(times, data, path) {
-  folds <- createFolds(data[ , 2], k = times)
-  for(i in 1:times) {
-    tst.ind <- folds[[i]]
-    tst <- data[tst.ind, ]
-    trn <- data[-tst.ind, ]
-    
-    tst.path <- paste0(path, "tst", i, ".RDS")
-    trn.path <- paste0(path, "trn", i, ".RDS")
-    saveRDS(tst, tst.path)
-    saveRDS(trn, trn.path)
-  }
-}
-
-# Performing pre-processing on the files created by split.train.test
-preprocess.splits <- function(filepath, writepath) {
-  files <- list.files(path = filepath) %>% 
-    str_extract(., "trn[[:print:]]+") %>% 
-    .[!is.na(.)]
-  for(n in 1:length(files)) {
-    dirpath <- paste0(writepath, n)
-    dir.create(dirpath)
-    data <- readRDS(paste0(filepath, files[n]))
-    info <- data %>% dplyr::select(guest, DelG)
-    desc <- data %>% dplyr::select(-guest, -DelG)
-    
-    # Replacing inconvenient values
-    desc <- do.call(data.frame, lapply(desc, 
-                                       function(x)
-                                         replace(x, is.infinite(x), NA)))
-    
-    # Initial pre-processing
-    pp.settings <- preProcess(desc, na.remove = T, 
-                              method = c("knnImpute", "center", "scale"), 
-                              verbose = F)
-    desc.pp <- predict(pp.settings, desc)
-  
-    # Removing predictors with near-zero variance
-    zero.pred <- nearZeroVar(desc.pp)
-    desc.pp <- desc.pp[ , -zero.pred]
-    
-    # Removing highly correlated predictors
-    desc.pp <- desc.pp[ , sapply(desc.pp, is.numeric)]
-    too.high <- findCorrelation(cor(desc.pp, use = "pairwise.complete.obs"), 0.95) # 0.95 mostly arbitrary
-    desc.pp <- desc.pp[ , -too.high]
-    
-    desc.pp <- cbind(info, desc.pp)
-    saveRDS(pp.settings, paste0(dirpath, "/pp.settings.RDS"))
-    saveRDS(desc.pp, paste0(dirpath, "/pp.RDS"))
-    saveRDS(zero.pred, paste0(dirpath, "/zero.pred.RDS"))
-    saveRDS(too.high, paste0(dirpath, "/high.cor.RDS"))
-    
-    message("Pre-processing of split ", n, " completed.")
-  }
-}
+source('data.handling.R')
 
 # Cleaning for Outliers ---------------------------------------------------
 
@@ -104,6 +8,7 @@ alpha.info <- readRDS("./descriptors/alpha.padel.RDS")
 beta.info <- readRDS("./descriptors/beta.padel.RDS")
 gamma.info <- readRDS("./descriptors/gamma.padel.RDS")
 
+# Structural outliers
 # Using the method described by Roy 2015: Determining Applicability Domain of
 # QSAR Models
 source("./10.0.ad.functions.R")
@@ -140,6 +45,25 @@ zero.pred <- nearZeroVar(gamma.scaled)
 gamma.scaled <- gamma.scaled[ , -zero.pred]
 gamma.ad <- domain.num(gamma.scaled)
 gamma.outliers <- gamma.ad %>% filter(domain == "outside") %>% .$guest
+
+# Activity outliers
+alpha <- readRDS("./descriptors/alpha.padel.RDS") %>%
+  select(-host)
+alpha.act.out <- find.activity.outlier(alpha, 2.5) 
+alpha.act.out <- alpha[alpha.act.out, "guest"]
+alpha.outliers <- c(alpha.outliers, alpha.act.out)
+
+beta <- readRDS("./descriptors/beta.padel.RDS") %>%
+  select(-host)
+beta.act.out <- find.activity.outlier(beta, 2.5) 
+beta.act.out <- beta[beta.act.out, "guest"]
+beta.outliers <- c(beta.outliers, beta.act.out)
+
+gamma <- readRDS("./descriptors/gamma.padel.RDS") %>%
+  select(-host) %>% data.frame()
+gamma.act.out <- find.activity.outlier(gamma, 2.5) 
+gamma.act.out <- gamma[gamma.act.out, "guest"]
+gamma.outliers <- c(gamma.outliers, gamma.act.out)
 
 saveRDS(alpha.outliers, "./pre-process/outliers/alpha.RDS")
 saveRDS(beta.outliers, "./pre-process/outliers/beta.RDS")
@@ -222,9 +146,9 @@ dir.create("./model.data/alpha")
 dir.create("./model.data/beta")
 dir.create("./model.data/gamma")
 set.seed(101)
-split.train.test(5, alpha, "./model.data/alpha/")
-split.train.test(5, beta, "./model.data/beta/")
-split.train.test(5, gamma, "./model.data/gamma/")
+split.train.test(10, alpha, "./model.data/alpha/")
+split.train.test(10, beta, "./model.data/beta/")
+split.train.test(10, gamma, "./model.data/gamma/")
 
 # Pre-processing and cleaning ---------------------------------------------
 
@@ -270,3 +194,16 @@ preprocess.splits(filepath = "./model.data/gamma/",
 # 
 # saveRDS(suz.pp, "./data/suz.pp.RDS")
 # saveRDS(ext.val, "./data/suz.extval.RDS")
+readRDS('results/alpha/cube.RDS')[-6, ] %>% defaultSummary()
+readRDS('results/alpha/glmnet.RDS') %>% defaultSummary()
+readRDS('results/alpha/pls.RDS') %>% defaultSummary()
+readRDS('results/alpha/polysvm.RDS') %>% defaultSummary()
+readRDS('results/alpha/rbfsvm.RDS') %>% defaultSummary()
+readRDS('results/alpha/rf.RDS') %>% defaultSummary()
+
+readRDS('results/beta/cube.RDS')[-6, ] %>% defaultSummary()
+readRDS('results/beta/glmnet.RDS') %>% defaultSummary()
+readRDS('results/beta/pls.RDS') %>% defaultSummary()
+readRDS('results/beta/polysvm.RDS') %>% defaultSummary()
+readRDS('results/beta/rbfsvm.RDS') %>% defaultSummary()
+readRDS('results/beta/rf.RDS') %>% defaultSummary()

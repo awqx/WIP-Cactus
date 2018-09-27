@@ -428,12 +428,11 @@ system.time(
 
 saveRDS(results.combos, "./tuning/svm/gamma/sig.tuning.RDS")
 
-results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
-# nfolds  kernel cost epsilon gamma coef0  rsquared     rmse
-# 1397      5 sigmoid    4    1.00  0.25     4 0.2471632 77.02175
-# 1250      5 sigmoid    4    0.10  0.10     4 0.2204233 83.58822
+# results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# 1481      5 sigmoid    4    0.05 0.010     0 0.5893454 3.310447
+# 396       5 sigmoid    4    0.10 0.010     0 0.5730306 3.399880
 
 results.combos[order(results.combos$rmse), ] %>% head()
-# nfolds  kernel cost epsilon gamma coef0   rsquared     rmse
-# 1097      5 sigmoid    5    1.00 0.010     3 0.05222141 1.706079
-# 1615      5 sigmoid    5    0.50 0.001     5 0.03754559 1.715046
+# nfolds  kernel cost epsilon gamma coef0  rsquared     rmse
+# 1131      5 sigmoid    4    0.00  0.01     0 0.5551244 3.298637
+# 1481      5 sigmoid    4    0.05  0.01     0 0.5893454 3.310447

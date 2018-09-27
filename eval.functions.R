@@ -16,50 +16,62 @@ library(stats)
 
 # Requirements: results is a datframe w/ calculated values labeled as pred 
 # and observed values listed as obs
-find.k <- function(results) {
-  return(sum(results$pred*results$obs)/sum(results$pred^2))
+find.k <- function(df) {
+  return(sum(df$pred * df$obs) / sum(df$pred^2))
 }
 
 # Equation writeen in Xu2015 unclear
-find.kprime <- function(results) {
-  return(sum(results$pred*results$obs)/sum(results$obs^2))
+find.kprime <- function(df) {
+  return(sum(df$pred * df$obs) / sum(df$obs^2))
 }
 
-find.q2.f1 <- function(results) {
-  top <- (results$obs - results$pred)^2 %>% sum()
-  bottom <- (results$obs - mean(results$pred))^2 %>% sum()
-  return (1 - (top/bottom))
-}
+# Since obsolete
+# find.q2.f1 <- function(df) {
+#   top <- (df$obs - df$pred)^2 %>% sum()
+#   bottom <- (df$obs - mean(df$pred))^2 %>% sum()
+#   return (1 - (top/bottom))
+# }
 
 # Uses caret::defaultSummary
-find.r2 <- function(results) {
-  return(defaultSummary(results)[2])
+find.r2 <- function(df) {
+  return(defaultSummary(df)[2])
 }
 
-find.r20 <- function(results) {
-  ybarr0 <- find.k(results) * results$pred
-  top <- sum((results$pred - ybarr0)^2) 
-  bottom <- sum((results$pred - mean(results$pred))^2)
+find.r02 <- function(df) {
+  # basically the regression line from the predictions
+  yir0 <- find.k(df) * df$pred
+  # mean of predictions
+  ybar <- mean(df$pred)
+  top <- sum((df$pred - yir0)^2) 
+  bottom <- sum((df$pred - ybar)^2)
   return(1 - (top/bottom))
 }
 
 # May be wrong due to reasons specified in find.kprime
-find.r20prime <- function(results) {
-  yr0 <- find.kprime(results) * results$obs
-  top <- sum((results$obs - yr0)^2)
-  bottom <- sum((results$obs - mean(results$obs))^2)
+find.rprime02 <- function(df) {
+  # Regression line from observations
+  yir0 <- find.k(df) * df$obs
+  # mean of observations
+  ybar <- mean(df$obs)
+  top <- sum((df$pred - yir0)^2) 
+  bottom <- sum((df$pred - ybar)^2)
   return(1 - (top/bottom))
 }
 
-eval.tropsha <- function(r) {
-  ii <- find.r2(r) 
-  iii.a <- (find.r2(r) - find.r20(r))/find.r2(r) 
-  iii.a2 <- find.k(r)
-  iii.aprime <- (find.r2(r) - find.r20prime(r))/find.r2(r)
-  iii.aprime2 <- find.kprime(r)
-  iv <- abs(find.r20(r)-find.r20prime(r))
-  
-  return(c(ii, iii.a, iii.a2, iii.aprime, iii.aprime2, iv))
+eval.tropsha <- function(df) {
+  # R2 > 0.6
+  a <- find.r2(df) 
+  # (R2-R02)/R2 < 0.1 and 0.85 <= k <= 1.15
+  b1 <- (find.r2(df) - find.r02(df))/find.r2(df) 
+  b2 <- find.k(df)
+  # (R2-R0'2)/R2 < 0.1 and 0.85 <= k' <= 1.15
+  c1<- (find.r2(df) - find.rprime02(df))/find.r2(df)
+  c2 <- find.kprime(df)
+  # iv <- abs(find.r20(df)-find.r20prime(df))
+  results <- c(a, b1, b2, c1, c2)
+  names(results) <- c('> 0.6', '< 0.1', '0.85 < x < 1.15', 
+                      '< 0.1', '0.85 < x < 1.15')
+  return(results)
 }
 
 # 10-fold Cross Validation ------------------------------------------------

@@ -12,7 +12,7 @@ colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
 
-features <- readRDS("./feature.selection/alpha.vars.RDS")
+features <- readRDS("./feature.selection/alpha.vars.small.RDS")
 trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Estimation ----------------------------------------------------------
@@ -115,19 +115,19 @@ saveRDS(results.combos, "./tuning/svm/alpha/rbf.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds kernel cost epsilon gamma  rsquared     rmse
-#    10    rbf    2    0.10  0.01 0.6834522 2.694921
-#    10    rbf    1    0.25  0.01 0.6745141 2.808424
+#     10    rbf    3    0.10  0.05 0.7313193 2.465376
+#     10    rbf   25    0.25  0.01 0.7236016 2.363378
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds kernel cost epsilon gamma  rsquared     rmse
-#    10    rbf    2    0.10  0.01 0.6834522 2.694921
-#    10    rbf    2    0.05  0.01 0.6689463 2.695471
+#    10    rbf   25    0.25  0.01 0.7236016 2.363378
+#    10    rbf   25    0.10  0.01 0.7146405 2.424068
 
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
 
 #     Loading Data --------------------------------------------------------
 
-trn.all <- readRDS("./pre-process/beta/1/pp.RDS") 
+trn.all <- readRDS("./pre-process/beta/2/pp.RDS") 
 colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
 trn.guest <- trn.all$guest
 trn <- select(trn.all, -guest)
@@ -233,12 +233,12 @@ saveRDS(results.combos, "./tuning/svm/beta/rbf.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds kernel cost epsilon gamma  rsquared     rmse
-#    10    rbf    3    0.50  0.01 0.7231572 3.099700
-#    10    rbf    5    0.01  0.01 0.7168283 3.103063
+#    10    rbf    1    0.25  0.05 0.7024831 2.502542
+#    10    rbf    3    0.05  0.05 0.6953111 2.515410
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds kernel cost epsilon gamma  rsquared     rmse
-#     10    rbf   10    0.05  0.01 0.7075812 2.992280
-#    10    rbf    5    0.25  0.01 0.6980419 3.012280
+#    10    rbf    4    0.10  0.05 0.6823583 2.486790
+#    10    rbf    5    0.25  0.05 0.6731705 2.500240
 # ========================================================================
 # Gamma-CD ---------------------------------------------------------------
 
@@ -344,14 +344,14 @@ system.time(
 
 # system.time output
 # user  system elapsed 
-#  72.78    0.08   74.14 
+#  14.50    0.09   14.66 
 saveRDS(results.combos, "./tuning/svm/gamma/rbf.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds kernel cost epsilon gamma  rsquared     rmse
-# 47      10    rbf    5    0.05  0.01 0.3502252 1.627605
-# 8       10    rbf    1    0.01  0.05 0.3196805 1.630476
+#     10    rbf    3    0.01  0.01 0.4016586 1.712710
+#     10    rbf    1    0.25  0.05 0.3922519 1.595662
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds kernel cost epsilon gamma  rsquared     rmse
-# 58     10    rbf    2    0.05  0.10 0.2602848 1.554637
-# 1      10    rbf    1    0.01  0.01 0.2979696 1.558373
+#     10    rbf    2    0.05  0.01 0.3297648 1.547606
+#     10    rbf    2    0.01  0.05 0.2886954 1.563976

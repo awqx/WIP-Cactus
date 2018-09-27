@@ -164,12 +164,12 @@ saveRDS(results.combos, "./tuning/svm/alpha/poly.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
-#       5 polynomial      4    1    0.10  0.01     1 0.6746108 2.847249
-#       5 polynomial      1    1    0.01  0.05     4 0.6484687 2.888417
+#     5 polynomial      2    4    0.05  0.05     5 0.6946747 2.684865
+#     5 polynomial      2    5    0.05  0.05     2 0.6945467 2.626579
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
-#       5 polynomial      2    2    0.25  0.01     1 0.6481208 2.756990
-#       5 polynomial      4    1    0.10  0.01     1 0.6746108 2.847249
+#     5 polynomial      2   20    0.25  0.01     2 0.6462556 2.584697
+#     5 polynomial      3    5    0.25  0.01     1 0.6481750 2.604591
 
 # ========================================================================
 # Beta-CD ----------------------------------------------------------------
@@ -193,7 +193,7 @@ trn <- trn[ , colnames(trn) %in% c("DelG", features)]
 
 #     Cost ---
 
-cost.range <- c(1:5, 10)
+cost.range <- c(1:5, 10, 25)
 results1.cost <- do.call(rbind, lapply(cost.range, FUN = tune.svm.cost, 
                                        data = trn, kerneltype = "polynomial",
                                        nfolds = 10, seed = 101)) 
@@ -207,7 +207,7 @@ results.cost <- rbind(results1.cost, results2.cost, results3.cost) %>%
   mutate(seed = as.factor(seed))
 ggplot(results.cost, aes(x = cost, color = seed)) + 
   geom_line(aes(y = rsquared)) + 
-  scale_x_continuous(tran = "log2") + 
+#   scale_x_continuous(tran = "log2") + 
   theme_bw()
 
 #     Gamma ---
@@ -292,12 +292,12 @@ saveRDS(results.coef, "./tuning/svm/beta/poly.deg.RDS")
 
 #     Tuning --------------------------------------------------------------
 
-# 5040 combinations
-cost.range <- c(1:5, 10)
-deg.range <- 1:4
-coef.range <- c(1:5, 10)
-gamma.range <- c(0.01, 0.05, 0.1, 0.25, 0.5)
-epsilon.range <- c(0.01, 0.05, 0.1, 0.25, 0.5, 0.75)
+# # 5040 combinations
+# cost.range <- c(1:5, 10)
+# deg.range <- 1:4
+# coef.range <- c(1:5, 10)
+# gamma.range <- c(0.01, 0.05, 0.1, 0.25, 0.5)
+# epsilon.range <- c(0.01, 0.05, 0.1, 0.25, 0.5, 0.75)
 
 svm.combos <- expand.grid(cost.range, gamma.range, 
                           epsilon.range, coef.range, deg.range)
@@ -334,12 +334,12 @@ saveRDS(results.combos, "./tuning/svm/beta/poly.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
-#      5 polynomial      3    4    0.01  0.01     1 0.7177299 2.954320
-#      5 polynomial      4    3    0.01  0.01     1 0.6978153 3.077193
+#       5 polynomial      4   25    0.75  0.50    10 0.6931928 2.528484
+#       5 polynomial      4   25    0.75  0.25     2 0.6914132 2.667870
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
-#      5 polynomial      3    4    0.01  0.01     1 0.7177299 2.954320
-#      5 polynomial      4    3    0.01  0.01     1 0.6978153 3.077193
+#       5 polynomial      4   25    0.75  0.50    10 0.6931928 2.528484
+#       5 polynomial      4    2    0.75  0.50    10 0.6733786 2.570205
 
 # ========================================================================
 # Gamma-CD ----------------------------------------------------------------
@@ -496,10 +496,11 @@ system.time(
 saveRDS(results.combos, "./tuning/svm/gamma/poly.tuning.RDS")
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# Clearly outliers, but whatever
 # nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
-# 5396      5 polynomial      5   50    0.01  0.01    10 0.3367918 2.262006
-# 1320      5 polynomial      2   10    0.10  0.25    25 0.3285006 2.179560
+#     5 polynomial      3    3    0.01  0.01     2 0.3887948 1.980814
+#     5 polynomial      2   25    1.00  0.50     5 0.3655031 1.821173
 results.combos[order(results.combos$rmse), ] %>% head()
-# nfolds     kernel degree cost epsilon gamma coef0  rsquared     rmse
-# 456       5 polynomial      2    1     1.0  0.01     1 0.2578974 1.627761
-# 701       5 polynomial      2    1     1.0  0.01     2 0.1480224 1.652700
+# nfolds     kernel degree cost epsilon gamma coef0   rsquared     rmse
+#     5 polynomial      3    1    0.50  0.01     2 0.3168359 1.529669
+#     5 polynomial      2    3    0.10  0.01     0 0.2212526 1.551559

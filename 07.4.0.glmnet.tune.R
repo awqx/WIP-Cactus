@@ -232,12 +232,12 @@ system.time(
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds alpha dfmax  rsquared     rmse
-#    10   0.0   150 0.6364452 2.972314
-#    10   0.0    50 0.6277415 2.875179
+#    10   0.6   150 0.6248831 3.029472
+#    10   1.0    75 0.6224621 2.961211
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds alpha dfmax  rsquared     rmse
-#    10   0.0    50 0.6277415 2.875179
-#    10   0.0   150 0.6364452 2.97231
+#    10   0.9    10 0.5797526 2.793373
+#    10   0.6    10 0.5877827 2.837060
 
 saveRDS(results.combos, "./tuning/glmnet/alpha/tune.RDS")
 results.combos$alpha <- as.factor(results.combos$alpha)
@@ -329,12 +329,12 @@ system.time(
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds alpha dfmax  rsquared     rmse
-#    10   0.7    20 0.6628094 3.367248
-#    10   0.5    20 0.6485293 3.316619
+#    10   0.3    20 0.5860611 3.082778
+#    10   0.8    20 0.5665614 3.079140
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds alpha dfmax  rsquared     rmse
-#    10   1.0    20 0.6207187 3.315109
-#    10   0.5    20 0.6485293 3.316619
+#    10   1.0    10 0.5405499 3.056713
+#    10   0.0   100 0.5444234 3.063722
 
 saveRDS(results.combos, "./tuning/glmnet/beta/tune.RDS")
 results.combos$alpha <- as.factor(results.combos$alpha)
@@ -471,10 +471,9 @@ system.time(
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
 # nfolds alpha dfmax  rsquared      rmse
-# 22      10   1.0     1 0.3460379 0.2988205
-# 86      10   0.8   100 0.3326182 0.4125980
+# 10   0.0   150 0.4130613 0.3282016
+# 10   0.1   150 0.3894600 0.4040836
 results.combos[order(results.combos$rmse), ] %>% head()
 # nfolds alpha dfmax  rsquared      rmse
-# 39     10   0.5     5 0.2231151 0.2880625
-# 11     10   1.0     0        NA 0.2895304
-# 48     10   0.3    10 0.1606005 0.2897449
+# 10   0.6    20 0.2799298 0.2714540
+# 10   0.2    20 0.3120364 0.2777810

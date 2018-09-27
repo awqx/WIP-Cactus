@@ -1,5 +1,13 @@
-library(caret)
-library(tidyverse)
+# Libraries and packages
+
+if(!require("pacman")) { 
+  install.packages("pacman")
+  library(pacman)
+} else
+  library(pacman)
+# install.packages('stringi')
+p_load(caret, tidyverse)
+
 source("10.0.ad.functions.R")
 source("eval.functions.R")
 
@@ -54,6 +62,40 @@ preprocess.tst.mod <- function(pp.dir, tst.dir, feat, n) {
     select(., -guest)
   
   return(cbind(tst.dg, tst))
+}
+
+# desc: a data.frame containing "guests" and 1376 PaDEL Descriptors
+# feat: a vector containing the list of selected variables
+# pp.settings: a preProcess object created by caret
+preprocess.yrand <- function(desc, feat, pp.settings) {
+  guests <- desc[ , 1]
+  desc <- desc[ , -1]
+  colnames(desc) <- str_replace(colnames(desc), "-", ".")
+  desc <- do.call(data.frame, lapply(desc, 
+                                     function(x)
+                                       replace(x, is.infinite(x), NA)))
+  desc <- desc %>% 
+    predict(pp.settings, .) %>% select(., feat) %>% cbind(guests, .)
+  desc.ad <- domain.num(desc)
+  outliers <- desc.ad %>% filter(domain == "outside") %>% .$guest
+  desc <- desc %>% filter(!guests %in% outliers)
+  return(list(desc, outliers))
+}
+avg.tst <- function(data) {
+  results <- data.table(data, key = 'trn.split')
+  results <- results[ , list(r2 = mean(r2), 
+                             rmse = mean(rmse)), 
+                      by = trn.split]
+  return(results)
+}
+
+find.features <- function(words) {
+  if(str_detect(words, 'alpha'))
+    return(readRDS("./feature.selection/alpha.vars.RDS"))
+  else if (str_detect(words, 'beta'))
+    return(readRDS("./feature.selection/beta.vars.RDS")) 
+  else
+    return(readRDS("./feature.selection/gamma.vars.RDS"))
 }
 
 # preprocess.ev <- function(cd.type, n, feat) {

@@ -34,6 +34,34 @@ all <- transform(all.results, type = factor(
   levels = c("PyRx Docking", "GLMNet", "PLS", "SVM", "Random Forest", "Cubist")
 ))
 
+# Loading data
+docking <- readRDS('data/docking.RDS')
+ensemble <- readRDS('results/ensemble.RDS')
+
+alpha.files <- list.files("results/alpha")
+alpha.files <- alpha.files[str_detect(alpha.files, 'RDS')]
+alpha.results <- list()
+# Technically, this should be 1:length(alpha.files), but I needed to remove sigsvm
+for(i in 1:6) {
+  data <- readRDS(paste0('results/alpha/', alpha.files[i]))
+  data <- data %>% 
+    mutate(model = alpha.files[i] %>% str_remove('.RDS'))
+  alpha.results[[i]] <- data
+}
+alpha.all <- do.call(rbind, alpha.results)
+
+beta.files <- list.files("results/beta")
+beta.files <- beta.files[str_detect(beta.files, 'RDS')]
+beta.results <- list()
+# Technically, this should be 1:length(beta.files), but I needed to remove sigsvm
+for(i in 1:6) {
+  data <- readRDS(paste0('results/beta/', beta.files[i]))
+  data <- data %>% 
+    mutate(model = beta.files[i] %>% str_remove('.RDS'))
+  beta.results[[i]] <- data
+}
+beta.all <- do.call(rbind, beta.results)
+
 # Graphs ------------------------------------------------------------------
 
 #     Poster 2018 ---------------------------------------------------------
@@ -153,3 +181,41 @@ ggsave("./graphs/2018 isef/2018-04-25 folds.png", dpi = 450, scale = 1.5)
 #   fold <- fold.num
 #   return(data.frame(fold, model, rmse, rsquared))
 # }
+
+
+# PLOS (Paper) ------------------------------------------------------------
+
+all <- rbind(
+  alpha.all %>% mutate(host = "alpha"), 
+  beta.all %>% mutate(host = 'beta')
+) %>%
+  mutate(model = as.factor(model), 
+         host = as.factor(host))
+all.qsar <- all
+levels(all.qsar$host) <- c("Alpha-CD", "Beta-CD")
+levels(all.qsar$model) <-  c("Cubist", "GLMNet", "PLS", "Poly-SVM", "RBF-SVM", "Random forest")
+ggplot(all.qsar, aes(x = obs, y = pred, color = host)) + 
+  theme.plos + 
+  geom_abline(slope = 1, intercept = 0) + 
+  geom_point() + 
+  facet_wrap(~model) + 
+  coord_fixed() + 
+  labs(x = "Experimental dG, kJ/mol", 
+       y = "Predicted dG, kJ/mol", 
+       # title = "Results of QSARs on test set, 
+       color = "Host")
+
+# May be combined with docking values for the same molecules
+# That way it's a simulation of 'new data' or something
+ensemble$host <- str_replace(ensemble$host, "alpha", "Alpha-CD") %>%
+  str_replace(., "beta", "Beta-CD")
+ggplot(ensemble, aes(x = obs, y = pred, color = host)) + 
+  theme.plos + 
+  geom_abline(slope = 1, intercept = 0) + 
+  geom_point() + 
+  coord_fixed() + 
+  labs(x = "Experimental dG, kJ/mol", 
+       y = "Predicted dG, kJ/mol", 
+       # title = "Results of QSARs on test set, 
+       color = "Host")
+ggsave('graphs/qsar.ensemble.png', dpi = 300, scale = 0.75)
