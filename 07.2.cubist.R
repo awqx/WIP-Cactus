@@ -289,7 +289,7 @@ tst.gamma.df <- cube.tst.splits('pre-process/gamma/', 'model.data/gamma/',
 tst.gamma.df2 <- tst.gamma.df %>% filter(split == "6")
 
 eval.tropsha(tst.gamma.df)
-sval.tropsha(tst.gamma.df2)
+eval.tropsha(tst.gamma.df2)
 graph.gamma <- ggplot(tst.gamma.df, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
   theme_bw() + 
