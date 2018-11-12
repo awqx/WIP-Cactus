@@ -81,6 +81,7 @@ preprocess.yrand <- function(desc, feat, pp.settings) {
   desc <- desc %>% filter(!guests %in% outliers)
   return(list(desc, outliers))
 }
+
 avg.tst <- function(data) {
   results <- data.table(data, key = 'trn.split')
   results <- results[ , list(r2 = mean(r2), 
@@ -96,6 +97,30 @@ find.features <- function(words) {
     return(readRDS("./feature.selection/beta.vars.RDS")) 
   else
     return(readRDS("./feature.selection/gamma.vars.RDS"))
+}
+
+# Tests a model against all the test splits
+tst.splits <- function(pp.dir, tst.dir, feat, nsplits, model) {
+  tst.all <- data.frame()
+  for (j in 1:nsplits) {
+    tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
+                              feat = feat, n = j)
+    tst.y <- tst[ , 1]
+    tst.x <- tst[ , -1]
+    
+    tst.df <- predict(model, tst.x) %>%
+      cbind(tst.y, .) %>% as.data.frame() 
+    colnames(tst.df) <- c("obs", "pred")
+    tst.df <- tst.df %>% mutate(split = j)
+    
+    for(k in 1:nrow(tst.df))
+      if(abs(tst.df$pred[k]) > 100)
+        tst.df$pred[k] <- mean(trn.y)
+    
+    tst.all <- rbind(tst.all, tst.df)
+  }
+  tst.all$split <- as.factor(tst.all$split)
+  return(tst.all)
 }
 
 # preprocess.ev <- function(cd.type, n, feat) {
