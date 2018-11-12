@@ -126,9 +126,14 @@ trn.alpha <- trn.alpha %>% select(., DelG, features)
 # trn.alpha.y <- trn.alpha$DelG
 
 pls.alpha <- plsr(DelG~., data = trn.alpha, 
-                ncomp = 8, method = "oscorespls")
+                  ncomp = 8, method = "oscorespls")
 tst.alpha.df <- tst.splits("pre-process/alpha/", "model.data/alpha/", 
-                           features, 10, pls.alpha)
+                           features, 10, pls.alpha) %>%
+  data.table(., key = c("obs", "split"))
+tst.alpha.df <- tst.alpha.df[ , list(pred = mean(pred)), 
+                              by = list(obs, split)] %>%
+  as.data.frame()
+
 tst.alpha.df2 <- tst.alpha.df %>% filter(split == "3")
 
 eval.tropsha(tst.alpha.df)
@@ -167,11 +172,20 @@ trn.beta <- trn.beta %>% select(., DelG, features)
 pls.beta <- plsr(DelG~., data = trn.beta, 
                   ncomp = 16, method = "oscorespls")
 tst.beta.df <- tst.splits("pre-process/beta/", "model.data/beta/", 
-                           features, 10, pls.beta)
-tst.beta.df2 <- tst.beta.df %>% filter(split == "10")
+                           features, 10, pls.beta) %>%
+  data.table(., key = c("obs", "split"))
+tst.beta.df <- tst.beta.df[ , list(pred = mean(pred)), 
+                              by = list(obs, split)] %>%
+  as.data.frame()
+
+tst.beta.df2 <- tst.beta.df %>% filter(split == "3")
 
 eval.tropsha(tst.beta.df)
 eval.tropsha(tst.beta.df2)
+
+#   Save ----
+saveRDS(tst.beta.df, "./results/beta/pls.all.RDS")
+saveRDS(tst.beta.df2, "./results/beta/pls.RDS")
 
 #   Save ----
 
@@ -207,13 +221,17 @@ trn.gamma <- trn.gamma %>% select(., DelG, features)
 pls.gamma <- plsr(DelG~., data = trn.gamma, 
                  ncomp = 2, method = "oscorespls")
 tst.gamma.df <- tst.splits("pre-process/gamma/", "model.data/gamma/", 
-                          features, 10, pls.gamma)
-tst.gamma.df2 <- tst.gamma.df %>% filter(split == "6")
+                           features, 10, pls.gamma) %>%
+  data.table(., key = c("obs", "split"))
+tst.gamma.df <- tst.gamma.df[ , list(pred = mean(pred)), 
+                              by = list(obs, split)] %>%
+  as.data.frame()
+
+tst.gamma.df2 <- tst.gamma.df %>% filter(split == "3")
 
 eval.tropsha(tst.gamma.df)
 eval.tropsha(tst.gamma.df2)
 
 #   Save ----
-
 saveRDS(tst.gamma.df, "./results/gamma/pls.all.RDS")
 saveRDS(tst.gamma.df2, "./results/gamma/pls.RDS")
