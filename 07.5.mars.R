@@ -1,13 +1,6 @@
 # MARS - Multivariate adaptive regression splines
-
-# Libraries ---------------------------------------------------------------
-
-if(!require("pacman"))
-  install.packages("pacman")
-library(pacman)
-p_load(caret, data.table, earth, tidyverse)
 source("./07.model.functions.R")
-
+p_load(data.table, earth)
 
 # Functions ---------------------------------------------------------------
 
@@ -158,14 +151,14 @@ mars.tst.splits <- function(pp.dir, tst.dir, feat, nsplits, model) {
   return(tst.all)
 }
 
-# Alpha -------------------------------------------------------------------
+# Alpha -----
 
-# Q2 
+#   Q2 ----
 # 1, 4, 5, 8, 10
 mars.alpha.q2 <- mars.looq2('pre-process/alpha/', nsplits = 10, 
                             d = 1, p = 1, nk = 35, 
                             t = 0, m = 0, fk = 30)
-# Test
+#   Test ----
 # 8 is the best (R2 = 0.650, Q2 = 0.581)
 alpha.tst <- mars.tst('pre-process/alpha/', 'model.data/alpha/', 
                            nsplits = 10, 
@@ -175,9 +168,8 @@ alpha.avg <- data.table(alpha.tst, key = 'trn.split')
 alpha.avg <- alpha.avg[ , list(r2 = mean(r2), 
                                rmse = mean(rmse)), 
                         by = trn.split] %>% print()
-saveRDS(alpha.avg, 'results/alpha/mars.avg.RDS')
 
-# Single model
+#   Model ----
 trn.alpha <- readRDS("./pre-process/alpha/8/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/alpha.vars.RDS")
@@ -186,7 +178,7 @@ trn.alpha <- trn.alpha %>% select(., DelG, features)
 trn.alpha.x <- select(trn.alpha, -DelG) 
 trn.alpha.y <- trn.alpha$DelG
 
-mars.alpha <- mars <- earth(
+mars.alpha <- earth(
   x = trn.alpha.x,
   y = trn.alpha.y,
   degree = 1, 
@@ -196,33 +188,39 @@ mars.alpha <- mars <- earth(
   minspan = 0, 
   fast.k = 30
 )
-tst.alpha <- mars.tst.splits("pre-process/alpha/", "model.data/alpha/", 
+tst.alpha.df <- mars.tst.splits("pre-process/alpha/", "model.data/alpha/", 
                              features, 10, mars.alpha)
-# Analysis of results
-    # All pass
-eval.tropsha(tst.alpha)
-graph.alpha <- ggplot(tst.alpha, aes(x = obs, y = pred, color = split)) + 
+tst.alpha.df2 <- tst.alpha.df %>% filter(split == "8")
+
+# All pass
+eval.tropsha(tst.alpha.df)
+eval.tropsha(tst.alpha.df2)
+graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
   theme_bw() + 
   coord_fixed()  + 
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
        title = "Alpha-CD MARS", color = "Test split")
+graph.alpha
 
-saveRDS(tst.alpha, 'results/alpha/mars.RDS')
+#   Save ----
+
+saveRDS(tst.alpha.df, 'results/alpha/mars.all.RDS')
+saveRDS(tst.alpha.df2, 'results/alpha/mars.RDS')
 pp.settings <- readRDS('pre-process/alpha/8/pp.settings.RDS')
 saveRDS(list(pp.settings, mars.alpha), 'models/alpha/mars.RDS')
-print(graph.alpha)
-ggsave('results/alpha/mars.png')
+# print(graph.alpha)
+# ggsave('results/alpha/mars.png')
 
 # Beta --------------------------------------------------------------------
 
-# Q2 
+#   Q2 ----
 # All oass
 beta.q2 <- mars.looq2('pre-process/beta/', nsplits = 10, 
                       d = 2, p = 4, nk = 25, 
                       t = 0.015, m = 70, fk = 20)
-# Test
+#   Test ----
 # 2 is the best (R2 = 0.7374, Q2 = 0.5839)
 beta.tst <- mars.tst('pre-process/beta/', 'model.data/beta/', 
                       nsplits = 10, 
@@ -232,9 +230,8 @@ beta.avg <- data.table(beta.tst, key = 'trn.split')
 beta.avg <- beta.avg[ , list(r2 = mean(r2), 
                                rmse = mean(rmse)), 
                         by = trn.split] %>% print()
-saveRDS(beta.avg, 'results/beta/mars.avg.RDS')
 
-# Single model
+#   Model ----
 trn.beta <- readRDS("./pre-process/beta/2/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/beta.vars.RDS")
@@ -253,21 +250,89 @@ mars.beta <- mars <- earth(
   minspan = 70, 
   fast.k = 20
 )
-tst.beta <- mars.tst.splits("pre-process/beta/", "model.data/beta/", 
-                             features, 10, mars.beta)
-# Analysis of results
-    # All pass
-eval.tropsha(tst.beta)
-graph.beta <- ggplot(tst.beta, aes(x = obs, y = pred, color = split)) + 
+tst.beta.df <- mars.tst.splits("pre-process/beta/", "model.data/beta/", 
+                                features, 10, mars.beta)
+tst.beta.df2 <- tst.beta.df %>% filter(split == "2")
+
+# All pass
+eval.tropsha(tst.beta.df)
+eval.tropsha(tst.beta.df2)
+graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
   theme_bw() + 
   coord_fixed()  + 
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
        title = "Beta-CD MARS", color = "Test split")
+graph.beta
 
-saveRDS(tst.beta, 'results/beta/mars.RDS')
+#   Save ----
+
+saveRDS(tst.beta.df, 'results/beta/mars.all.RDS')
+saveRDS(tst.beta.df2, 'results/beta/mars.RDS')
 pp.settings <- readRDS('pre-process/beta/2/pp.settings.RDS')
 saveRDS(list(pp.settings, mars.beta), 'models/beta/mars.RDS')
-print(graph.beta)
-ggsave('results/beta/mars.png')
+# print(graph.beta)
+# ggsave('results/beta/mars.png')
+
+# Gamma --------------------------------------------------------------------
+
+#   Q2 ----
+
+# None pass
+gamma.q2 <- mars.looq2('pre-process/gamma/', nsplits = 10, 
+                      d = 2, p = 4, nk = 25, 
+                      t = 0.015, m = 70, fk = 20)
+#   Test ----
+
+# None pass, but 7 the best
+gamma.tst <- mars.tst('pre-process/gamma/', 'model.data/gamma/', 
+                     nsplits = 10, 
+                     d = 2, p = 4, nk = 25, 
+                     t = 0.015, m = 70, fk = 20)
+gamma.avg <- data.table(gamma.tst, key = 'trn.split')
+gamma.avg <- gamma.avg[ , list(r2 = mean(r2), 
+                             rmse = mean(rmse)), 
+                      by = trn.split] %>% print()
+
+#   Model ----
+trn.gamma <- readRDS("./pre-process/gamma/7/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/gamma.vars.RDS")
+colnames(trn.gamma) <- str_replace(colnames(trn.gamma), "-", ".")
+trn.gamma <- trn.gamma %>% select(., DelG, features) 
+trn.gamma.x <- select(trn.gamma, -DelG) 
+trn.gamma.y <- trn.gamma$DelG
+
+mars.gamma <- mars <- earth(
+  x = trn.gamma.x,
+  y = trn.gamma.y,
+  degree = 2, 
+  penalty = 4, 
+  nk = 25, 
+  thresh = 0.015, 
+  minspan = 70, 
+  fast.k = 20
+)
+tst.gamma.df <- mars.tst.splits("pre-process/gamma/", "model.data/gamma/", 
+                               features, 10, mars.gamma)
+tst.gamma.df2 <- tst.gamma.df %>% filter(split == "7")
+
+# All pass
+eval.tropsha(tst.gamma.df)
+eval.tropsha(tst.gamma.df2)
+graph.gamma <- ggplot(tst.gamma.df, aes(x = obs, y = pred, color = split)) + 
+  geom_point() + 
+  theme_bw() + 
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Gamma-CD MARS", color = "Test split")
+graph.gamma
+
+#   Save ----
+
+saveRDS(tst.gamma.df, 'results/gamma/mars.all.RDS')
+saveRDS(tst.gamma.df2, 'results/gamma/mars.RDS')
+# print(graph.gamma)
+# ggsave('results/gamma/mars.png')

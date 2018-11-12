@@ -1,9 +1,5 @@
 source("07.model.functions.R")
-
-# Libraries and Packages --------------------------------------------------
-
-library(pls)
-library(tidyverse)
+p_load(data.table, pls)
 
 # Functions ---------------------------------------------------------------
 
@@ -104,42 +100,120 @@ pls.tst <- function(pp.dir, tst.dir, nsplits, ncomp, method) {
   row.names(results.all) <- NULL
   return(results.all)
 }
-
-# LOOCV-Q2 Evaluation -----------------------------------------------------
+# Alpha ----
+#   LOO-CV ----
 
 # 1, 4, 5, 6, 8, 9, 10
 pls.looq2("./pre-process/alpha/", nsplits = 10, 
           ncomp = 8, method = "oscorespls")
 
-# All pass. 0.526
-pls.looq2("./pre-process/beta/", nsplits = 10, 
-          ncomp = 16, method = "oscorespls")
+#   Test ----
 
-# None
-pls.looq2("./pre-process/gamma/", nsplits = 10, 
-          ncomp = 2, method = "oscorespls")
-
-# Test sets ---------------------------------------------------------------
-
-# ALPHA - NA
+# None pass, 3 does the best
 alpha.tst <- pls.tst("./pre-process/alpha/", "./model.data/alpha/", 
                      nsplits = 10, ncomp = 8, method = "oscorespls")
 alpha.1to1 <- alpha.tst %>% filter(trn.split == tst.split)
 alpha.avg <- avg.tst(alpha.tst) %>% print()
 
-# BETA - NA
+#   Model ----
+
+trn.alpha <- readRDS("./pre-process/alpha/3/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/alpha.vars.RDS")
+colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
+trn.alpha <- trn.alpha %>% select(., DelG, features) 
+# trn.alpha.x <- select(trn.alpha, -DelG) 
+# trn.alpha.y <- trn.alpha$DelG
+
+pls.alpha <- plsr(DelG~., data = trn.alpha, 
+                ncomp = 8, method = "oscorespls")
+tst.alpha.df <- tst.splits("pre-process/alpha/", "model.data/alpha/", 
+                           features, 10, pls.alpha)
+tst.alpha.df2 <- tst.alpha.df %>% filter(split == "3")
+
+eval.tropsha(tst.alpha.df)
+eval.tropsha(tst.alpha.df2)
+
+#   Save ----
+saveRDS(tst.alpha.df, "./results/alpha/pls.all.RDS")
+saveRDS(tst.alpha.df2, "./results/alpha/pls.RDS")
+
+# Beta ----
+#   LOO-CV ----
+
+# All pass. 0.526
+pls.looq2("./pre-process/beta/", nsplits = 10, 
+          ncomp = 16, method = "oscorespls")
+
+#   Test ----
+
+# None pass
+# 10 does the best
 beta.tst <- pls.tst("./pre-process/beta/", "./model.data/beta/", 
                     nsplits = 10, ncomp = 16, method = "oscorespls")
 beta.1to1 <- beta.tst %>% filter(trn.split == tst.split)
 beta.avg <- avg.tst(beta.tst) %>% print()
 
-# GAMMA - NA
+#   Model ----
+
+trn.beta <- readRDS("./pre-process/beta/10/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/beta.vars.RDS")
+colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
+trn.beta <- trn.beta %>% select(., DelG, features) 
+# trn.beta.x <- select(trn.beta, -DelG) 
+# trn.beta.y <- trn.beta$DelG
+
+pls.beta <- plsr(DelG~., data = trn.beta, 
+                  ncomp = 16, method = "oscorespls")
+tst.beta.df <- tst.splits("pre-process/beta/", "model.data/beta/", 
+                           features, 10, pls.beta)
+tst.beta.df2 <- tst.beta.df %>% filter(split == "10")
+
+eval.tropsha(tst.beta.df)
+eval.tropsha(tst.beta.df2)
+
+#   Save ----
+
+saveRDS(tst.beta.df, "./results/beta/pls.all.RDS")
+saveRDS(tst.beta.df2, "./results/beta/pls.RDS")
+
+# Gamma ----
+#   LOOCV ----
+
+# None
+pls.looq2("./pre-process/gamma/", nsplits = 10, 
+          ncomp = 2, method = "oscorespls")
+
+#   Test ----
+
+# None pass
+# 6 does the best
 gamma.tst <- pls.tst("./pre-process/gamma/", "./model.data/gamma/", 
                     nsplits = 10, ncomp = 2, method = "oscorespls")
 gamma.1to1 <- gamma.tst %>% filter(trn.split == tst.split)
 gamma.avg <- avg.tst(gamma.tst) %>% print()
 
-# Single models -----------------------------------------------------------
+#   Model ----
 
-# NA 
-# No models passed the R2 test in any cyclodextrin type
+trn.gamma <- readRDS("./pre-process/gamma/6/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/gamma.vars.RDS")
+colnames(trn.gamma) <- str_replace(colnames(trn.gamma), "-", ".")
+trn.gamma <- trn.gamma %>% select(., DelG, features) 
+# trn.gamma.x <- select(trn.gamma, -DelG) 
+# trn.gamma.y <- trn.gamma$DelG
+
+pls.gamma <- plsr(DelG~., data = trn.gamma, 
+                 ncomp = 2, method = "oscorespls")
+tst.gamma.df <- tst.splits("pre-process/gamma/", "model.data/gamma/", 
+                          features, 10, pls.gamma)
+tst.gamma.df2 <- tst.gamma.df %>% filter(split == "6")
+
+eval.tropsha(tst.gamma.df)
+eval.tropsha(tst.gamma.df2)
+
+#   Save ----
+
+saveRDS(tst.gamma.df, "./results/gamma/pls.all.RDS")
+saveRDS(tst.gamma.df2, "./results/gamma/pls.RDS")
