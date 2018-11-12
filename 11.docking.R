@@ -18,14 +18,18 @@ kcal.to.kj <- function(kcal)
 # Data Cleaning -----------------------------------------------------------
 
 # Experimental results
-exp.df <- readRDS("./dwnld/02.combined.data.RDS") %>%
+exp.df <- readRDS("./cleaning/02.combined.data.RDS") %>%
   select(., -data.source)
 a.df <- exp.df %>% filter(host == "alpha") %>% 
   select(., -host)
 b.df <- exp.df %>% filter(host == "beta") %>%
   select(., -host)
+
 c.df <- exp.df %>% filter(host == "gamma") %>%
   select(., -host)
+c.df2 <- readRDS("./cleaning/02.connors.RDS") %>%
+  select(., -ka)
+c.df <- rbind(c.df, c.df2)
 
 # PyRx docking data
     # Alpha
@@ -57,14 +61,21 @@ b.docking <- rbind(b.1, b.2, b.3) %>%
 b.docking <- b.docking[ , list(DelG = min(DelG)), by = guest]
     # Gamma
     # Only one file, so rbind not necessary
-c.docking <- read.csv("./data/docking/2017-12-21 gamma-cd docking affinity.csv") %>%
-  rename(DelG = Binding.Affinity, guest = Ligand) %>%
+# Filename used to be 2017-12-21 gamma-cd docking affinity.csv
+# Removing files that were messed up from commas
+c.docking <- read.csv("./data/docking/gamma-cd docking affinity vina.csv") 
+colnames(c.docking) <- c("guest", "DelG", "a", "b")
+c.docking <- c.docking[!str_detect(c.docking$a, "[[:alpha:]]"), ]
+c.docking <- c.docking[!str_detect(c.docking$DelG, "[[:alpha:]]"), ]
+c.docking <- c.docking[!is.na(c.docking$DelG), ]
+c.docking <- c.docking %>% 
+  mutate(DelG = as.numeric(as.character(DelG))) %>% 
   select(guest:DelG) %>%
-  mutate(DelG = kcal.to.kj(DelG)) %>%
-  mutate(guest = str_replace(guest, "gamma-cd_uff_E=[[:digit:]]+\\.[[:digit:]]+_", "")) %>%
+  mutate(DelG = kcal.to.kj(as.numeric(DelG))) %>%
+  mutate(guest = str_replace(guest, "gamma-cd_uff_E=1768\\.99_", "")) %>%
   mutate(guest = str_replace(guest, "_uff_E=[[:digit:]]+\\.[[:digit:]]+", "")) %>%
-  mutate(guest = str_replace(guest, "_uff_E=294.49", "")) %>%
   mutate(guest = str_replace_all(guest, "_", " ")) %>%
+  mutate(guest = as.factor(guest)) %>%
   data.table(., key = "guest")
 c.docking <- c.docking[, list(DelG = min(DelG)),
                        by = guest] 
@@ -89,7 +100,7 @@ a.temp <- a.data %>% mutate(host = "alpha")
 b.temp <- b.data %>% mutate(host = "beta")
 c.temp <- c.data %>% mutate(host = "gamma")
 all.data <- rbind(a.temp, b.temp, c.temp) %>% group_by(host)
-defaultSummary(as.data.frame(all.data)) #R2 = 0.171
+defaultSummary(as.data.frame(all.data)) #R2 = 0.078
 saveRDS(all.data, "./data/docking.RDS")
 
 # Graphs ------------------------------------------------------------------
