@@ -11,24 +11,51 @@ p_load(caret, tidyverse)
 source("10.0.ad.functions.R")
 source("eval.functions.R")
 
-# desc: a data.frame containing "guests" and 1376 PaDEL Descriptors
-# feat: a vector containing the list of selected variables
-# pp.settings: a preProcess object created by caret
-preprocess.desc <- function(desc, feat, pp.settings) {
+# Pre-processing ----------------------------------------------------------
+
+# base preprocess function, simply preprocesses a file 
+# used in preprocess.desc
+
+preprocess.base <- function(desc, pp.settings) {
   guests <- desc[ , 1]
   desc <- desc[ , -1]
   colnames(desc) <- str_replace(colnames(desc), "-", ".")
-  desc <- do.call(data.frame, lapply(desc, 
-                                     function(x)
-                                       replace(x, is.infinite(x), NA)))
-  desc <- desc %>% 
-    predict(pp.settings, .) %>% select(., feat) %>% cbind(guests, .)
+  desc <- do.call(data.frame,
+                  lapply(desc, function(x)
+                    replace(x, is.infinite(x), NA)))
+  desc <- desc %>% predict(pp.settings, .)
+  return(cbind(guests, desc))
+}
+
+# desc: a data.frame containing "guests" and 1376 PaDEL Descriptors
+# feat: a vector containing the list of selected variables
+# pp.settings: a preProcess object created by caret
+
+# returns a list w/ the pre-processed dataframe and a vector of outliers
+preprocess.desc <- function(desc, feat, pp.settings) {
+  guests <- desc[ , 1]
+  desc <- preprocess.base(desc, pp.settings) %>%
+    select(., feat) %>%
+    cbind(guests, .)
+# Removing outliers based on applicability domain
   desc.ad <- domain.num(desc)
   outliers <- desc.ad %>% filter(domain == "outside") %>% .$guest
   desc <- desc %>% filter(!guests %in% outliers)
   return(list(desc, outliers))
 }
 
+preprocess.desc.all <- function(desc, feat, pp.settings) {
+  guests <- desc[ , 1]
+  desc <- preprocess.base(desc, pp.settings) %>%
+    select(., feat) %>%
+    cbind(guests, .)
+  # Removing outliers based on applicability domain
+  desc.ad <- domain.num(desc)
+  outliers <- desc.ad %>% filter(domain == "outside") %>% .$guest
+  return(list(desc, outliers))
+}
+
+# Saves pre-processing, used in model-building
 # Both pp.dir and tst.dir should end in a backslash
 # n refers to the split number
 preprocess.tst.mod <- function(pp.dir, tst.dir, feat, n) {
@@ -82,6 +109,34 @@ preprocess.yrand <- function(desc, feat, pp.settings) {
   return(list(desc, outliers))
 }
 
+# preprocess.ev <- function(cd.type, n, feat) {
+#   if (cd.type == "alpha")
+#     ev <- readRDS("./ext.validation/alpha.RDS")
+#   else if (cd.type == "beta")
+#     ev <- readRDS("./ext.validation/beta.RDS")
+#   ev.info <- select(ev, guest:data.source)
+#   
+#   colnames(ev) <- str_replace(colnames(ev), "-", ".")
+#   ev <- select(ev, -host:-data.source)
+#   ev <- do.call(data.frame, lapply(ev, 
+#                                    function(x)
+#                                      replace(x, is.infinite(x), NA)))
+#   pp.settings <- readRDS(paste0("./pre-process/", cd.type, 
+#                                 "/", n, "/pp.settings.RDS"))
+#   ev <- ev %>% predict(pp.settings, .) %>% select(., feat) %>%
+#     cbind(select(ev.info, guest), .)
+#   
+#   ev.ad <- domain.num(ev)
+#   ev.outliers <- ev.ad %>% filter(domain == "outside") %>% .$guest
+#   
+#   ev <- ev %>% filter(!guest %in% ev.outliers) %>% select(., -guest)
+#   ev.dg <- ev.info %>% filter(!guest %in% ev.outliers) %>% select(., DelG)
+#   
+#   return(cbind(ev.dg, ev))
+# }
+
+# Test  -------------------------------------------------------------------
+
 avg.tst <- function(data) {
   results <- data.table(data, key = 'trn.split')
   results <- results[ , list(r2 = mean(r2), 
@@ -123,28 +178,20 @@ tst.splits <- function(pp.dir, tst.dir, feat, nsplits, model) {
   return(tst.all)
 }
 
-# preprocess.ev <- function(cd.type, n, feat) {
-#   if (cd.type == "alpha")
-#     ev <- readRDS("./ext.validation/alpha.RDS")
-#   else if (cd.type == "beta")
-#     ev <- readRDS("./ext.validation/beta.RDS")
-#   ev.info <- select(ev, guest:data.source)
-#   
-#   colnames(ev) <- str_replace(colnames(ev), "-", ".")
-#   ev <- select(ev, -host:-data.source)
-#   ev <- do.call(data.frame, lapply(ev, 
-#                                    function(x)
-#                                      replace(x, is.infinite(x), NA)))
-#   pp.settings <- readRDS(paste0("./pre-process/", cd.type, 
-#                                 "/", n, "/pp.settings.RDS"))
-#   ev <- ev %>% predict(pp.settings, .) %>% select(., feat) %>%
-#     cbind(select(ev.info, guest), .)
-#   
-#   ev.ad <- domain.num(ev)
-#   ev.outliers <- ev.ad %>% filter(domain == "outside") %>% .$guest
-#   
-#   ev <- ev %>% filter(!guest %in% ev.outliers) %>% select(., -guest)
-#   ev.dg <- ev.info %>% filter(!guest %in% ev.outliers) %>% select(., DelG)
-#   
-#   return(cbind(ev.dg, ev))
-# }
+
+
+# Predict ----------------------------------------------------------------
+
+# Replaces empty values in a table of descriptors w/ averages from 
+# the modeling data
+
+desc.fill <- function(df, fill.df) {
+  # This works, but may need to be replaced w/ apply
+  for(i in 1:nrow(df)) {
+    for (k in 1:ncol(df)) {
+      if(is.na(df[i, k]))
+        df[i, k] <- alpha.fill[colnames(df)[k]]
+    }
+  }
+  return(df)
+}
