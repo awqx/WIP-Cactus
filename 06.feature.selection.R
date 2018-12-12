@@ -127,3 +127,45 @@ gamma.vars <- varimp.gamma %>% filter(frequency > 9) %>% .$predictor
 # Large number of predictors indicates over-fittingm unfortunately
 saveRDS(varimp.gamma, "./feature.selection/varimp.gamma.RDS")
 saveRDS(gamma.vars, "./feature.selection/gamma.vars.RDS")
+
+
+# Convenient pre-processing -----------------------------------------------
+
+# Trying to streamline pre-processing by only using features 
+
+    # Alpha-CD -----
+# Reading the selected features (13)
+alpha.vars <- readRDS("./feature.selection/alpha.vars.RDS")
+# Reading from modeling data
+alpha.data <- readRDS("./model.data/alpha.md.RDS")
+# Replacing the dashes in the column names with periods
+colnames(alpha.data) <- str_replace(colnames(alpha.data), "-", "\\.")
+# Filtering modeling data to only contain guest (name) and variables
+alpha <- alpha.data[ , colnames(alpha.data) %in% c("guest", alpha.vars)]
+
+# pre-processing using center and scale
+alpha.pp.settings <- preProcess(alpha, na.remove = T, 
+                          method = c("center", "scale"), 
+                          verbose = F)
+alpha.pp <- predict(alpha.pp.settings, alpha)
+
+
+    # Beta-CD -----
+# Reading the selected features (16)
+beta.vars <- readRDS("./feature.selection/beta.vars.RDS")
+# Reading from modeling data
+beta.data <- readRDS("./model.data/beta.md.RDS")
+# Replacing the dashes in the column names with periods
+colnames(beta.data) <- str_replace(colnames(beta.data), "-", "\\.")
+# Filtering modeling data to only contain guest (name) and variables
+beta <- beta.data[ , colnames(beta.data) %in% c("guest", beta.vars)]
+
+# pre-processing using center and scale
+beta.pp.settings <- preProcess(beta, na.remove = T, 
+                                method = c("center", "scale"), 
+                                verbose = F)
+beta.pp <- predict(beta.pp.settings, beta)
+
+    # Save ----
+saveRDS(alpha.pp.settings, "./pre-process/alpha.pp.short.RDS")
+saveRDS(beta.pp.settings, "./pre-process/beta.pp.short.RDS")
