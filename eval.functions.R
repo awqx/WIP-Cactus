@@ -17,11 +17,14 @@ library(stats)
 # Requirements: results is a datframe w/ calculated values labeled as pred 
 # and observed values listed as obs
 find.k <- function(df) {
+  df <- lapply(df, as.character) %>% sapply(., as.numeric)
   return(sum(df$pred * df$obs) / sum(df$pred^2))
 }
 
 # Equation writeen in Xu2015 unclear
 find.kprime <- function(df) {
+  df <- lapply(df, as.character) %>% sapply(as.numeric) %>% 
+    data.frame()
   return(sum(df$pred * df$obs) / sum(df$obs^2))
 }
 
@@ -42,8 +45,8 @@ find.r02 <- function(df) {
   yir0 <- find.k(df) * df$pred
   # mean of predictions
   ybar <- mean(df$pred)
-  top <- sum((df$pred - yir0)^2) 
-  bottom <- sum((df$pred - ybar)^2)
+  top <- sum((df$obs - yir0)^2) 
+  bottom <- sum((df$pred - ybar)^2) 
   return(1 - (top/bottom))
 }
 
@@ -54,7 +57,7 @@ find.rprime02 <- function(df) {
   # mean of observations
   ybar <- mean(df$obs)
   top <- sum((df$pred - yir0)^2) 
-  bottom <- sum((df$pred - ybar)^2)
+  bottom <- sum((df$obs - ybar)^2)
   return(1 - (top/bottom))
 }
 
@@ -62,10 +65,10 @@ eval.tropsha <- function(df) {
   # R2 > 0.6
   a <- find.r2(df) 
   # (R2-R02)/R2 < 0.1 and 0.85 <= k <= 1.15
-  b1 <- (find.r2(df) - find.r02(df))/find.r2(df) 
+  b1 <- abs(a - find.r02(df))/find.r2(df) 
   b2 <- find.k(df)
   # (R2-R0'2)/R2 < 0.1 and 0.85 <= k' <= 1.15
-  c1<- (find.r2(df) - find.rprime02(df))/find.r2(df)
+  c1 <- abs(a - find.rprime02(df))/find.r2(df)
   c2 <- find.kprime(df)
   # iv <- abs(find.r20(df)-find.r20prime(df))
   results <- c(a, b1, b2, c1, c2)
