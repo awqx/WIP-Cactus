@@ -265,6 +265,7 @@ ev.beta.dg <- ev.beta %>% select(., guest, DelG) %>%
   rename(obs = DelG, guests = guest)
 ev.beta <- ev.beta %>% select(., -DelG)
 
+ev.beta.pred <- predict.ensemble(ev.beta, beta.feat, beta.models)
 # 1, 4-diiodobenzene
 beta.outliers <- ev.beta.pred[[3]]
 # For some reason, flufenamic acid decided to duplicate itself
@@ -329,3 +330,89 @@ temp <- rbind(temp, cisplatin)
 cisplatin.beta <- predict.ensemble.all(temp, beta.feat, beta.models)
 cisplatin.beta <- predict.beta(cisplatin)
 # -12.92012 kJ/mol
+
+# Short Ensemble Replication ----------------------------------------------
+    # QSAR prediction ----
+# Parsing through the models, predicting 
+# df contains guest, DelG
+ensemble <- function(df, models) {
+  results <- df %>% select(., guest, DelG)
+  desc <- df %>% select(., -guest, -DelG)
+  for(i in 1:length(models)) {
+    # message(names(models[i]), " starting")
+    if(str_detect(names(models)[i], "gbm"))
+      pred <- predict(models[[i]], desc, n.trees = 500) %>%
+        data.frame()
+    else
+      pred <- predict(models[[i]], desc) %>%
+        data.frame()
+    # print(pred)
+    colnames(pred) <- names(models)[i]
+    results <- data.frame(results, pred)
+    # message(names(models[i]), " completed")
+  }
+  # Creating an ensemble column that takes the averages of the QSARs
+  results <- results %>%
+    mutate(ensemble = rowMeans(results[ , -1]))
+  return(results)
+}
+
+    # Alpha-CD ----
+        # Pre-processing ----
+alpha.vars <- readRDS("./feature.selection/alpha.vars.RDS")
+alpha.pp <- readRDS("./pre-process/alpha.pp.short.RDS")
+# Reading from external validation
+alpha.data <- readRDS("./ext.validation/alpha.RDS") 
+colnames(alpha.data) <- str_replace(colnames(alpha.data), "-", "\\.")
+alpha <- alpha.data[ , colnames(alpha.data) %in% c("guest", "DelG", alpha.vars)] %>%
+  predict(alpha.pp, .)
+alpha.desc <- alpha %>% select(., -guest, -DelG)
+
+# Reading alpha models
+alpha.models <- lapply(list.files("./models/alpha", full.names = T), 
+                       function(x)
+                         return(readRDS(x)[[2]]))
+  # Naming the list appropriately
+alpha.names <- list.files("./models/alpha") %>% str_remove("\\.RDS")
+names(alpha.models) <- alpha.names
+saveRDS(alpha.models, "./models/alpha.RDS")
+
+alpha.ens <- ensemble(alpha, alpha.models)
+alpha.ens.short <- alpha.ens %>%
+  select(., guest, DelG, ensemble) %>%
+  rename(obs = DelG, pred = ensemble)
+defaultSummary(alpha.ens.short)
+
+
+    # Beta-CD ----
+
+beta.vars <- readRDS("./feature.selection/beta.vars.RDS")
+beta.pp <- readRDS("./pre-process/beta.pp.short.RDS")
+# Reading from external validation
+beta.data <- readRDS("./ext.validation/beta.RDS") 
+colnames(beta.data) <- str_replace(colnames(beta.data), "-", "\\.")
+beta.fill <- readRDS("./models/beta.fill.RDS")
+# beta.data <- desc.fill(beta.data, beta.fill)
+
+# beta <- beta.data[ , colnames(beta.data) %in% c("guest", "DelG", beta.vars)] %>%
+#   predict(beta.pp, .)
+beta <- beta.data[ , colnames(beta.data) %in% c("guest", "DelG", beta.vars)]
+beta <- desc.fill(beta, beta.fill)
+beta <- predict(beta.pp, beta)
+beta.desc <- beta %>% select(., -guest, -DelG)
+
+# Reading beta models
+beta.models <- lapply(list.files("./models/beta", full.names = T), 
+                       function(x)
+                         return(readRDS(x)[[2]]))
+# Naming the list appropriately
+beta.names <- list.files("./models/beta") %>% str_remove("\\.RDS")
+names(beta.models) <- beta.names
+saveRDS(beta.models, "./models/beta.RDS")
+
+beta.ens <- ensemble(beta, beta.models)
+beta.ens.short <- beta.ens %>%
+  select(., guest, DelG, ensemble) %>%
+  rename(obs = DelG, pred = ensemble)
+defaultSummary(beta.ens.short)
+

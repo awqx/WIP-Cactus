@@ -190,8 +190,9 @@ desc.fill <- function(df, fill.df) {
   for(i in 1:nrow(df)) {
     for (k in 1:ncol(df)) {
       if(is.na(df[i, k]))
-        df[i, k] <- alpha.fill[colnames(df)[k]]
+        df[i, k] <- fill.df[colnames(df)[k]]
     }
   }
   return(df)
 }
+
