@@ -6,10 +6,17 @@
 
 # Libraries and Packages --------------------------------------------------
 
-library(data.table)
-library(deSolve)
-library(dplyr)
-library(tidyverse)
+if(!require("pacman")) { 
+  install.packages("pacman")
+  library(pacman)
+} else
+  library(pacman)
+
+p_load(caret,
+       data.table, 
+       deSolve, 
+       dplyr,
+       tidyverse)
 
 # Functions ---------------------------------------------------------------
 
@@ -51,7 +58,27 @@ accumulate.new.dg <- function(dg) {
     mutate(dG = dg)
   return(dmr.sum)
 } 
+
 # Parameters --------------------------------------------------------------
+
+#     # From Fu 2011 ------------------------------------------------------
+
+# Fluoro-PEG-Ad 
+ka <- 303.7 # association constant
+width <- 0.05 # width of half a hydrogel
+vol <- 0.0785 # volume of wet gel 
+# sol <- 20.7 # solubility of beta-CD
+k2 <- 36.9 # +- 3.4 # backwards complexation constant
+P2 <- 0.933 # +- 0.174 # the 2nd dimensionless parameter, D/(k2*width^2)
+
+    # "Guesses" (not provided in the paper
+ct <- 0.25 # total cyclodextrin concentration
+c0 <- 0.15 # drug concentration
+    # Dimensionless variables 
+P1 <- ka*c0
+P2 <- 0.933 # +- 0.174 # D/(k2*width^2)
+P2 <- 0.8 # approximation from Fu
+P3 <- ct/c0
 
 # Known
 ka <- convert.delg.ka(-18) # benzoic acid
@@ -61,6 +88,11 @@ D <- 0.1 # technically searchable, but this is arbitrary
 D <- get.diffusivity(122.123)
 width <- 0.05 # width of half of hydrogel
 vol <- 0.0785 # cm^2, vol when swollen
+# Dimensionless variables 
+P1 <- k1/k2*c0
+P2 <- 0.933 # +- 0.174 # D/(k2*width^2)
+P2 <- 0.8 # approximation from Fu
+P3 <- ct/c0
 
 # Reasonably derivable
 k2 <- 35 # h^-1, according to Fu
@@ -84,12 +116,17 @@ P3 <- ct/c0
 # Dimensionless ODE Implementation ----------------------------------------
 
 # Functions
+# Uses method of lines
 drug.model <- function(t, state, parms) {
+  # initializes the MOL for the drug concentration
   drug <- state[1:n]
+  # initializes the MOL for the concentration of complexes
   comp <- state[(n+1):(2*n)]
-  dcomp <- P1 * drug * (P3 - comp) - k2*comp
-  
+  # Dimensionless rate of binding
+  dcomp <- P1 * drug * (P3 - comp) - comp
+  # Sets initial conditions
   ddrug <- rep(0, n)
+  # according to Fu
   ddrug[1] <- P2 * (drug[2] - drug[1]) / (del^2) - dcomp[1]
   ddrug[n - 1] <-
     P2*(-2*drug[n-1]+drug[n-2])/(del^2) - dcomp[n - 1]
@@ -129,18 +166,20 @@ state <- c(rep(cl.eq, n),
            rep(clc.eq, n))
 t <- 1000
 times <- seq(0, t, 1) 
+P3 <- ct/c0
 out <- ode(y = state, times = times, func = drug.model, parms = NULL)
 
 drug.out <- out[ -1, c(1:n)] %>% as.data.frame()
 drug.out <- data.table::melt(setDT(drug.out), id.vars = "time",
                              variable.name = "location")
 
-ggplot(drug.out, aes(x = time, y = location, fill = value)) +
-  geom_raster()
-# 
+# ggplot(drug.out, aes(x = time, y = location, fill = value)) +
+#   geom_raster()
+
 # dmr.raw <- get.dMr(out = out) %>% .[-1, ]
 # ggplot(dmr.raw, aes(x = times, y = rr)) +
 #   geom_line()
+
 dmr.sum <- accumulate.dMr(out = out) %>% .[-1, ]
 ggplot(dmr.sum, aes(x = times, y = rr)) + 
   geom_line() + 

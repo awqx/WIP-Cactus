@@ -1,10 +1,5 @@
-# Libraries and Packages --------------------------------------------------
-
-library(caret)
-library(randomForest)
-library(tidyverse)
-
 source("./07.model.functions.R")
+p_load(randomForest)
 
 # Functions ---------------------------------------------------------------
 
@@ -146,27 +141,16 @@ rf.tst.splits <- function(pp.dir, tst.dir, feat, nsplits, model) {
   tst.all$split <- as.factor(tst.all$split)
   return(tst.all)
 }
-# LOOCV-Q2 analysis -------------------------------------------------------
+# Alpha-CD ----
+#   LOOCV-Q2 analysis ----
 
-# Alpha
 # Everything except 2
 rf.alpha.q2 <- rf.looq2("./pre-process/alpha/", nsplits = 10,
                         ntree = 75, node = 3, m = 13)
 
+#   Test ----
 
-# Beta
-# All pass
-rf.beta.q2 <-  rf.looq2("./pre-process/beta/", nsplits = 10,
-                         ntree = 50, node = 5, m = 4)
-
-# Gamma - none pass
-rf.gamma.q2 <-  rf.looq2("./pre-process/gamma/", nsplits = 10,
-                        ntree = 250, node = 5, m = 10)
-
-# Test sets ---------------------------------------------------------------
-
-# ALPHA - 6
-# Q2 = 0.6321
+# Split 6 (Q2 = 0.6321)
 alpha.tst <- rf.tst("./pre-process/alpha/", "./model.data/alpha/", 
                     nsplits = 10, ntree = 75, node = 3, m = 13)
 alpha.1to1 <- alpha.tst %>% filter(trn.split == tst.split)
@@ -174,34 +158,9 @@ alpha.avg <- data.table(alpha.tst, key = 'trn.split')
 alpha.avg <- alpha.avg[ , list(r2 = mean(r2), 
                                rmse = mean(rmse)), 
                         by = trn.split] %>% print()
-saveRDS(alpha.avg, 'results/alpha/rf.avg.RDS')
-# BETA - 3
-# Q2 for this is 0.6733
-# All of them are pretty good
-beta.tst <- rf.tst("./pre-process/beta/", "./model.data/beta/", 
-                   nsplits = 10, ntree = 50, node = 5, m = 4)
-beta.1to1 <- beta.tst %>% filter(trn.split == tst.split)
-beta.avg <- data.table(beta.tst, key = 'trn.split')
-beta.avg <- beta.avg[ , list(r2 = mean(r2), 
-                               rmse = mean(rmse)), 
-                        by = trn.split] %>% print()
-saveRDS(beta.avg, 'results/beta/rf.avg.RDS')
 
-# GAMMA - 4
-# Q2 is 0.2849
-gamma.tst <- rf.tst("./pre-process/gamma/", "./model.data/gamma/", 
-                    nsplits = 10, ntree = 250, node = 5, m = 10)
-gamma.1to1 <- gamma.tst %>% filter(trn.split == tst.split)
-gamma.avg <- data.table(gamma.tst, key = 'trn.split')
-gamma.avg <- gamma.avg[ , list(r2 = mean(r2), 
-                             rmse = mean(rmse)), 
-                      by = trn.split] %>% print()
-saveRDS(gamma.avg, 'results/gamma/rf.avg.RDS')
+#   Model ----
 
-
-# Single models -----------------------------------------------------------
-
-#    Alpha ----
 trn.alpha <- readRDS("./pre-process/alpha/6/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/alpha.vars.RDS")
@@ -213,10 +172,12 @@ trn.alpha.y <- trn.alpha$DelG
 rf.alpha <- randomForest(x = trn.alpha.x, y = trn.alpha.y, 
                          ntree = 100, nodesize = 3, mtry = 13)
 tst.alpha <- rf.tst.splits("pre-process/alpha/", "model.data/alpha/", 
-                            features, 10, rf.alpha) %>% print()
+                           features, 10, rf.alpha) 
+tst.alpha.df <- tst.alpha %>% filter(split == "6")
 
-# Yay, you pass
+# Everything passes
 eval.tropsha(tst.alpha)
+eval.tropsha(tst.alpha.df)
 graph.alpha <- ggplot(tst.alpha, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
   theme_bw() + 
@@ -226,7 +187,33 @@ graph.alpha <- ggplot(tst.alpha, aes(x = obs, y = pred, color = split)) +
        title = "Alpha-CD Random Forest", color = "Test split")
 print(graph.alpha)
 
-#     Beta ----
+#   Save ----
+
+pp.settings <- readRDS("./pre-process/alpha/6/pp.settings.RDS")
+saveRDS(list(pp.settings, rf.alpha), "./models/alpha/rf.RDS")
+saveRDS(tst.alpha, "./results/alpha/rf.all.RDS")
+saveRDS(tst.alpha.df, "./results/alpha/rf.RDS")
+# Stopped saving the graphs because I rarely look at them
+# ggsave("./results/alpha/rf.png")
+
+# Beta ----
+#   LOO-CV ----
+# All pass
+rf.beta.q2 <-  rf.looq2("./pre-process/beta/", nsplits = 10,
+                         ntree = 50, node = 5, m = 4)
+#   Test ----
+
+# Split 3 works
+# Most of them are pretty good
+beta.tst <- rf.tst("./pre-process/beta/", "./model.data/beta/", 
+                   nsplits = 10, ntree = 50, node = 5, m = 4)
+beta.1to1 <- beta.tst %>% filter(trn.split == tst.split)
+beta.avg <- data.table(beta.tst, key = 'trn.split')
+beta.avg <- beta.avg[ , list(r2 = mean(r2), 
+                             rmse = mean(rmse)), 
+                      by = trn.split] %>% print()
+
+#   Model ----
 
 trn.beta <- readRDS("./pre-process/beta/3/pp.RDS") %>%
   select(., -guest)
@@ -240,19 +227,45 @@ rf.beta <- randomForest(x = trn.beta.x, y = trn.beta.y,
                          ntree = 50, nodesize = 5, mtry = 4)
 tst.beta <- rf.tst.splits("pre-process/beta/", "model.data/beta/", 
                            features, 10, rf.beta) 
+tst.beta.df <- tst.beta %>% filter(split == "3")
 
-# Yay, you pass
+# Everything passes
 eval.tropsha(tst.beta)
+eval.tropsha(tst.beta.df)
 graph.beta <- ggplot(tst.beta, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
   theme_bw() + 
   coord_fixed()  + 
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
-       title = "Beta-CD Random Forest", color = "Test split")
+       title = "beta-CD Random Forest", color = "Test split")
 print(graph.beta)
 
-#    Gamma ----
+#   Save ----
+
+pp.settings <- readRDS("./pre-process/beta/3/pp.settings.RDS")
+saveRDS(list(pp.settings, rf.beta), "./models/beta/rf.RDS")
+saveRDS(tst.beta, "./results/beta/rf.all.RDS")
+saveRDS(tst.beta.df, "./results/beta/rf.RDS")
+
+# Gamma ----
+#   LOO-CV ----
+# None pass
+rf.gamma.q2 <-  rf.looq2("./pre-process/gamma/", nsplits = 10,
+                        ntree = 250, node = 5, m = 10)
+
+#   Test ----
+# 4 is best
+# Q2 is 0.2849, so doesn't pass despite high R2
+gamma.tst <- rf.tst("./pre-process/gamma/", "./model.data/gamma/", 
+                    nsplits = 10, ntree = 250, node = 5, m = 10)
+gamma.1to1 <- gamma.tst %>% filter(trn.split == tst.split)
+gamma.avg <- data.table(gamma.tst, key = 'trn.split')
+gamma.avg <- gamma.avg[ , list(r2 = mean(r2), 
+                             rmse = mean(rmse)), 
+                      by = trn.split] %>% print()
+
+#   Model ----
 
 trn.gamma <- readRDS("./pre-process/gamma/4/pp.RDS") %>%
   select(., -guest)
@@ -265,9 +278,12 @@ trn.gamma.y <- trn.gamma$DelG
 rf.gamma <- randomForest(x = trn.gamma.x, y = trn.gamma.y, 
                          ntree = 250, nodesize = 5, mtry = 10)
 tst.gamma <- rf.tst.splits("pre-process/gamma/", "model.data/gamma/", 
-                           features, 10, rf.gamma)
-# Oh no, you fail
+                          features, 10, rf.gamma) 
+tst.gamma.df <- tst.gamma %>% filter(split == "4")
+
+# Everything passes
 eval.tropsha(tst.gamma)
+eval.tropsha(tst.gamma.df)
 graph.gamma <- ggplot(tst.gamma, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
   theme_bw() + 
@@ -277,23 +293,9 @@ graph.gamma <- ggplot(tst.gamma, aes(x = obs, y = pred, color = split)) +
        title = "Gamma-CD Random Forest", color = "Test split")
 print(graph.gamma)
 
-#     Saving models ----
-
-pp.settings <- readRDS("./pre-process/alpha/6/pp.settings.RDS")
-saveRDS(list(pp.settings, rf.alpha), "./models/alpha/rf.RDS")
-saveRDS(tst.alpha.df, "./results/alpha/rf.RDS")
-print(graph.alpha)
-ggsave("./results/alpha/rf.png")
-
-
-pp.settings <- readRDS("./pre-process/beta/3/pp.settings.RDS")
-saveRDS(list(pp.settings, rf.beta), "./models/beta/rf.RDS")
-saveRDS(tst.beta.df, "./results/beta/rf.RDS")
-print(graph.beta)
-ggsave("./results/beta/rf.png")
+#   Save ----
 
 pp.settings <- readRDS("./pre-process/gamma/4/pp.settings.RDS")
 saveRDS(list(pp.settings, rf.gamma), "./models/gamma/rf.RDS")
-saveRDS(tst.gamma, "./results/gamma/rf.RDS")
-print(graph.gamma)
-ggsave("./results/gamma/rf.png")
+saveRDS(tst.gamma, "./results/gamma/rf.all.RDS")
+saveRDS(tst.gamma.df, "./results/gamma/rf.RDS")

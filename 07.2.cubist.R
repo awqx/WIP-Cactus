@@ -1,11 +1,5 @@
 source("./07.model.functions.R")
-source("eval.functions.R")
-
-# Libraries and Packages --------------------------------------------------
-
-library(caret)
-library(Cubist)
-library(tidyverse)
+p_load(Cubist)
 
 # Functions ---------------------------------------------------------------
 
@@ -141,45 +135,22 @@ cube.tst.splits <- function(pp.dir, tst.dir, feat, nsplits, model) {
   return(tst.all)
 }
 
-# LOOCV-Q2 ----------------------------------------------------------------
-
-# Alpha - 1, 4, 5, 8, 10
+# Alpha ----
+#   LOO-CV ----
+#  1, 4, 5, 8, 10
 cube.alpha.q2 <- cubist.looq2(read.dir = "./pre-process/alpha/", 
                               nsplits = 10, seed = 101,
                               cmte = 90, extra = 10)
-# Beta - All
-cube.beta.q2 <- cubist.looq2(read.dir = "./pre-process/beta/", 
-                             nsplits = 10, seed = 101, 
-                             cmte = 50, extra = 40)
-# Gamma - none pass
-cube.gamma.q2 <- cubist.looq2(read.dir = "./pre-process/gamma/", 
-                             nsplits = 10, seed = 101, 
-                             cmte = 100, extra = 20)
 
-# Test sets ---------------------------------------------------------------
+#   Test ----
 
-# ALPHA - 1
+# 1 is the best
 alpha.tst <- cube.tst("pre-process/alpha/", "model.data/alpha", 
                       nsplits = 10, seed = 101,
                       cmte = 90, extra = 10)
-saveRDS(avg.tst(alpha.tst), 'results/alpha/cube.avg.RDS')
+avg.tst(alpha.tst)
 
-# BETA - 9
-beta.tst <- cube.tst("./pre-process/beta/", "./model.data/beta", 
-                      nsplits = 10, seed = 101, 
-                     cmte = 50, extra = 40)
-saveRDS(avg.tst(beta.tst), 'results/beta/cube.avg.RDS')
-
-# GAMMA - 6
-gamma.tst <- cube.tst("./pre-process/gamma/", "./model.data/gamma", 
-                     nsplits = 10, seed = 101, 
-                     cmte = 100, extra = 20)
-saveRDS(avg.tst(gamma.tst), 'results/gamma/cube.avg.RDS')
-
-
-# Single models -----------------------------------------------------------
-
-#    Alpha ----
+#   Model ----
 
 trn.alpha <- readRDS("./pre-process/alpha/1/pp.RDS") %>%
   select(., -guest)
@@ -199,7 +170,12 @@ cube.alpha <- cubist(x = trn.alpha.x, y = trn.alpha.y,
 
 tst.alpha.df <- cube.tst.splits('pre-process/alpha/', 'model.data/alpha/', 
                                 features, 10, cube.alpha)
+tst.alpha.df2 <- tst.alpha.df %>% filter(split == "1")
+
+# All pass
 eval.tropsha(tst.alpha.df)
+eval.tropsha(tst.alpha.df2)
+
 graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
   theme_bw() + 
@@ -207,8 +183,30 @@ graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred, color = split)) +
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
        title = "Alpha-CD Cubist", color = "Test split")
+graph.alpha
 
-#    Beta ----
+#   Save ----
+
+pp.settings <- readRDS("./pre-process/alpha/1/pp.settings.RDS")
+saveRDS(list(pp.settings, cube.alpha), "./models/alpha/cube.RDS")
+saveRDS(tst.alpha.df, "./results/alpha/cube.all.RDS")
+saveRDS(tst.alpha.df2, "./results/alpha/cube.RDS")
+
+# Beta ----
+#   LOO-CV ----
+# All pass
+cube.beta.q2 <- cubist.looq2(read.dir = "./pre-process/beta/", 
+                             nsplits = 10, seed = 101, 
+                             cmte = 50, extra = 40)
+
+#   Test ----
+
+beta.tst <- cube.tst("./pre-process/beta/", "./model.data/beta", 
+                     nsplits = 10, seed = 101, 
+                     cmte = 50, extra = 40)
+avg.tst(beta.tst)
+
+#   Model ----
 
 trn.beta <- readRDS("./pre-process/beta/9/pp.RDS") %>%
   select(., -guest)
@@ -224,11 +222,16 @@ cube.beta.ctrl <- cubistControl(
 )
 
 cube.beta <- cubist(x = trn.beta.x, y = trn.beta.y,  
-                     committees = 50, 
-                     control = cube.beta.ctrl)
+                    committees = 50, 
+                    control = cube.beta.ctrl)
 
 tst.beta.df <- cube.tst.splits('pre-process/beta/', 'model.data/beta/', 
-                                features, 10, cube.beta)
+                               features, 10, cube.beta)
+tst.beta.df2 <- tst.beta.df %>% filter(split == "9")
+
+# All pass
+eval.tropsha(tst.beta.df)
+eval.tropsha(tst.beta.df2)
 
 graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
@@ -237,8 +240,33 @@ graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred, color = split)) +
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
        title = "Beta-CD Cubist", color = "Test split")
+graph.beta
 
-#    Gama ----
+#   Save ----
+
+pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
+saveRDS(list(pp.settings, cube.beta), "./models/beta/cube.RDS")
+saveRDS(tst.beta.df, "./results/beta/cube.all.RDS")
+saveRDS(tst.beta.df2, "./results/beta/cube.RDS")
+
+# Gamma ----
+
+#   LOO-CV ----
+# Gamma - none pass
+cube.gamma.q2 <- cubist.looq2(read.dir = "./pre-process/gamma/", 
+                             nsplits = 10, seed = 101, 
+                             cmte = 100, extra = 20)
+
+#   Test ----
+
+# GAMMA - 6
+gamma.tst <- cube.tst("./pre-process/gamma/", "./model.data/gamma", 
+                     nsplits = 10, seed = 101, 
+                     cmte = 100, extra = 20)
+avg.tst(gamma.tst)
+
+#   Model ----
+
 trn.gamma <- readRDS("./pre-process/gamma/6/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/gamma.vars.RDS")
@@ -258,9 +286,10 @@ cube.gamma <- cubist(x = trn.gamma.x, y = trn.gamma.y,
 
 tst.gamma.df <- cube.tst.splits('pre-process/gamma/', 'model.data/gamma/', 
                                features, 10, cube.gamma)
+tst.gamma.df2 <- tst.gamma.df %>% filter(split == "6")
 
-# Yay, you pass
 eval.tropsha(tst.gamma.df)
+eval.tropsha(tst.gamma.df2)
 graph.gamma <- ggplot(tst.gamma.df, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
   theme_bw() + 
@@ -268,24 +297,11 @@ graph.gamma <- ggplot(tst.gamma.df, aes(x = obs, y = pred, color = split)) +
   geom_abline(intercept = 0, slope = 1) + 
   labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
        title = "Gamma-CD Cubist", color = "Test split")
+graph.gamma
 
-#     Saving models ----
-
-pp.settings <- readRDS("./pre-process/alpha/1/pp.settings.RDS")
-saveRDS(list(pp.settings, cube.alpha), "./models/alpha/cube.RDS")
-saveRDS(tst.alpha.df, "./results/alpha/cube.RDS")
-print(graph.alpha)
-ggsave("./results/alpha/cube.png")
-
-
-pp.settings <- readRDS("./pre-process/beta/9/pp.settings.RDS")
-saveRDS(list(pp.settings, cube.beta), "./models/beta/cube.RDS")
-saveRDS(tst.beta.df, "./results/beta/cube.RDS")
-print(graph.beta)
-ggsave("./results/beta/cube.png")
+#     Save ----
 
 pp.settings <- readRDS("./pre-process/gamma/6/pp.settings.RDS")
 saveRDS(list(pp.settings, cube.gamma), "./models/gamma/cube.RDS")
-saveRDS(tst.gamma.df, "./results/gamma/cube.RDS")
-print(graph.gamma)
-ggsave("./results/gamma/cube.png")
+saveRDS(tst.gamma.df, "./results/gamma/cube.all.RDS")
+saveRDS(tst.gamma.df2, "./results/gamma/cube.RDS")

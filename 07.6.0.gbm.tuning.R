@@ -487,3 +487,67 @@ saveRDS(results.ntree, 'tuning/gbm/beta/ntree.RDS')
 saveRDS(results.depth, 'tuning/gbm/beta/depth.RDS')
 saveRDS(results.shrink, 'tuning/gbm/beta/shrink.RDS')
 saveRDS(results.node, 'tuning/gbm/beta/node.RDS')
+
+# Gamma ----
+#   Data ----
+
+trn.all <- readRDS("./pre-process/gamma/1/pp.RDS") 
+colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
+trn.guest <- trn.all$guest
+trn <- select(trn.all, -guest)
+
+features <- readRDS("./feature.selection/gamma.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
+
+#   Tuning ----
+
+depth.range <- 2:5
+ntree.range <- c(50, 100, 250, 500, 750)
+shrink.range <- c(0.01, 0.05, 0.1, 0.15)
+node.range <- c(1:5)
+
+gbm.combos <- expand.grid(ntree.range, 
+                          depth.range, 
+                          shrink.range, 
+                          node.range)
+ntree.combos <- gbm.combos$Var1
+depth.combos <- gbm.combos$Var2
+shrink.combos <- gbm.combos$Var3
+node.combos <- gbm.combos$Var4
+
+set.seed(1001)
+# I reduce the number of folds because gbm takes a while
+system.time(
+  gamma.tune <- do.call(
+    rbind,
+    mapply(
+      FUN = tune.gbm,
+      num = ntree.combos, 
+      d = depth.combos, 
+      s = shrink.combos,
+      n = node.combos, 
+      MoreArgs = 
+        list(nfolds = 5, data = trn), 
+      SIMPLIFY = F
+    )
+  )
+)
+# user  system elapsed 
+# 1449.98    1.99 1493.29 
+gamma.tune[order(gamma.tune$rsquared, decreasing = T), ] %>% head()
+# nfolds ntree depth shrinkage node  rsquared     rmse
+#     5    50     4      0.01    4 0.2962071 1.694684
+#     5   750     3      0.05    1 0.2951670 1.736075
+#     5   750     3      0.05    4 0.2919176 1.726329
+gamma.tune[order(gamma.tune$rmse), ] %>% head()
+# nfolds ntree depth shrinkage node  rsquared     rmse
+#     5   100     5      0.10    4 0.2676551 1.536507
+#     5    50     2      0.15    3 0.2425969 1.541477
+#     5   500     2      0.01    3 0.2789214 1.550006
+
+dir.create('tuning/gbm/gamma')
+saveRDS(gamma.tune, 'tuning/gbm/gamma/tune.RDS')
+saveRDS(results.ntree, 'tuning/gbm/gamma/ntree.RDS')
+saveRDS(results.depth, 'tuning/gbm/gamma/depth.RDS')
+saveRDS(results.shrink, 'tuning/gbm/gamma/shrink.RDS')
+saveRDS(results.node, 'tuning/gbm/gamma/node.RDS')

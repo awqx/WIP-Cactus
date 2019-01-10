@@ -11,6 +11,8 @@ compiled folds.RDS
 graphs/
 graph.formatting.R
 graph.functions.R
+graphs.R
+plos.figures.R
 release/
 qspr.process.html
 qspr.process.nb.html

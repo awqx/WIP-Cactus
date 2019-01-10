@@ -141,19 +141,23 @@ gbm.tst.splits <- function(pp.dir, tst.dir, feat, nsplits, num, model) {
   tst.all$split <- as.factor(tst.all$split)
   return(tst.all)
 }
-# Alpha -------------------------------------------------------------------
+# Alpha ------
 
+#   LOO-CV ----
 # All pass 
 alpha.q2 <- gbm.looq2("./pre-process/alpha/", 10, 500, 4, .01, 4)
+
+#   Test ----
+
+# 2
 alpha.tst <- gbm.tst("./pre-process/alpha/", "./model.data/alpha/", 10,
                      500, 4, .01, 4)
 alpha.1to1 <- alpha.tst %>% filter(trn.split == tst.split)
 alpha.avg <- data.table(alpha.tst, key = 'trn.split')
-# 2
 alpha.avg <- alpha.avg[ , list(r2 = mean(r2), 
                                rmse = mean(rmse)), 
                         by = trn.split] %>% print()
-
+#   Model ----
 trn.alpha <- readRDS("./pre-process/alpha/2/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/alpha.vars.RDS")
@@ -170,11 +174,14 @@ gbm.alpha <- gbm.fit(trn.alpha.x,
                      interaction.depth = 4, 
                      shrinkage = 0.01, 
                      n.minobsinnode = 4)
-alpha.single <- gbm.tst.splits("pre-process/alpha/", "model.data/alpha/", 
-                                   features, 10, 500, gbm.alpha)
+tst.alpha.df <- gbm.tst.splits("pre-process/alpha/", "model.data/alpha/", 
+                               features, 10, 500, gbm.alpha)
+tst.alpha.df2 <- tst.alpha.df %>% filter(split == "2")
 
-eval.tropsha(alpha.single)
-graph.alpha <- ggplot(alpha.single, aes(x = obs, y = pred, color = split)) + 
+eval.tropsha(tst.alpha.df)
+eval.tropsha(tst.alpha.df2)
+
+graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
   theme_bw() + 
   coord_fixed()  + 
@@ -183,27 +190,32 @@ graph.alpha <- ggplot(alpha.single, aes(x = obs, y = pred, color = split)) +
        title = "Alpha-CD GBM", color = "Test split")
 print(graph.alpha)
 
+#   Save ----
+
 pp.settings <- readRDS("./pre-process/alpha/2/pp.settings.RDS")
 saveRDS(list(pp.settings, gbm.alpha), "./models/alpha/gbm.RDS")
-saveRDS(alpha.single, "./results/alpha/gbm.RDS")
-print(graph.alpha)
-ggsave("./results/alpha/gbm.png")
+saveRDS(tst.alpha.df, "./results/alpha/gbm.allRDS")
+saveRDS(tst.alpha.df2, "./results/alpha/gbm.RDS")
 
-# Beta --------------------------------------------------------------------
+# Beta -----
 
+#   Loo-CV ----
 beta.q2 <- gbm.looq2("./pre-process/beta/", 10,
                      500, 5, .01, 1)
 
+#   Test ----
+
+# 10
 beta.tst <- gbm.tst("./pre-process/beta/", "./model.data/beta/", 10,
                      500, 5, .01, 1)
 beta.1to1 <- beta.tst %>% filter(trn.split == tst.split)
 beta.avg <- data.table(beta.tst, key = 'trn.split')
-# 10
+
 beta.avg <- beta.avg[ , list(r2 = mean(r2), 
                                rmse = mean(rmse)), 
                         by = trn.split] %>% print()
 
-
+#   Model ----
 trn.beta <- readRDS("./pre-process/beta/10/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/beta.vars.RDS")
@@ -220,10 +232,15 @@ gbm.beta <- gbm.fit(trn.beta.x,
                      interaction.depth = 5, 
                      shrinkage = 0.01, 
                      n.minobsinnode = 1)
-beta.single <- gbm.tst.splits("pre-process/beta/", "model.data/beta/", 
-                                   features, 10, 500, gbm.beta) 
-eval.tropsha(beta.single)
-graph.beta <- ggplot(beta.single, aes(x = obs, y = pred, color = split)) + 
+tst.beta.df <- gbm.tst.splits("pre-process/beta/", "model.data/beta/", 
+                               features, 10, 500, gbm.beta)
+tst.beta.df2 <- tst.beta.df %>% filter(split == "10")
+
+# All pass
+eval.tropsha(tst.beta.df)
+eval.tropsha(tst.beta.df2)
+
+graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred, color = split)) + 
   geom_point() + 
   theme_bw() + 
   coord_fixed()  + 
@@ -232,8 +249,66 @@ graph.beta <- ggplot(beta.single, aes(x = obs, y = pred, color = split)) +
        title = "Beta-CD GBM", color = "Test split")
 print(graph.beta)
 
+#   Save ----
+
 pp.settings <- readRDS("./pre-process/beta/10/pp.settings.RDS")
 saveRDS(list(pp.settings, gbm.beta), "./models/beta/gbm.RDS")
-saveRDS(beta.single, "./results/beta/gbm.RDS")
-print(graph.beta)
-ggsave("./results/beta/gbm.png")
+saveRDS(tst.beta.df, "./results/beta/gbm.allRDS")
+saveRDS(tst.beta.df2, "./results/beta/gbm.RDS")
+
+# gamma -----
+
+#   Loo-CV ----
+gamma.q2 <- gbm.looq2("./pre-process/gamma/", 10,
+                     50, 4, .01, 4)
+
+#   Test ----
+
+# 7
+gamma.tst <- gbm.tst("./pre-process/gamma/", "./model.data/gamma/", 10,
+                    50, 4, .01, 4)
+gamma.1to1 <- gamma.tst %>% filter(trn.split == tst.split)
+gamma.avg <- data.table(gamma.tst, key = 'trn.split')
+gamma.avg <- gamma.avg[ , list(r2 = mean(r2), 
+                             rmse = mean(rmse)), 
+                      by = trn.split] %>% print()
+
+#   Model ----
+
+trn.gamma <- readRDS("./pre-process/gamma/7/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/gamma.vars.RDS")
+colnames(trn.gamma) <- str_replace(colnames(trn.gamma), "-", ".")
+trn.gamma <- trn.gamma %>% select(., DelG, features) 
+trn.gamma.x <- select(trn.gamma, -DelG) 
+trn.gamma.y <- trn.gamma$DelG
+
+gbm.gamma <- gbm.fit(trn.gamma.x, 
+                    trn.gamma.y, 
+                    distribution = 'gaussian', 
+                    verbose = F, 
+                    n.trees = 50, 
+                    interaction.depth = 4, 
+                    shrinkage = 0.01, 
+                    n.minobsinnode = 4)
+tst.gamma.df <- gbm.tst.splits("pre-process/gamma/", "model.data/gamma/", 
+                              features, 10, 50, gbm.gamma)
+tst.gamma.df2 <- tst.gamma.df %>% filter(split == "7")
+
+# All pass
+eval.tropsha(tst.gamma.df)
+eval.tropsha(tst.gamma.df2)
+
+graph.gamma <- ggplot(tst.gamma.df, aes(x = obs, y = pred, color = split)) + 
+  geom_point() + 
+  theme_bw() + 
+  coord_fixed()  + 
+  geom_abline(intercept = 0, slope = 1) + 
+  labs(x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol", 
+       title = "Gamma-CD GBM", color = "Test split")
+print(graph.gamma)
+
+#   Save ----
+
+saveRDS(tst.gamma.df, "./results/gamma/gbm.allRDS")
+saveRDS(tst.gamma.df2, "./results/gamma/gbm.RDS")
