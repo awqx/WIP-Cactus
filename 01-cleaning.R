@@ -155,3 +155,13 @@ saveRDS(combined, "cleaning/ri-suzuki.RDS")
 # solution
 # File found from University of Wisconsin archives
 # Thanks to Debra King and Joni Mitchell 
+
+
+# Singh (gamma-CD) --------------------------------------------------------
+
+singh <- readRDS("dwnld/singh.RDS") %>%
+  select(guest, gamma) %>%
+  mutate(host = "gamma", guest = tolower(guest)) %>%
+  rename(dG = gamma) %>%
+  select(guest, host, dG)
+saveRDS(singh, "cleaning/singh.RDS")
