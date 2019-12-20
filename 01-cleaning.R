@@ -7,7 +7,7 @@ if(!dir.exists("cleaning")) dir.create("cleaning")
 
 # Rekharsky and Inoue -----------------------------------------------------
 
-ri_df <- readRDS("./dwnld/ri-df.RDS") # 1367 observations
+ri_df <- readRDS("dwnld/ri-df.RDS") # 1367 observations
 
 # split columns with error
 ri_clean <- ri_df %>%
@@ -100,6 +100,7 @@ saveRDS(ri_clean, "cleaning/ri-clean.RDS")
 suz_clean <- readRDS("dwnld/suzuki-df.RDS") %>%
   mutate(dG = str_replace(dG, "\u2212", "-")) %>%
   mutate(dG = as.numeric(dG)) %>%
+  mutate(guest = str_replace(guest, "\u2009", " ")) %>%
   filter(!is.na(dG))
 saveRDS(suz_clean, "cleaning/suzuki-clean.RDS")
 
