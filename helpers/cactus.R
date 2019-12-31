@@ -14,6 +14,7 @@ lapply(packages, require, character.only = T)
 #   write.table(file = path)
 # }
 
+# escapes special regex characters in a string
 make_regex <- function(s) {
   str_replace_all(
     s, pattern = "\\(", 
@@ -28,6 +29,7 @@ make_regex <- function(s) {
       replacement = "\\\\-")
 }
 
+# takes molecule name and downloads the SDF from NCI
 download_sdf <- function(guest, path, chemical_format) {
   report <- tryCatch({ 
     destfile   <- paste0(path, "/", guest, ".SDF")
@@ -75,4 +77,30 @@ download_sdf <- function(guest, path, chemical_format) {
     message(paste0("Processed ", guest))
   })
   return(report)
+}
+
+# combines a directory of SDFs into one SDF w/ mol name = filename
+combine_sdf <- function(mol_dir) {
+  mol_files <- list.files(mol_dir, full.names = T)
+  mol_names <- list.files(mol_dir) %>%
+    str_remove(".SDF")
+
+  # Removing empty files
+  mol_info  <- lapply(mol_files, file.info) %>%
+    lapply(function(x) x$size > 30) %>%
+    unlist()
+  mol_files <- mol_files[mol_info]
+  mol_names <- mol_names[mol_info]
+
+  # Reading into a list
+  sdf_list <- lapply(
+    mol_files, 
+    read.csv, 
+    header = F, 
+    stringsAsFactors = F)
+  # Assigning the correct names
+  for(i in 1:length(sdf_list)) sdf_list[[i]][1, ] <- mol_names[i]
+
+  # return combined list
+  do.call(rbind, sdf_list)
 }

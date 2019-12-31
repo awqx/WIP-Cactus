@@ -6,9 +6,9 @@ source("helpers/cactus.R")
 
 if(!dir.exists("molecules")) {
   dir.create("molecules")
-  dir.create("molecules/alphaCD")
-  dir.create("molecules/betaCD")
-  dir.create("molecules/gammaCD")  
+  dir.create("molecules/alpha")
+  dir.create("molecules/beta")
+  dir.create("molecules/gamma")  
 }
 
 ri_suzuki <-readRDS("cleaning/ri-suzuki.RDS") %>% select(-paper)
@@ -80,7 +80,7 @@ gamma.guest <- dataset %>% filter(host == "gamma") %>%
 
 # Cactus Download ---------------------------------------------------------
 
-# AlphaCD
+# alpha
 #     Creates a dataframe of results; SDFs downloaded to disk
 results_a <-
   do.call(
@@ -88,7 +88,7 @@ results_a <-
     lapply(
       filter(dataset, host == "alpha")$guest,
       download_sdf,
-      path = "./molecules/alphaCD",
+      path = "./molecules/alpha",
       chemical_format = "SDF"
     )
   ) %>% 
@@ -101,7 +101,7 @@ results_b <-
     lapply(
       filter(dataset, host == "beta")$guest,
       download_sdf,
-      path = "./molecules/betaCD",
+      path = "./molecules/beta",
       chemical_format = "SDF"
     )
   ) %>% 
@@ -114,7 +114,7 @@ results_c <-
     lapply(
       filter(dataset, host == "gamma")$guest,
       download_sdf,
-      path = "./molecules/gammaCD",
+      path = "./molecules/gamma",
       chemical_format = "SDF"
     )
   ) %>% 
@@ -123,5 +123,22 @@ results_c <-
 results <- rbind(results_a, results_b, results_c)
 saveRDS(results, "cleaning/cactus-results.RDS")
 
-# failed_sdfs <- results %>% 
-#   filter(downloaded == "no")
+
+# Combine SDFs ------------------------------------------------------------
+
+# a single SDF is more convenient for OpenBabel
+alpha_sdf <- combine_sdf("molecules/alpha")
+write.table(
+  alpha_sdf, "molecules/alpha.SDF",
+  row.names = F, col.names = F, quote = F
+)
+beta_sdf <- combine_sdf("molecules/beta")
+write.table(
+  beta_sdf, "molecules/beta.SDF",
+  row.names = F, col.names = F, quote = F
+)
+gamma_sdf <- combine_sdf("molecules/gamma")
+write.table(
+  gamma_sdf, "molecules/gamma.SDF",
+  row.names = F, col.names = F, quote = F
+  )
