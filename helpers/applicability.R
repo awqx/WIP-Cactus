@@ -72,21 +72,22 @@ use_sds <- function(data, sd_list) {
 
 # Precondition: data is the result of standardize
 # standard deviation has been centered to be 1
-
 domain_num <- function(data) {
   newSk <- c(rep(0, nrow(data)))
-  # Checking if first column is "guest
+  # Checking if first column is "guest"
   if (class(data[, 1]) != "numeric") {
     guest <- data[, 1]
     data <- sapply(data[, -1], abs)
-    if(nrow(data) == 1)
+    if(nrow(data) == 1) {
       result <- mean(
         as.numeric(data[1, ], na.rm = T) + 1.28 * find_sd(as.numeric(data[1, ])))
-    else
+      result <- data.frame(result)
+    } else {
       result <-
         apply(data, 1, function(x)
           mean(as.numeric(x), na.rm = T) + 1.28 * find_sd(as.numeric(x))) %>%
         as.data.frame()
+    }
     result <- data.frame(guest, result) %>%
       mutate(guest = as.character(guest))
     colnames(result)[2] <- "newSk"
