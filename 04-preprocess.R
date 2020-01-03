@@ -239,11 +239,15 @@ saveRDS(gamma_features, "modeling-data/gamma/predictors.RDS")
 alpha <- readRDS("modeling-data/alpha/unprocessed.RDS") %>%
   select(readRDS("modeling-data/alpha/predictors.RDS")) %>%
   center_scale()
+alpha_guest_dg <- readRDS("modeling-data/alpha/unprocessed.RDS") %>%
+  select(guest, dG)
 alpha_pp <- data.frame(alpha_guest_dg, alpha[[1]])
 saveRDS(alpha_pp, "modeling-data/alpha/preprocessed.RDS")
 saveRDS(alpha[[2]], "modeling-data/alpha/preprocess-settings.RDS")
 
 beta <- readRDS("modeling-data/beta/unprocessed.RDS")
+beta_guest_dg <- readRDS("modeling-data/beta/unprocessed.RDS") %>%
+  select(guest, dG)
 beta <- beta %>%
   select(readRDS("modeling-data/beta/predictors.RDS")) %>%
   center_scale()
@@ -254,6 +258,8 @@ saveRDS(beta[[2]], "modeling-data/beta/preprocess-settings.RDS")
 gamma <- readRDS("modeling-data/gamma/unprocessed.RDS") %>%
   select(readRDS("modeling-data/gamma/predictors.RDS")) %>%
   center_scale()
+gamma_guest_dg <- readRDS("modeling-data/gamma/unprocessed.RDS") %>%
+  select(guest, dG)
 gamma_pp <- data.frame(gamma_guest_dg, gamma[[1]])
 saveRDS(gamma_pp, "modeling-data/gamma/preprocessed.RDS")
 saveRDS(gamma[[2]], "modeling-data/gamma/preprocess-settings.RDS")
@@ -261,10 +267,17 @@ saveRDS(gamma[[2]], "modeling-data/gamma/preprocess-settings.RDS")
 # Splitting Data ----------------------------------------------------------
 
 # Multiple combinations of test and train sets should be created in order
-# to fully validate the models. No specification was made in the paper
-# as to how many different splits should be created, exactly, so I
-# decided 10 sets would be created
+# to fully validate the models. 
 
-save_splits(10, alpha_pp, "modeling-data/alpha/split")
-save_splits(10, beta_pp, "modeling-data/beta/split")
-save_splits(10, gamma_pp, "modeling-data/gamma/split")
+saveRDS(
+  split_train_test(10, alpha_pp), 
+  "modeling-data/alpha/split.RDS"
+)
+saveRDS(
+  split_train_test(10, beta_pp), 
+  "modeling-data/beta/split.RDS"
+)
+saveRDS(
+  split_train_test(10, gamma_pp), 
+  "modeling-data/gamma/split.RDS"
+)
