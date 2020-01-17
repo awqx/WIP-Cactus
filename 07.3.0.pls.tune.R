@@ -140,7 +140,7 @@ saveRDS(results.methods, "./tuning/pls/alpha/methods.RDS")
 
 #     Number of components ------------------------------------------------
 
-ncomp.range <- c(1:5, 8, 13, 20)
+ncomp.range <- c(1:5, 8, 13)
 results1.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
                                           data = trn, nfolds = 10, seed = 101))
 results2.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
@@ -175,15 +175,16 @@ system.time(
 # system.time
 # user  system elapsed 
 # 4.77    0.02    4.84 
+# 5.72    0.00    5.82
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds ncomp        method  rsquared     rmse
+#    10     8     kernelpls 0.5681803 2.960522
+#    10     5        simpls 0.5627528 2.992275
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# r2 = 0.507, rmse = 3.46
-# ncomp = 8, method = "simpls"
-
-# r2 = 0.502, rmse = 3.42
-# ncomp = 8. methpd = oscorelpls
+# nfolds ncomp        method  rsquared     rmse
+#    10    13    oscorespls 0.5603242 2.918423
+#    10    13        simpls 0.5385912 2.935400
 
 saveRDS(results.combos, "./tuning/pls/alpha/tune.RDS")
 results.combos <- results.combos %>%
@@ -224,7 +225,7 @@ saveRDS(results.methods, "./tuning/pls/beta/methods.RDS")
 
 #     Number of components ------------------------------------------------
 
-ncomp.range <- c(1:5, 10, 15, 25)
+ncomp.range <- c(1:5, 10, 16)
 results1.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
                                         data = trn, nfolds = 10, seed = 101))
 results2.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
@@ -259,13 +260,16 @@ system.time(
 # system.time
 #  user  system elapsed 
 # 15.59    0.05   15.83 
+# 17.06    0.33   18.00 
 
 results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# nfolds ncomp        method  rsquared     rmse
+#    10    16    oscorespls 0.5371219 3.162317
+#    10    10     kernelpls 0.5310655 3.180940
 results.combos[order(results.combos$rmse), ] %>% head()
-
-# r2 = 0.644, rmse = 3.21
-# ncomp = 25, method = simpls
-
+# nfolds ncomp        method  rsquared     rmse
+#    10    16     kernelpls 0.5145462 3.115462
+#    10    16        simpls 0.5239408 3.143840
 
 saveRDS(results.combos, "./tuning/pls/beta/tune.RDS")
 results.combos <- results.combos %>%
@@ -279,4 +283,95 @@ ggplot(results.combos, aes(x = ncomp, y = method, fill = rsquared)) +
        fill = "R2")
 ggsave("./tuning/pls/beta/tune.png", dpi = 450)
 
-# General peak around 25 number of components. May be able to push higher. 
+# The tuning shows variations in the method used, but in practice there
+# is usually very little difference. SIMPLS seems like the way to go.
+# Gamma ------------------------------------------------------------------
+
+#     Loading Data --------------------------------------------------------
+
+dir.create("./tuning/pls/gamma")
+
+# Reading data with all descriptors
+trn.all <- readRDS("./pre-process/gamma/1/pp.RDS") 
+colnames(trn.all) <- str_replace(colnames(trn.all), "-", ".")
+trn.guest <- trn.all$guest
+trn <- select(trn.all, -guest)
+
+features <- readRDS("./feature.selection/gamma.vars.RDS")
+trn <- trn[ , colnames(trn) %in% c("DelG", features)]
+
+#     Method --------------------------------------------------------------
+
+method.range <- c("kernelpls", "simpls", "oscorespls", "widekernelpls")
+results1.methods <- do.call(rbind, lapply(method.range, FUN = tune.pls.method, 
+                                          data = trn, nfolds = 10, seed = 101))
+results2.methods <- do.call(rbind, lapply(method.range, FUN = tune.pls.method, 
+                                          data = trn, nfolds = 10, seed = 102))
+results.methods <- rbind(results1.methods, results2.methods)
+saveRDS(results.methods, "./tuning/pls/gamma/methods.RDS")
+
+#     Number of components ------------------------------------------------
+
+ncomp.range <- c(1:5, 10, 15, 25)
+results1.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
+                                        data = trn, nfolds = 10, seed = 101))
+results2.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
+                                        data = trn, nfolds = 10, seed = 102))
+results3.ncomp <- do.call(rbind, lapply(ncomp.range, FUN = tune.pls.ncomp, 
+                                        data = trn, nfolds = 10, seed = 103))
+results.ncomp <- rbind(results1.ncomp, results2.ncomp, results3.ncomp) %>%
+  mutate(seed = as.factor(seed))
+ggplot(results.ncomp, aes(x = ncomp, y = rsquared, color = seed)) + 
+  geom_line() + 
+  theme_bw()
+saveRDS(results.ncomp, "./tuning/pls/gamma/ncomp.RDS")  
+
+#     Tuning --------------------------------------------------------------
+
+pls.combos <- expand.grid(as.character(method.range), ncomp.range)
+colnames(pls.combos) <- c("method", "ncomp")
+method.combos <- pls.combos$method %>% as.character()
+ncomp.combos <- pls.combos$ncomp
+
+set.seed(1001)
+system.time(
+  results.combos <- do.call(
+    rbind,
+    mapply(
+      FUN = tune.pls,
+      comp = ncomp.combos,
+      met = method.combos,
+      MoreArgs = 
+        list(nfolds = 10, data = trn), 
+      SIMPLIFY = F
+    )
+  )
+)
+
+# system.time
+#  user  system elapsed 
+# 10.53    0.07   11.30 
+
+results.combos[order(results.combos$rsquared, decreasing = T), ] %>% head()
+# 10     1 widekernelpls 0.3592355 1.678300
+# 10     1     kernelpls 0.2797436 1.710834
+results.combos[order(results.combos$rmse), ] %>% head()
+# nfolds ncomp        method   rsquared     rmse
+# 10     4 widekernelpls 0.2198986 1.660071
+# 10     5 widekernelpls 0.2178128 1.676818
+
+saveRDS(results.combos, "./tuning/pls/gamma/tune.RDS")
+results.combos <- results.combos %>%
+  mutate(ncomp = as.factor(ncomp), method = as.factor(method))
+ggplot(results.combos, aes(x = ncomp, y = method, fill = rsquared)) + 
+  geom_raster() + 
+  scale_fill_gradientn(colours = terrain.colors(20)) + 
+  theme_bw() + 
+  labs(title = "GLMNet tuning for gamma-CD", 
+       x = "Number of components", y = "Maximum degrees of freedom", 
+       fill = "R2")
+ggsave("./tuning/pls/gamma/tune.png", dpi = 450)
+
+# The tuning shows variations in the method used, but in practice there
+# is usually very little difference. oscorespls is preferred because it
+# is the only one whose variable imporance can be measured

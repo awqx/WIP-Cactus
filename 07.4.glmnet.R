@@ -1,16 +1,10 @@
-dir.create("./models/glmnet")
-
-# Libraries ---------------------------------------------------------------
-
-library(caret)
-library(glmnet)
-library(tidyverse)
 source("./07.model.functions.R")
+p_load(glmnet)
 
 # Functions ---------------------------------------------------------------
 
 glm.looq2 <- function(read.dir, nsplits, a, max) {
-  # initialize a vector for analysis
+  trn.split <- 1:nsplits
   q2.results <- c(rep(0.0, nsplits))
   if(str_detect(read.dir, "alpha"))
     features <- readRDS("./feature.selection/alpha.vars.RDS")
@@ -22,7 +16,8 @@ glm.looq2 <- function(read.dir, nsplits, a, max) {
     data <- readRDS(paste0(read.dir, n, "/pp.RDS")) %>%
       select(., -guest)
     obs <- data[ , 1]
-    data <- data %>% select(., DelG, features) %>% data.matrix()
+    data <- data %>% select(., DelG, one_of(features)) %>%
+      data.matrix()
     pred <- c(rep(0.0, nrow(data) - 1))
     # In this loop, i represents the index of the datapoint left out of 
     # model building
@@ -66,215 +61,207 @@ glm.looq2 <- function(read.dir, nsplits, a, max) {
     message("Q2 = ", q2)
     q2.results[n] <- q2
   }
-  return(mean(q2.results))
+  return(data.frame(trn.split, q2.results))
 }
 
 glm.tst <- function(pp.dir, tst.dir, nsplits, a, max) {
-  split <- 1:nsplits
-  r2.results <- rep(0.0, nsplits)
-  rmse.results <- rep(0.0, nsplits)
   if(str_detect(pp.dir, "alpha"))
     features <- readRDS("./feature.selection/alpha.vars.RDS")
-  else
+  else if(str_detect(pp.dir, "beta"))
     features <- readRDS("./feature.selection/beta.vars.RDS")
-  for(n in 1:nsplits) {
+  else
+    features <- readRDS("./feature.selection/gamma.vars.RDS")
+  results.all <- data.frame()
+  
+  for(i in 1:nsplits) {
     # Reading the training data
-    trn <- readRDS(paste0(pp.dir, n, "/pp.RDS")) %>%
+    trn <- readRDS(paste0(pp.dir, i, "/pp.RDS")) %>%
       select(., -guest)
-    trn.x <- select(trn, features) %>% data.matrix()
+    trn.x <- select(trn, one_of(features)) %>% data.matrix()
     trn.y <- select(trn, DelG) %>% data.matrix()
-    
-    # Reading and pre-processing the test set
-    tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
-                              feat = features, n = n)
-    tst.y <- data.matrix(tst)[ , 1, drop = F]
-    tst.x <- data.matrix(tst)[ , -1]
-    # Building the model
     glm.mod <- glmnet(x = trn.x, y = trn.y, 
                       dfmax = max, alpha = a,
                       pmax = ncol(trn.x), 
                       family = "mgaussian")
-    tst.df <- predict.glmnet(glm.mod, newx = tst.x, 
-                             s = tail(glm.mod$lambda, n = 1)) %>%
-      cbind(tst.y, .) %>%
-      as.data.frame()
-    colnames(tst.df) <- c("obs", "pred")
-    for(i in 1:nrow(tst.df))
-      if(abs(tst.df$pred[i]) > 100)
-        tst.df$pred[i] <- mean(trn.y)
-    tst.df <- tst.df[complete.cases(tst.df), ]
-    p <- ggplot(tst.df, aes(x = obs, y = pred)) + 
+    tst.all <- data.frame()
+    for(j in 1:nsplits) {
+      tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
+                                feat = colnames(trn.x), n = j)
+      tst.y <- data.matrix(tst)[ , 1, drop = F]
+      tst.x <- data.matrix(tst)[ , -1]
+      tst.df <- predict.glmnet(glm.mod, newx = tst.x, 
+                               s = tail(glm.mod$lambda, n = 1)) %>%
+        cbind(tst.y, .) %>%
+        as.data.frame()
+      colnames(tst.df) <- c("obs", "pred")
+      tst.df <- tst.df %>% mutate(split = j)
+      
+      for(k in 1:nrow(tst.df))
+        if(abs(tst.df$pred[k]) > 100)
+          tst.df$pred[k] <- mean(trn.y)
+      
+      results.tst <- data.frame(trn.split = i, tst.split = j, 
+                                r2 = defaultSummary(tst.df)[2], 
+                                rmse = defaultSummary(tst.df)[1])
+      results.all <- rbind(results.all, results.tst)
+      tst.all <- rbind(tst.all, tst.df)
+    }
+  
+    tst.all$split <- as.factor(tst.all$split)
+    p <- ggplot(tst.all, aes(x = obs, y = pred, color = split)) + 
       geom_point() + 
       theme_bw() + 
-      labs(title = n) + 
+      labs(title = i) + 
       geom_abline(slope = 1, intercept = 0) + 
       coord_fixed()
     print(p)
-    r2.results[n] <- defaultSummary(tst.df)[2]
-    rmse.results[n] <- defaultSummary(tst.df)[1]
   }
-  return(data.frame(split, r2.results, rmse.results))
+  row.names(results.all) <- NULL
+  return(results.all)
 }
 
+glm.tst.splits <- function(pp.dir, tst.dir, feat, nsplits, model) {
+  tst.all <- data.frame()
+  for (j in 1:nsplits) {
+    tst <- preprocess.tst.mod(pp.dir = pp.dir, tst.dir = tst.dir, 
+                              feat = feat, n = j) 
+    tst.y <- data.matrix(tst)[ , 1, drop = F]
+    tst.x <- data.matrix(tst)[ , -1]
+    
+    tst.df <- predict.glmnet(model, tst.x, 
+                             s = tail(model$lambda, n = 1)) %>%
+      cbind(tst.y, .) %>% as.data.frame() 
+    colnames(tst.df) <- c("obs", "pred")
+    tst.df <- tst.df %>% mutate(split = j)
+    
+    for(k in 1:nrow(tst.df))
+      if(abs(tst.df$pred[k]) > 100)
+        tst.df$pred[k] <- mean(trn.y)
+    
+    tst.all <- rbind(tst.all, tst.df)
+  }
+  tst.all$split <- as.factor(tst.all$split)
+  return(tst.all)
+}
 
-# LOO-Q2 analysis ---------------------------------------------------------
+# Alpha ----
+#   LOO-CV ----
 
-# Alpha
-# Everything except 4, 6, 9, 10
-# 0.503
-glm.looq2("./pre-process/alpha/", nsplits = 10, a = 0.9, max = 13)
+# 1, 4, 5, 6, 8, 10
+glm.looq2("./pre-process/alpha/", nsplits = 10, a = 0.6, max = 13)
 
-# Beta
-# Everything except 1, 8
-# 0.535
-glm.looq2("./pre-process/beta/", nsplits = 10, a = 0.85, max = 11) # 0.536
+#   Test ----
 
-glm.looq2("./pre-process/gamma/", nsplits = 10, a = 0.7, max = 20) # 0.536
-
-
-# Test sets ---------------------------------------------------------------
-
-# Split 2 or 5 turned out the best, R2 = 0.714, .609 
-# split r2.results rmse.results
-#  2  0.6269625     2.968312
-#  5  0.6540026     2.759815
+# None pass, best is 8
 alpha.tst <- glm.tst("./pre-process/alpha/", "./model.data/alpha/", 
-                     nsplits = 10, a = 0.9, max = 13)
+                     nsplits = 10, a = 0.6, max = 13) 
+alpha.1to1 <- alpha.tst %>% filter(trn.split == tst.split) %>% print()
+alpha.avg <- avg.tst(alpha.tst) %>% print()
 
-# All passed except 4 (0.592)
-# Split 6 turned out the best, r2 = 0.758
-beta.tst <- glm.tst("./pre-process/beta/", "./model.data/beta/", 
-                    nsplits = 10, a = 85, max = 11)
+#    Model ----
 
-# Single model ------------------------------------------------------------
-
-#     Alpha ----
-
-trn.alpha <- readRDS("./pre-process/alpha/5/pp.RDS") %>%
+trn.alpha <- readRDS("./pre-process/alpha/8/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/alpha.vars.RDS")
 colnames(trn.alpha) <- str_replace(colnames(trn.alpha), "-", ".")
 trn.alpha <- trn.alpha %>% select(., DelG, features) 
 trn.alpha.x <- select(trn.alpha, -DelG) %>% data.matrix()
-trn.alpha.y <- select(trn.alpha, DelG) %>% data.matrix()
+trn.alpha.y <- trn.alpha$DelG %>% data.matrix()
 
-glm.alpha <- glmnet(x = trn.alpha.x, y = trn.alpha.y, 
-                  dfmax = 15, alpha = 0.8,
-                  pmax = ncol(trn.alpha.x), 
-                  family = "mgaussian")
+glm.alpha <- glmnet(x = trn.alpha.x, 
+                    y = trn.alpha.y, 
+                    alpha = 0.6, 
+                    dfmax = 13, 
+                    family = "mgaussian")
+tst.alpha.df <- glm.tst.splits("pre-process/alpha/", "model.data/alpha/", 
+                               features, 10, glm.alpha)
+tst.alpha.df2 <- tst.alpha.df %>% filter(split == "8")
 
-tst.alpha <- preprocess.tst.mod("./pre-process/alpha/", "./model.data/alpha/", 
-                                features, 5) %>% data.matrix()
-tst.alpha.x <- tst.alpha[ , -1]
-tst.alpha.y <- tst.alpha[ , 1, drop = F]
-
-tst.alpha.df <- predict.glmnet(glm.alpha, tst.alpha.x, 
-                               s = tail(glm.alpha$lambda, n = 1)) %>%
-  cbind(tst.alpha.y, .) %>% data.frame()
-colnames(tst.alpha.df) <- c("obs", "pred")
 eval.tropsha(tst.alpha.df)
+eval.tropsha(tst.alpha.df2)
 
-graph.alpha <- ggplot(tst.alpha.df, aes(x = obs, y = pred)) +
-  geom_point() +
-  theme_bw() +
-  coord_fixed()  +
-  geom_abline(intercept = 0, slope = 1) + 
-  labs(x = "Observed dG, kJ/mol", y = "Experimental dG, kJ/mol", 
-       title = "GLMNet for Alpha")
-print(graph.alpha)
+#   Save ----
 
-#     Beta ----
+saveRDS(tst.alpha.df, "./results/alpha/glmnet.all.RDS")
+saveRDS(tst.alpha.df2, "./results/alpha/glmnet.RDS")
 
-trn.beta <- readRDS("./pre-process/beta/6/pp.RDS") %>%
+# Beta ----
+
+#   LOO-CV ----
+# 1, 4, 5, 9
+glm.looq2("./pre-process/beta/", nsplits = 10, a = 1, max = 10)
+
+#   Test ----
+
+# None pass but 3 is the best
+beta.tst <- glm.tst("./pre-process/beta/", "./model.data/beta/", 
+                     nsplits = 10, a = 1, max = 10) 
+beta.1to1 <- beta.tst %>% filter(trn.split == tst.split) %>% print()
+beta.avg <- avg.tst(beta.tst) %>% print()
+
+#    Model ----
+
+trn.beta <- readRDS("./pre-process/beta/3/pp.RDS") %>%
   select(., -guest)
 features <- readRDS("./feature.selection/beta.vars.RDS")
 colnames(trn.beta) <- str_replace(colnames(trn.beta), "-", ".")
 trn.beta <- trn.beta %>% select(., DelG, features) 
 trn.beta.x <- select(trn.beta, -DelG) %>% data.matrix()
-trn.beta.y <- select(trn.beta, DelG) %>% data.matrix()
+trn.beta.y <- trn.beta$DelG %>% data.matrix()
 
-glm.beta <- glmnet(x = trn.beta.x, y = trn.beta.y, 
-                    dfmax = 20, alpha = 1,
-                    pmax = ncol(trn.beta.x), 
+glm.beta <- glmnet(x = trn.beta.x, 
+                    y = trn.beta.y, 
+                    alpha = 1, 
+                    dfmax = 10, 
                     family = "mgaussian")
+tst.beta.df <- glm.tst.splits("pre-process/beta/", "model.data/beta/", 
+                               features, 10, glm.beta)
+tst.beta.df2 <- tst.beta.df %>% filter(split == "3")
 
-tst.beta <- preprocess.tst.mod("./pre-process/beta/", "./model.data/beta/", 
-                                features, 6) %>% data.matrix()
-tst.beta.x <- tst.beta[ , -1]
-tst.beta.y <- tst.beta[ , 1, drop = F]
-
-tst.beta.df <- predict.glmnet(glm.beta, tst.beta.x, 
-                               s = tail(glm.beta$lambda, n = 1)) %>%
-  cbind(tst.beta.y, .) %>% data.frame()
-colnames(tst.beta.df) <- c("obs", "pred")
 eval.tropsha(tst.beta.df)
+eval.tropsha(tst.beta.df2)
 
-graph.beta <- ggplot(tst.beta.df, aes(x = obs, y = pred)) +
-  geom_point() +
-  theme_bw() +
-  coord_fixed()  +
-  geom_abline(intercept = 0, slope = 1) + 
-  labs(x = "Observed dG, kJ/mol", y = "Experimental dG, kJ/mol", 
-       title = "GLMNet for Beta")
-print(graph.beta)
+#   Save ----
 
-# Saving models -----------------------------------------------------------
+saveRDS(tst.beta.df, "./results/beta/glmnet.all.RDS")
+saveRDS(tst.beta.df2, "./results/beta/glmnet.RDS")
 
-pp.settings <- readRDS("./pre-process/alpha/7/pp.settings.RDS")
-saveRDS(list(pp.settings, glm.alpha), "./models/alpha/glmnet.RDS")
-saveRDS(tst.alpha.df, "./results/alpha/glmnet.RDS")
-print(graph.alpha)
-ggsave("./results/alpha/glmnet.png")
+# Gamma ----
 
+#   LOO-CV ----
+glm.looq2("./pre-process/gamma/", nsplits = 10, a = 0.7, max = 20) 
 
-pp.settings <- readRDS("./pre-process/beta/6/pp.settings.RDS")
-saveRDS(list(pp.settings, glm.beta), "./models/beta/glmnet.RDS")
-saveRDS(tst.beta.df, "./results/beta/glmnet.RDS")
-print(graph.beta)
-ggsave("./results/beta/glmnet.png")
+#   Test ----
 
-# External validation -----------------------------------------------------
+# None pass, 4 is the best
+gamma.tst <- glm.tst("./pre-process/gamma/", "./model.data/gamma/", 
+                    nsplits = 10, a = 0.7, max = 20) 
+gamma.1to1 <- gamma.tst %>% filter(trn.split == tst.split) %>% print()
+gamma.avg <- avg.tst(gamma.tst) %>% print()
 
-# # Reading the pre-processing settings
-# ev.alpha <- preprocess.ev("alpha", 7, features)
-# ev.alpha.x <- ev.alpha[ , -1] %>% data.matrix()
-# ev.alpha.y <- ev.alpha[ , 1] %>% data.matrix()
-# 
-# ev.alpha.df <- predict.glmnet(glm.alpha, ev.alpha.x, 
-#                               s = tail(glm.alpha$lambda, n = 1)) %>%
-#   cbind(ev.alpha.y, .) %>% 
-#   data.frame()
-# colnames(ev.alpha.df) <- c("obs", "pred")
-# ggplot(ev.alpha.df, aes(x = obs, y = pred)) + 
-#   geom_point() + 
-#   theme_bw() + 
-#   labs(title = "GLMNet for alpha-CD", 
-#        x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
-#   # geom_smooth(method = "lm") + 
-#   geom_abline(slope = 1, intercept = 0) + 
-#   coord_fixed()
-# defaultSummary(ev.alpha.df)
-# # Passes everything except R2
-# eval.tropsha(ev.alpha.df)
-# 
-# # Reading the pre-processing settings
-# ev.beta <- preprocess.ev("beta", 6, features)
-# ev.beta.x <- ev.beta[ , -1] %>% data.matrix()
-# ev.beta.y <- ev.beta[ , 1] %>% data.matrix()
-# 
-# ev.beta.df <- predict.glmnet(glm.beta, ev.beta.x, 
-#                              s = tail(glm.beta$lambda, n = 1)) %>%
-#   cbind(ev.beta.y, .) %>% 
-#   data.frame()
-# colnames(ev.beta.df) <- c("obs", "pred")
-# ggplot(ev.beta.df, aes(x = obs, y = pred)) + 
-#   geom_point() + 
-#   theme_bw() + 
-#   labs(title = "GLMNet for beta-CD", 
-#        x = "Observed dG, kJ/mol", y = "Predicted dG, kJ/mol") + 
-#   # geom_smooth(method = "lm") + 
-#   geom_abline(slope = 1, intercept = 0) + 
-#   coord_fixed()
-# defaultSummary(ev.beta.df)
-# # Passes everything except R2
-# eval.tropsha(ev.beta.df)
+#    Model ----
+
+trn.gamma <- readRDS("./pre-process/gamma/4/pp.RDS") %>%
+  select(., -guest)
+features <- readRDS("./feature.selection/gamma.vars.RDS")
+colnames(trn.gamma) <- str_replace(colnames(trn.gamma), "-", ".")
+trn.gamma <- trn.gamma %>% select(., DelG, features) 
+trn.gamma.x <- select(trn.gamma, -DelG) %>% data.matrix()
+trn.gamma.y <- trn.gamma$DelG %>% data.matrix()
+
+glm.gamma <- glmnet(x = trn.gamma.x, 
+                   y = trn.gamma.y, 
+                   alpha = 0.7, 
+                   dfmax = 20, 
+                   family = "mgaussian")
+tst.gamma.df <- glm.tst.splits("pre-process/gamma/", "model.data/gamma/", 
+                              features, 10, glm.gamma)
+tst.gamma.df2 <- tst.gamma.df %>% filter(split == "4")
+
+eval.tropsha(tst.gamma.df)
+eval.tropsha(tst.gamma.df2)
+
+#   Save ----
+
+saveRDS(tst.gamma.df, "./results/gamma/glmnet.all.RDS")
+saveRDS(tst.gamma.df2, "./results/gamma/glmnet.RDS")

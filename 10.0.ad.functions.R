@@ -69,10 +69,14 @@ domain.num <- function(data) {
   if (class(data[, 1]) != "numeric") {
     guest <- data[, 1]
     data <- sapply(data[, -1], abs)
-    result <-
-      apply(data, 1, function(x)
-        mean(as.numeric(x), na.rm = T) + 1.28 * find.sd.desc(as.numeric(x))) %>%
-      as.data.frame()
+    if(nrow(data) == 1)
+      result <- mean(
+        as.numeric(data[1, ], na.rm = T) + 1.28 * find.sd.desc(as.numeric(data[1, ])))
+    else
+      result <-
+        apply(data, 1, function(x)
+          mean(as.numeric(x), na.rm = T) + 1.28 * find.sd.desc(as.numeric(x))) %>%
+        as.data.frame()
     result <- data.frame(guest, result) %>%
       mutate(guest = as.character(guest))
     colnames(result)[2] <- "newSk"
