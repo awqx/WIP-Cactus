@@ -97,61 +97,59 @@ train_svm_fold <- function(fold, name, parameters) {
   )
 }
 
-tune_svm <- function(x, y, folds = 0, kernel, combo) {
-  # create a list of the parameters
-  svm_param <- append(
-    list("x" = x, "y" = y, "kernel" = kernel),
-    combo
-  )
+# Random forest -----------------------------------------------------------
 
-  # this `if`` statement allows for tuning the model when holding the
-  # parameters constant and changing the folds of data (pass the folds
-  # as a list in a `mapply` with a `do.call` and `rbind`)
-  # this is implemented in the "Model" section of each QSAR script
-  if (class(folds) == "numeric") {
-    svm_model <- do.call(svm, svm_param)
-    svm_df <- data.frame(
-      "pred" = predict(svm_model, tst_x), 
-      "obs" = tst_y
+# important parameters are ntree, nodesize, and mtry
+train_rf <- function(folds, param, fold_avg = T) {
+  if (fold_avg) {
+    fold_results <- do.call(
+      rbind, 
+      mapply(
+        train_rf_fold, 
+        fold = folds, 
+        name = names(folds),
+        MoreArgs = list(parameters = param),
+        SIMPLIFY = F
+      )
     )
     data.frame(
-      svm_param[-1:-2], 
+      param, 
       "rmse" = mean(fold_results$rmse),
       "r2" = mean(fold_results$r2)
     )
   } else {
-    fold_results <- do.call(
+    do.call(
       rbind, 
-      lapply(
-        folds, 
-        tune_svm_fold, 
-        param = svm_param
+      mapply(
+        train_rf_fold, 
+        fold = folds, 
+        name = names(folds),
+        MoreArgs = list(parameters = param),
+        SIMPLIFY = F
       )
     )
-    data.frame(
-      svm_param[-1:-2],
-      "rmse" = mean(fold_results$rmse),
-      "r2" = mean(fold_results$r2)
-    )    
   }
 }
 
-# take the values of a fold as test
-# helper to tune_svm
-tune_svm_fold <- function(fold, param) {
-  # splitting into test and train sets based on the fold
-  tst_x <- param[["x"]][fold, ]
-  tst_y <- param[["y"]][fold]
-  param[["x"]] <- param[["x"]][-fold, ]
-  param[["y"]] <- param[["y"]][-fold]
-  svm_model <- do.call(svm, param)
-  svm_df <- data.frame(
-    "pred" = predict(svm_model, tst_x), 
+train_rf_fold <- function(fold, name, parameters) {
+  rf_param <- append(
+    list(
+      "x" = fold$trn[, -1:-2],
+      "y" = fold$trn$dG     
+    ),
+    parameters
+  )
+  tst_x <- fold$tst[, -1:-2]
+  tst_y <- fold$tst$dG
+  rf_model <- do.call(randomForest, rf_param)
+  rf_df <- data.frame(
+    "pred" = predict(rf_model, tst_x), 
     "obs" = tst_y
   )
   data.frame(
-    "rmse" = defaultSummary(svm_df)[1], 
-    "r2" = defaultSummary(svm_df)[2]
+    parameters, 
+    "fold" = name,
+    "rmse" = defaultSummary(rf_df)["RMSE"], 
+    "r2" = defaultSummary(rf_df)["Rsquared"]
   )
 }
-
