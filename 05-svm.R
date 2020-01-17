@@ -1,9 +1,15 @@
-source("helpers/tuning.R")
-if(!dir.exists("tuning")) {
-  dir.create("tuning")
-  dir.create("tuning/alpha")
-  dir.create("tuning/beta")
-  dir.create("tuning/gamma")
+source("helpers/training.R")
+if (!dir.exists("training")) {
+  dir.create("training")
+  dir.create("training/alpha")
+  dir.create("training/beta")
+  dir.create("training/gamma")
+}
+if (!dir.exists("model")) {
+  dir.create("model")
+  dir.create("model/alpha")
+  dir.create("model/beta")
+  dir.create("model/gamma")
 }
 
 # I'm tuning kernels separately to more easily run the code. Each kernel
@@ -20,14 +26,7 @@ if(!dir.exists("tuning")) {
 # intensive. It may be possible for simple models with few parameters, 
 # such as GLM.
 trn <- readRDS("modeling-data/alpha/split.RDS")[[10]][["trn"]]
-x <- trn[, -1:-2]
-y <- trn[, 2]
-# create folds in training set
-# due to the number of parameters, instead of taking 10 folds, 
-# calculate 6 folds
-nfold <- 6
-set.seed(2020)
-fold_list <- createFolds(y, k = nfold)
+fold_list <- split_train(trn, nfolds = 10, seed = 20200116)
 
     # Polynomial ----
 
@@ -49,9 +48,7 @@ alpha_poly_tune <- do.call(
   rbind, 
   lapply(
     combo_list, 
-    tune_svm,
-    x = x, 
-    y = y, 
+    train_svm,
     kernel = "polynomial", 
     folds = fold_list
   )
@@ -73,9 +70,7 @@ alpha_rbf_tune <- do.call(
   rbind, 
   lapply(
     combo_list, 
-    tune_svm,
-    x = x, 
-    y = y, 
+    train_svm,
     kernel = "radial", 
     folds = fold_list
   )
@@ -98,9 +93,7 @@ alpha_sig_tune <- do.call(
   rbind, 
   lapply(
     combo_list, 
-    tune_svm,
-    x = x, 
-    y = y, 
+    train_svm,
     kernel = "sigmoid", 
     folds = fold_list
   )
@@ -121,9 +114,7 @@ alpha_lin_tune <- do.call(
   rbind, 
   lapply(
     combo_list, 
-    tune_svm,
-    x = x, 
-    y = y, 
+    train_svm,
     kernel = "linear", 
     folds = fold_list
   )
@@ -134,12 +125,7 @@ alpha_lin_tune <- do.call(
     # Importing data ----
 
 trn <- readRDS("modeling-data/beta/split.RDS")[[10]][["trn"]]
-x <- trn[, -1:-2]
-y <- trn[, 2]
-
-nfold <- 6
-set.seed(2020)
-fold_list <- createFolds(y, k = nfold)
+fold_list <- split_train(trn, nfolds = 10, seed = 20200116)
 
     # Polynomial ----
 
@@ -158,9 +144,7 @@ beta_poly_tune <- do.call(
   rbind, 
   lapply(
     combo_list, 
-    tune_svm,
-    x = x, 
-    y = y, 
+    train_svm,
     kernel = "polynomial", 
     folds = fold_list
   )
@@ -182,9 +166,7 @@ beta_rbf_tune <- do.call(
   rbind, 
   lapply(
     combo_list, 
-    tune_svm,
-    x = x, 
-    y = y, 
+    train_svm,
     kernel = "radial", 
     folds = fold_list
   )
@@ -207,9 +189,7 @@ beta_sig_tune <- do.call(
   rbind,
   lapply(
     combo_list,
-    tune_svm,
-    x = x,
-    y = y,
+    train_svm,
     kernel = "sigmoid",
     folds = fold_list
   )
@@ -230,9 +210,7 @@ beta_lin_tune <- do.call(
   rbind, 
   lapply(
     combo_list, 
-    tune_svm,
-    x = x, 
-    y = y, 
+    train_svm,
     kernel = "linear", 
     folds = fold_list
   )
@@ -242,12 +220,7 @@ beta_lin_tune <- do.call(
     # Importing data ----
 
 trn <- readRDS("modeling-data/gamma/split.RDS")[[10]][["trn"]]
-x <- trn[, -1:-2]
-y <- trn[, 2]
-
-nfold <- 6
-set.seed(2020)
-fold_list <- createFolds(y, k = nfold)
+fold_list <- split_train(trn, nfolds = 10, seed = 20200116)
 
     # Polynomial ----
 
@@ -266,9 +239,7 @@ gamma_poly_tune <- do.call(
   rbind, 
   lapply(
     combo_list, 
-    tune_svm,
-    x = x, 
-    y = y, 
+    train_svm,
     kernel = "polynomial", 
     folds = fold_list
   )
@@ -290,9 +261,7 @@ gamma_rbf_tune <- do.call(
   rbind, 
   lapply(
     combo_list, 
-    tune_svm,
-    x = x, 
-    y = y, 
+    train_svm,
     kernel = "radial", 
     folds = fold_list
   )
@@ -315,9 +284,7 @@ gamma_sig_tune <- do.call(
   rbind,
   lapply(
     combo_list,
-    tune_svm,
-    x = x,
-    y = y,
+    train_svm,
     kernel = "sigmoid",
     folds = fold_list
   )
@@ -338,9 +305,7 @@ gamma_lin_tune <- do.call(
   rbind, 
   lapply(
     combo_list, 
-    tune_svm,
-    x = x, 
-    y = y, 
+    train_svm,
     kernel = "linear", 
     folds = fold_list
   )
@@ -363,4 +328,98 @@ saveRDS(gamma_sig_tune, "tuning/gamma/svm-sig.RDS")
 
 # Model -------------------------------------------------------------------
 
+  # Alpha ----
 
+# determing split with best performance --
+# we use the results of tuning to inform model building on each fold
+# of the training set. we then select the best performing model as the
+# final model to go toward the ensemble.
+alpha_split <- readRDS("modeling-data/alpha/split.RDS")
+names(alpha_split) <- c(1:10)
+alpha_parameters <- list(
+  "cost" = 3, 
+  "epsilon" = 0.1, 
+  "gamma" = 0.25
+)
+# the best is split 3
+alpha_split_df <- train_svm(
+  folds = alpha_split, 
+  kernel = "radial", 
+  param = alpha_parameters, 
+  fold_avg = F
+)
+
+# saving the best model
+
+trn <- readRDS("modeling-data/alpha/split.RDS")[[3]]$trn
+saveRDS(
+  svm(
+  x = trn[, -1:-2], 
+  y = trn$dG, 
+  cost = 3, 
+  epsilon = 0.1, 
+  gamma = 0.25
+  ),
+  "model/alpha/svm.RDS"
+)
+
+  # Beta ----
+
+beta_split <- readRDS("modeling-data/beta/split.RDS")
+names(beta_split) <- c(1:10)
+# because the highest r2 occurred between cost = 20 and cost = 40, 
+# i tested values until settling on 30
+beta_parameters <- list(
+  "cost" = 30, 
+  "epsilon" = 0.01, 
+  "gamma" = 0.01
+)
+# the best is split 9
+beta_split_df <- train_svm(
+  folds = beta_split, 
+  kernel = "radial", 
+  param = beta_parameters, 
+  fold_avg = F
+)
+trn <- readRDS("modeling-data/beta/split.RDS")[[9]]$trn
+saveRDS(
+  svm(
+    x = trn[, -1:-2], 
+    y = trn$dG, 
+    cost = 30, 
+    epsilon = 0.01, 
+    gamma = 0.01
+  ),
+  "model/beta/svm.RDS"
+)
+
+  # Gamma ----
+
+gamma_split <- readRDS("modeling-data/gamma/split.RDS")
+names(gamma_split) <- c(1:10)
+# because the highest r2 occurred between cost = 20 and cost = 40, 
+# i tested values until settling on 30
+gamma_parameters <- list(
+  "cost" = 1, 
+  "epsilon" = 0.1, 
+  "gamma" = 0.01
+)
+# the best is split 7, but it's the best of the worst 
+# rmse = 3.82, r2 = 0.368
+gamma_split_df <- train_svm(
+  folds = gamma_split, 
+  kernel = "radial", 
+  param = gamma_parameters, 
+  fold_avg = F
+)
+trn <- readRDS("modeling-data/gamma/split.RDS")[[7]]$trn
+saveRDS(
+  svm(
+    x = trn[, -1:-2], 
+    y = trn$dG, 
+    cost = 1, 
+    epsilon = 0.1, 
+    gamma = 0.01
+  ),
+  "model/gamma/svm.RDS"
+)
