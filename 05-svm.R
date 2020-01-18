@@ -336,21 +336,15 @@ saveRDS(gamma_sig_tune, "tuning/gamma/svm-sig.RDS")
 # final model to go toward the ensemble.
 alpha_split <- readRDS("modeling-data/alpha/split.RDS")
 names(alpha_split) <- c(1:10)
-alpha_parameters <- list(
-  "cost" = 3, 
-  "epsilon" = 0.1, 
-  "gamma" = 0.25
-)
-# the best is split 3
-alpha_split_df <- train_svm(
-  folds = alpha_split, 
-  kernel = "radial", 
-  param = alpha_parameters, 
-  fold_avg = F
-)
-
-# saving the best model
-
+list("cost" = 3,
+     "epsilon" = 0.1,
+     "gamma" = 0.25) %>%
+  train_svm(
+    folds = alpha_split,
+    kernel = "radial",
+    param = .,
+    fold_avg = F
+  ) # best is 3
 trn <- readRDS("modeling-data/alpha/split.RDS")[[3]]$trn
 saveRDS(
   svm(
@@ -369,18 +363,17 @@ beta_split <- readRDS("modeling-data/beta/split.RDS")
 names(beta_split) <- c(1:10)
 # because the highest r2 occurred between cost = 20 and cost = 40, 
 # i tested values until settling on 30
-beta_parameters <- list(
+list(
   "cost" = 30, 
   "epsilon" = 0.01, 
   "gamma" = 0.01
-)
-# the best is split 9
-beta_split_df <- train_svm(
-  folds = beta_split, 
-  kernel = "radial", 
-  param = beta_parameters, 
-  fold_avg = F
-)
+) %>%
+  train_svm(
+    folds = beta_split, 
+    kernel = "radial", 
+    param = ., 
+    fold_avg = F
+  ) # split 9
 trn <- readRDS("modeling-data/beta/split.RDS")[[9]]$trn
 saveRDS(
   svm(
@@ -397,29 +390,27 @@ saveRDS(
 
 gamma_split <- readRDS("modeling-data/gamma/split.RDS")
 names(gamma_split) <- c(1:10)
-# because the highest r2 occurred between cost = 20 and cost = 40, 
-# i tested values until settling on 30
-gamma_parameters <- list(
-  "cost" = 1, 
-  "epsilon" = 0.1, 
+list(
+  "cost" = 50, 
+  "epsilon" = 0.01, 
   "gamma" = 0.01
-)
-# the best is split 7, but it's the best of the worst 
-# rmse = 3.82, r2 = 0.368
-gamma_split_df <- train_svm(
-  folds = gamma_split, 
-  kernel = "radial", 
-  param = gamma_parameters, 
-  fold_avg = F
-)
-trn <- readRDS("modeling-data/gamma/split.RDS")[[7]]$trn
-saveRDS(
-  svm(
-    x = trn[, -1:-2], 
-    y = trn$dG, 
-    cost = 1, 
-    epsilon = 0.1, 
-    gamma = 0.01
-  ),
-  "model/gamma/svm.RDS"
-)
+) %>%
+  train_svm(
+    folds = gamma_split, 
+    kernel = "radial", 
+    param = ., 
+    fold_avg = F
+  )
+# none of the splits reached r2 > 0.6, so nothing will be saved
+# split 7 is the best but only has r2 of 0.45
+# trn <- readRDS("modeling-data/gamma/split.RDS")[[7]]$trn
+# saveRDS(
+#   svm(
+#     x = trn[, -1:-2], 
+#     y = trn$dG, 
+#     cost = 1, 
+#     epsilon = 0.1, 
+#     gamma = 0.01
+#   ),
+#   "model/gamma/svm.RDS"
+# )
