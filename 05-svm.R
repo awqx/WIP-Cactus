@@ -313,18 +313,18 @@ gamma_lin_tune <- do.call(
 
   # Saving ----
 
-saveRDS(alpha_lin_tune, "tuning/alpha/svm-lin.RDS")
-saveRDS(alpha_poly_tune, "tuning/alpha/svm-poly.RDS")
-saveRDS(alpha_rbf_tune, "tuning/alpha/svm-rbf.RDS")
-saveRDS(alpha_sig_tune, "tuning/alpha/svm-sig.RDS")
-saveRDS(beta_lin_tune, "tuning/beta/svm-lin.RDS")
-saveRDS(beta_poly_tune, "tuning/beta/svm-poly.RDS")
-saveRDS(beta_rbf_tune, "tuning/beta/svm-rbf.RDS")
-saveRDS(beta_sig_tune, "tuning/beta/svm-sig.RDS")
-saveRDS(gamma_lin_tune, "tuning/gamma/svm-lin.RDS")
-saveRDS(gamma_poly_tune, "tuning/gamma/svm-poly.RDS")
-saveRDS(gamma_rbf_tune, "tuning/gamma/svm-rbf.RDS")
-saveRDS(gamma_sig_tune, "tuning/gamma/svm-sig.RDS")
+saveRDS(alpha_lin_tune, "training/alpha/svm-lin.RDS")
+saveRDS(alpha_poly_tune, "training/alpha/svm-poly.RDS")
+saveRDS(alpha_rbf_tune, "training/alpha/svm-rbf.RDS")
+saveRDS(alpha_sig_tune, "training/alpha/svm-sig.RDS")
+saveRDS(beta_lin_tune, "training/beta/svm-lin.RDS")
+saveRDS(beta_poly_tune, "training/beta/svm-poly.RDS")
+saveRDS(beta_rbf_tune, "training/beta/svm-rbf.RDS")
+saveRDS(beta_sig_tune, "training/beta/svm-sig.RDS")
+saveRDS(gamma_lin_tune, "training/gamma/svm-lin.RDS")
+saveRDS(gamma_poly_tune, "training/gamma/svm-poly.RDS")
+saveRDS(gamma_rbf_tune, "training/gamma/svm-rbf.RDS")
+saveRDS(gamma_sig_tune, "training/gamma/svm-sig.RDS")
 
 # Model -------------------------------------------------------------------
 
