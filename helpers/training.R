@@ -9,6 +9,7 @@ if(!require("pacman")) {
 
 p_load(
   caret, 
+  Cubist,
   e1071, kernlab, # svm
   randomForest,
   stringr, 
@@ -153,3 +154,68 @@ train_rf_fold <- function(fold, name, parameters) {
     "r2" = defaultSummary(rf_df)["Rsquared"]
   )
 }
+
+
+# Cubist ------------------------------------------------------------------
+
+# important parameters are committees, extrapolation, rules, sample
+# also include random seed
+train_cubist <- function(folds, param, seed, fold_avg = T) {
+  if (fold_avg) {
+    fold_results <- do.call(
+      rbind, 
+      mapply(
+        train_cubist_fold, 
+        fold = folds, 
+        name = names(folds),
+        MoreArgs = list(parameters = param, seed = seed),
+        SIMPLIFY = F
+      )
+    )
+    data.frame(
+      param, 
+      "rmse" = mean(fold_results$rmse),
+      "r2" = mean(fold_results$r2)
+    )
+  } else {
+    do.call(
+      rbind, 
+      mapply(
+        train_cubist_fold, 
+        fold = folds, 
+        name = names(folds),
+        MoreArgs = list(parameters = param, seed = seed),
+        SIMPLIFY = F
+      )
+    )
+  }
+}
+
+train_cubist_fold <- function(fold, name, parameters, seed) {
+  ctrl <- cubistControl(
+    seed = seed, 
+    extrapolation = parameters$extrapolation,
+    sample = parameters$sample
+  )
+  cubist_param <- list(
+    "x" = fold$trn[,-1:-2],
+    "y" = fold$trn$dG,
+    "committees" = parameters$committees,
+    "control" = ctrl
+  )
+  tst_x <- fold$tst[, -1:-2]
+  tst_y <- fold$tst$dG
+  
+  cubist_model <- do.call(cubist, cubist_param)
+  cubist_df <- data.frame(
+    "pred" = predict(cubist_model, tst_x), 
+    "obs" = tst_y
+  )
+  data.frame(
+    parameters, 
+    "fold" = name,
+    "rmse" = defaultSummary(cubist_df)["RMSE"], 
+    "r2" = defaultSummary(cubist_df)["Rsquared"]
+  )
+}
+
