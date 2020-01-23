@@ -11,6 +11,7 @@ p_load(
   caret, 
   Cubist,
   e1071, kernlab, # svm
+  pls,
   randomForest,
   stringr, 
   tidyverse
@@ -219,3 +220,66 @@ train_cubist_fold <- function(fold, name, parameters, seed) {
   )
 }
 
+
+
+# PLS ---------------------------------------------------------------------
+
+# important parameters are `ncomp` and `method`
+# plsr requires a formula instead of x and y
+
+train_pls <- function(folds, param, fold_avg = T) {
+  if (fold_avg) {
+    fold_results <- do.call(
+      rbind, 
+      mapply(
+        train_pls_fold, 
+        fold = folds, 
+        name = names(folds),
+        MoreArgs = list(parameters = param),
+        SIMPLIFY = F
+      )
+    )
+    data.frame(
+      param, 
+      "rmse" = mean(fold_results$rmse),
+      "r2" = mean(fold_results$r2)
+    )
+  } else {
+    do.call(
+      rbind, 
+      mapply(
+        train_pls_fold, 
+        fold = folds, 
+        name = names(folds),
+        MoreArgs = list(parameters = param),
+        SIMPLIFY = F
+      )
+    )
+  }
+}
+
+train_pls_fold <- function(fold, name, parameters) {
+  pls_param_fold <- append(
+    list(
+      "formula" = dG~.,
+      "data" = fold$trn[, -1]     
+    ),
+    parameters
+  )
+  tst_x <- fold$tst[, -1:-2]
+  tst_y <- fold$tst$dG
+  pls_model <- do.call(plsr, pls_param_fold)
+  # unlike other models, w/ pls you have to 
+  # assign the df names after predictions
+  pls_df <- data.frame(
+    predict(pls_model, tst_x), 
+    tst_y
+  )
+  colnames(pls_df) <- c("pred", "obs")
+  data.frame(
+    parameters, 
+    "fold" = name,
+    "rmse" = defaultSummary(pls_df)["RMSE"], 
+    "r2" = defaultSummary(pls_df)["Rsquared"]
+  )
+}
