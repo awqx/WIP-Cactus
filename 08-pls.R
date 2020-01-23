@@ -1,27 +1,5 @@
 source("helpers/training.R")
 
-trn <- readRDS("modeling-data/alpha/split.RDS")[[10]][["trn"]]
-tst <- readRDS("modeling-data/alpha/split.RDS")[[10]][["tst"]]
-tst <- tst[, -1:-2]
-trn <- trn[, -1]
-pls_model <- plsr(
-  dG~., 
-  data = trn,
-  method = "kernelpls", 
-  ncomp = 1
-)
-pls_model <- do.call(
-  plsr, 
-  args = 
-    list(
-      "formula" = dG~., 
-      "data" = trn, 
-      "method" = "kernelpls", 
-      "ncomp" = 1
-    )
-)
-predict(pls_model, tst)
-
 # Tuning ------------------------------------------------------------------
 
   # Alpha ----
