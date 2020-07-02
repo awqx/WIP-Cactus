@@ -11,6 +11,7 @@ p_load(
   caret, 
   Cubist,
   e1071, kernlab, # svm
+  glmnet,
   pls,
   randomForest,
   stringr, 
@@ -156,7 +157,6 @@ train_rf_fold <- function(fold, name, parameters) {
   )
 }
 
-
 # Cubist ------------------------------------------------------------------
 
 # important parameters are committees, extrapolation, rules, sample
@@ -220,8 +220,6 @@ train_cubist_fold <- function(fold, name, parameters, seed) {
   )
 }
 
-
-
 # PLS ---------------------------------------------------------------------
 
 # important parameters are `ncomp` and `method`
@@ -283,3 +281,7 @@ train_pls_fold <- function(fold, name, parameters) {
     "r2" = defaultSummary(pls_df)["Rsquared"]
   )
 }
+
+# GLMNet ------------------------------------------------------------------
+
+
