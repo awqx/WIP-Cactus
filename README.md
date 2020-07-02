@@ -1,15 +1,12 @@
 # Status
 ## Current Issues
-1. Formatting and readability
-2. 
-3. 
+1. Reproducibility: transferring the GitHub repo to a new desktop and attempting to re-run the code
+2. Adding the full suite of models: currently missing GLM, MARS, GBM, and the ensemble
+3. Making a usable .Rmd notebook to run the models
 
 ## Most Recent Additions
-1. Y-randomization trials
-2. Rough variable importance calculation 
-3. 
+1. Models: SVM, Random Forest, Cubist, PLS
+2. Easy selection of predictors
 
-## Near Future Possibilities
-1. Chemical descriptor calculation within R with Rcdk
-2. Linking PaDEL with reticulate
-3. 
+## Next steps
+1. Incorporating the stadard deviation/error evaluation of QSARs
